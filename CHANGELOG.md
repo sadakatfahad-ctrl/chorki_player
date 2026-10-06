@@ -1,3 +1,7 @@
+## 0.1.1
+
+- Remove emojis from the README.
+
 ## 0.1.0
 
 - Initial release.
