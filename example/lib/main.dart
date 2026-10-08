@@ -43,6 +43,7 @@ class PlayerPage extends StatelessWidget {
             seekBarThumbColor: Colors.deepOrange,
           ),
           seekBarBottomOffset: 20,
+          ads: const ChorkiAdConfig(),
         ),
       ),
     );

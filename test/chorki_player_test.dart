@@ -171,6 +171,30 @@ void main() {
       expect(model.url, 'https://video');
     });
 
+    test('maps ad_campaign into an entity, absent when missing', () {
+      final withAds = ByteModel.fromJson({
+        'data': {
+          'id': 1,
+          'url': 'u',
+          'ad_campaign': {
+            'id': '1',
+            'title': 'Default Ad Campaign',
+            'url': 'https://ads/campaigns/1.xml',
+          },
+        },
+      });
+      expect(withAds.adTagUrl, 'https://ads/campaigns/1.xml');
+      final campaign = withAds.toEntity().adCampaign!;
+      expect(campaign.id, '1');
+      expect(campaign.title, 'Default Ad Campaign');
+
+      final without = ByteModel.fromJson({
+        'data': {'id': 1, 'url': 'u'},
+      });
+      expect(without.adCampaign, isNull);
+      expect(without.toEntity().adTagUrl, isEmpty);
+    });
+
     test('toEntity maps to the domain entity', () {
       final entity = ByteModel.fromJson({
         'data': {'id': 1, 'poster_background': 'p', 'url': 'u'},

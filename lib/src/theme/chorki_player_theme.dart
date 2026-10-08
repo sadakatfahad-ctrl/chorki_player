@@ -24,6 +24,17 @@ class ChorkiPlayerTheme {
     this.gestureOverlayColor = const Color(0x73000000),
     this.gestureIconColor = Colors.white,
     this.gestureTextStyle = const TextStyle(color: Colors.white),
+    this.adMarkerColor = const Color(0xFFFFC107),
+    this.adMarkerPlayedColor = const Color(0x66FFC107),
+    this.adMarkerWidth = 3,
+    this.adMarkerHeight = 9,
+    this.adCountdownBackgroundColor = const Color(0xCC000000),
+    this.adCountdownAccentColor = const Color(0xFFFFC107),
+    this.adCountdownTextStyle = const TextStyle(
+      color: Colors.white,
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+    ),
   });
 
   final Color backgroundColor;
@@ -47,6 +58,17 @@ class ChorkiPlayerTheme {
   final Color gestureIconColor;
   final TextStyle gestureTextStyle;
 
+  /// Seek-bar tick for an upcoming ad break / one already played.
+  final Color adMarkerColor;
+  final Color adMarkerPlayedColor;
+  final double adMarkerWidth;
+  final double adMarkerHeight;
+
+  /// "Ad starts in N" pill.
+  final Color adCountdownBackgroundColor;
+  final Color adCountdownAccentColor;
+  final TextStyle adCountdownTextStyle;
+
   ChorkiPlayerTheme copyWith({
     Color? backgroundColor,
     Color? spinnerColor,
@@ -68,6 +90,13 @@ class ChorkiPlayerTheme {
     Color? gestureOverlayColor,
     Color? gestureIconColor,
     TextStyle? gestureTextStyle,
+    Color? adMarkerColor,
+    Color? adMarkerPlayedColor,
+    double? adMarkerWidth,
+    double? adMarkerHeight,
+    Color? adCountdownBackgroundColor,
+    Color? adCountdownAccentColor,
+    TextStyle? adCountdownTextStyle,
   }) {
     return ChorkiPlayerTheme(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -91,6 +120,15 @@ class ChorkiPlayerTheme {
       gestureOverlayColor: gestureOverlayColor ?? this.gestureOverlayColor,
       gestureIconColor: gestureIconColor ?? this.gestureIconColor,
       gestureTextStyle: gestureTextStyle ?? this.gestureTextStyle,
+      adMarkerColor: adMarkerColor ?? this.adMarkerColor,
+      adMarkerPlayedColor: adMarkerPlayedColor ?? this.adMarkerPlayedColor,
+      adMarkerWidth: adMarkerWidth ?? this.adMarkerWidth,
+      adMarkerHeight: adMarkerHeight ?? this.adMarkerHeight,
+      adCountdownBackgroundColor:
+          adCountdownBackgroundColor ?? this.adCountdownBackgroundColor,
+      adCountdownAccentColor:
+          adCountdownAccentColor ?? this.adCountdownAccentColor,
+      adCountdownTextStyle: adCountdownTextStyle ?? this.adCountdownTextStyle,
     );
   }
 }
@@ -122,6 +160,8 @@ class ChorkiPlayerStrings {
     this.noInternet = 'No internet connection',
     this.serverError = 'Server error occurred',
     this.genericError = 'Something went wrong',
+    this.adCountdown = defaultAdCountdown,
+    this.adStartNowHint = 'Tap to start now',
   });
 
   final String videoFailed;
@@ -131,7 +171,15 @@ class ChorkiPlayerStrings {
   final String noInternet;
   final String serverError;
   final String genericError;
+
+  /// Text for the pill shown before an ad break.
+  final String Function(int seconds) adCountdown;
+
+  /// Accessibility hint for the countdown pill.
+  final String adStartNowHint;
 }
+
+String defaultAdCountdown(int seconds) => 'Ad starts in ${seconds}s';
 
 /// Optional widget builders that fully replace default UI pieces.
 @immutable
@@ -143,6 +191,7 @@ class ChorkiPlayerBuilders {
     this.seekBarBuilder,
     this.timeBubbleBuilder,
     this.gestureFeedbackBuilder,
+    this.adCountdownBuilder,
   });
 
   final WidgetBuilder? loadingBuilder;
@@ -163,6 +212,14 @@ class ChorkiPlayerBuilders {
 
   final Widget Function(BuildContext, ChorkiGestureFeedback feedback)?
   gestureFeedbackBuilder;
+
+  /// Replaces the "Ad starts in N" pill; call [startNow] to begin the ad.
+  final Widget Function(
+    BuildContext,
+    int secondsRemaining,
+    VoidCallback startNow,
+  )?
+  adCountdownBuilder;
 }
 
 @immutable

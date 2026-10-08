@@ -15,7 +15,10 @@ void main() {
     platform = FakeVideoPlayerPlatform();
     VideoPlayerPlatform.instance = platform;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+        .setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async => null,
+        );
     controller = await createTestController(platform);
   });
 
@@ -35,8 +38,12 @@ void main() {
     await tester.pump();
   }
 
-  Future<void> dragBy(WidgetTester tester, TestGesture gesture, double dx,
-      {int steps = 10}) async {
+  Future<void> dragBy(
+    WidgetTester tester,
+    TestGesture gesture,
+    double dx, {
+    int steps = 10,
+  }) async {
     final step = Offset(dx / steps, 0);
     for (var i = 0; i < steps; i++) {
       await gesture.moveBy(step);
@@ -51,8 +58,7 @@ void main() {
   }
 
   group('ShortsSeekBar regression: pointer visibility', () {
-    testWidgets(
-        'shows an always-visible pointer at rest '
+    testWidgets('shows an always-visible pointer at rest '
         '(bug: thumb only rendered while dragging)', (tester) async {
       await pumpBar(tester);
 
@@ -75,8 +81,9 @@ void main() {
       );
     });
 
-    testWidgets('pointer sits at the far end at the end of the video',
-        (tester) async {
+    testWidgets('pointer sits at the far end at the end of the video', (
+      tester,
+    ) async {
       await pumpBar(tester);
 
       await controller.seekTo(controller.value.duration);
@@ -103,8 +110,9 @@ void main() {
       expect(position.inSeconds, closeTo(60, 1));
     });
 
-    testWidgets('tapping near the right edge seeks close to the end',
-        (tester) async {
+    testWidgets('tapping near the right edge seeks close to the end', (
+      tester,
+    ) async {
       await pumpBar(tester);
 
       final trackCenter = tester.getCenter(
@@ -119,8 +127,9 @@ void main() {
   });
 
   group('ShortsSeekBar drag scrubbing', () {
-    testWidgets('dragging pauses, seeks proportionally, and resumes',
-        (tester) async {
+    testWidgets('dragging pauses, seeks proportionally, and resumes', (
+      tester,
+    ) async {
       await pumpBar(tester);
       await controller.play();
       await tester.pump();
@@ -147,8 +156,9 @@ void main() {
       await stopPlayback();
     });
 
-    testWidgets('scrub started while paused stays paused afterwards',
-        (tester) async {
+    testWidgets('scrub started while paused stays paused afterwards', (
+      tester,
+    ) async {
       await pumpBar(tester);
       expect(controller.value.isPlaying, isFalse);
       platform.resetLog();
@@ -193,8 +203,9 @@ void main() {
       expect(platform.seekCalls.last.$2, controller.value.duration);
     });
 
-    testWidgets('time preview bubble appears only while dragging',
-        (tester) async {
+    testWidgets('time preview bubble appears only while dragging', (
+      tester,
+    ) async {
       await pumpBar(tester);
       expect(find.text('1:30'), findsNothing);
 
@@ -220,18 +231,15 @@ void main() {
       platform.onlyPlayer.emitBuffered(const Duration(seconds: 80));
       await tester.pump();
 
-      expect(
-        find.byKey(const Key('chorki_seek_bar_buffered')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const Key('chorki_seek_bar_buffered')), findsOneWidget);
     });
   });
 
   group('ShortsSeekBar controller swap safety', () {
-    testWidgets(
-        'replacing the controller mid-drag does not seek the new one '
-        '(bug: stale drag state drove the recycled controller)',
-        (tester) async {
+    testWidgets('replacing the controller mid-drag does not seek the new one '
+        '(bug: stale drag state drove the recycled controller)', (
+      tester,
+    ) async {
       await pumpBar(tester);
       platform.resetLog();
 
@@ -262,8 +270,10 @@ void main() {
       await gesture.up();
       await tester.pump();
       expect(secondController.value.position, Duration.zero);
-      expect(platform.seekCalls.where((c) => c.$1 == secondController.playerId),
-          isEmpty);
+      expect(
+        platform.seekCalls.where((c) => c.$1 == secondController.playerId),
+        isEmpty,
+      );
 
       await tester.runAsync(() => secondController.dispose());
     });

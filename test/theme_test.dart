@@ -15,26 +15,35 @@ void main() {
     platform = FakeVideoPlayerPlatform();
     VideoPlayerPlatform.instance = platform;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+        .setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async => null,
+        );
     controller = await createTestController(platform);
   });
 
   tearDown(() async => controller.dispose());
 
   Future<void> pump(WidgetTester tester, Widget child) => tester.pumpWidget(
-        MaterialApp(home: Scaffold(body: SizedBox.expand(child: child))),
-      );
+    MaterialApp(
+      home: Scaffold(body: SizedBox.expand(child: child)),
+    ),
+  );
 
   test('copyWith overrides only given fields', () {
     final t = const ChorkiPlayerTheme().copyWith(
       seekBarPlayedColor: Colors.red,
     );
     expect(t.seekBarPlayedColor, Colors.red);
-    expect(t.seekBarBufferedColor, const ChorkiPlayerTheme().seekBarBufferedColor);
+    expect(
+      t.seekBarBufferedColor,
+      const ChorkiPlayerTheme().seekBarBufferedColor,
+    );
   });
 
-  testWidgets('seek bar uses distinct themed played and buffered colors',
-      (tester) async {
+  testWidgets('seek bar uses distinct themed played and buffered colors', (
+    tester,
+  ) async {
     await pump(
       tester,
       ShortsSeekBar(
@@ -56,7 +65,9 @@ void main() {
     expect(colorOf('chorki_seek_bar_buffered'), Colors.green);
 
     // Regression: layers once collapsed to zero height and were invisible.
-    final trackH = tester.getSize(find.byKey(const Key('chorki_seek_bar_track'))).height;
+    final trackH = tester
+        .getSize(find.byKey(const Key('chorki_seek_bar_track')))
+        .height;
     for (final k in ['played', 'buffered']) {
       expect(
         tester.getSize(find.byKey(Key('chorki_seek_bar_$k'))).height,
@@ -65,34 +76,36 @@ void main() {
     }
   });
 
-  testWidgets('ChorkiPlayerSurface forwards seekBarPlayedColor to the painted played layer',
-      (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox.expand(
-            child: ChorkiPlayerSurface(
-              controller: controller,
-              onTogglePlayPause: () {},
-              theme: const ChorkiPlayerTheme(
-                seekBarPlayedColor: Colors.red,
-                seekBarBufferedColor: Colors.green,
+  testWidgets(
+    'ChorkiPlayerSurface forwards seekBarPlayedColor to the painted played layer',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox.expand(
+              child: ChorkiPlayerSurface(
+                controller: controller,
+                onTogglePlayPause: () {},
+                theme: const ChorkiPlayerTheme(
+                  seekBarPlayedColor: Colors.red,
+                  seekBarBufferedColor: Colors.green,
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    platform.onlyPlayer.emitBuffered(const Duration(seconds: 80));
-    await tester.pump();
-    await tester.pump();
+      );
+      platform.onlyPlayer.emitBuffered(const Duration(seconds: 80));
+      await tester.pump();
+      await tester.pump();
 
-    Color colorOf(String key) =>
-        tester.widget<ColoredBox>(find.byKey(Key(key))).color;
+      Color colorOf(String key) =>
+          tester.widget<ColoredBox>(find.byKey(Key(key))).color;
 
-    expect(colorOf('chorki_seek_bar_played'), Colors.red);
-    expect(colorOf('chorki_seek_bar_buffered'), Colors.green);
-  });
+      expect(colorOf('chorki_seek_bar_played'), Colors.red);
+      expect(colorOf('chorki_seek_bar_buffered'), Colors.green);
+    },
+  );
 
   testWidgets('seekBarBuilder replaces the default bar', (tester) async {
     await pump(
@@ -100,8 +113,7 @@ void main() {
       ShortsSeekBar(
         controller: controller,
         builders: ChorkiPlayerBuilders(
-          seekBarBuilder: (context, state, onSeek) =>
-              const Text('custom-bar'),
+          seekBarBuilder: (context, state, onSeek) => const Text('custom-bar'),
         ),
       ),
     );
@@ -110,8 +122,9 @@ void main() {
     expect(find.byKey(const Key('chorki_seek_bar_played')), findsNothing);
   });
 
-  testWidgets('surface shows a spinner while buffering, even when paused',
-      (tester) async {
+  testWidgets('surface shows a spinner while buffering, even when paused', (
+    tester,
+  ) async {
     await pump(
       tester,
       ChorkiPlayerSurface(controller: controller, onTogglePlayPause: () {}),

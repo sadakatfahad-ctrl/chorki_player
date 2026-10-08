@@ -1,3 +1,24 @@
+## 1.2.0
+
+- Ad break markers on the seek bar and an "Ad starts in N" countdown pill
+  (tap to start the ad now). The SDK fetches the campaign VMAP to learn break
+  times; if the fetch fails, ads still play without markers or countdown.
+  Theme: `adMarker*`, `adCountdown*`. Strings: `adCountdown`, `adStartNowHint`.
+  Builder: `adCountdownBuilder`.
+- Fix: ad events arriving after dispose no longer throw.
+
+- Added Google IMA ads support via `interactive_media_ads`. Pass a
+  `ChorkiAdConfig` to `ChorkiPlayer` with `ads:`. Ads come from the reel API
+  response's `data.ad_campaign` (`id`, `title`, `url`); reels without a
+  campaign play without ads.
+  - The campaign `url` is a VMAP document that IMA loads directly, so the VMAP
+    defines the pre-, mid-, and post-roll breaks.
+  - `ChorkiAdConfig` exposes `enabled`, `progressInterval`,
+    `enablePreloading`, `onAdEvent`, and `onAdError`.
+  - The content surface is hidden while an ad plays.
+- Added `ByteDataEntity.adCampaign` (`AdCampaignEntity?`) and an `adTagUrl`
+  getter that returns the campaign `url`.
+
 ## 1.1.0
 
 - **Breaking:** removed all fullscreen features:

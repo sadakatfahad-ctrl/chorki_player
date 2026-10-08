@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../ads/chorki_ad_state.dart';
 import '../../theme/chorki_player_theme.dart';
+import 'ad_countdown_pill.dart';
 import 'gesture_overlay.dart';
 import 'shorts_seek_bar.dart';
 
@@ -27,9 +29,6 @@ class ChorkiPlayerSurface extends StatefulWidget {
 
   final bool showSeekBar;
 
-  /// Logical pixels between the bottom edge of the player and the bottom of
-  /// the seek bar's touch area. Raise it when the bar sits under system
-  /// gesture areas or host-app chrome. Defaults to 0.
   final double seekBarBottomOffset;
 
   final bool enableGestures;
@@ -108,7 +107,10 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
                       ),
                     ),
                   if (!value.isPlaying && !_gesturesActive)
-                    widget.builders.playPauseBuilder?.call(context, controller) ??
+                    widget.builders.playPauseBuilder?.call(
+                          context,
+                          controller,
+                        ) ??
                         _PlayBadge(theme: widget.theme, icons: widget.icons),
                 ],
               );
@@ -128,11 +130,27 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
             ),
           ),
 
+        if (ChorkiAdScope.maybeOf(context) case final ad?)
+          Positioned(
+            left: 12,
+            bottom:
+                widget.seekBarBottomOffset +
+                (widget.showSeekBar ? widget.theme.seekBarHeight : 0) +
+                8,
+            child: AdCountdownPill(
+              key: const Key('chorki_ad_countdown_pill'),
+              seconds: ad.countdownSeconds,
+              onStartNow: ad.startNow,
+              theme: widget.theme,
+              strings: widget.strings,
+              builders: widget.builders,
+            ),
+          ),
+
         if (widget.overlayButton != null)
           Positioned(
             right: 2,
-            bottom:
-                widget.seekBarBottomOffset + (widget.showSeekBar ? 46 : 8),
+            bottom: widget.seekBarBottomOffset + (widget.showSeekBar ? 46 : 8),
             child: widget.overlayButton!,
           ),
       ],
@@ -154,10 +172,17 @@ class _PlayBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
-      decoration: BoxDecoration(color: theme.playBadgeColor, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: theme.playBadgeColor,
+        shape: BoxShape.circle,
+      ),
       child: Padding(
         padding: const EdgeInsets.all(12),
-        child: Icon(icons.play, size: theme.playBadgeIconSize, color: theme.playBadgeIconColor),
+        child: Icon(
+          icons.play,
+          size: theme.playBadgeIconSize,
+          color: theme.playBadgeIconColor,
+        ),
       ),
     );
   }

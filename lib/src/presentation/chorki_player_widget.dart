@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:chorki_player/src/ads/chorki_ad_config.dart';
+import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
 import 'package:chorki_player/src/controllers/video_preloader.dart';
 import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
 import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
@@ -29,6 +31,7 @@ class ChorkiPlayer extends StatefulWidget {
     this.strings = const ChorkiPlayerStrings(),
     this.builders = const ChorkiPlayerBuilders(),
     this.initTimeout = const Duration(seconds: 15),
+    this.ads,
   }) : assert(seekBarBottomOffset >= 0);
 
   final String route;
@@ -57,13 +60,16 @@ class ChorkiPlayer extends StatefulWidget {
 
   final Duration initTimeout;
 
+  final ChorkiAdConfig? ads;
+
   @override
   State<ChorkiPlayer> createState() => _ChorkiPlayerState();
 }
 
 class _ChorkiPlayerState extends State<ChorkiPlayer> {
-  late final VideoPreloader _preloader =
-      VideoPreloader(initTimeout: widget.initTimeout);
+  late final VideoPreloader _preloader = VideoPreloader(
+    initTimeout: widget.initTimeout,
+  );
 
   late final BytesBloc _bloc;
 
@@ -116,7 +122,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     controller.addListener(_onControllerValue);
 
     controller.setLooping(widget.looping);
-    if (widget.autoPlay) {
+    if (widget.autoPlay && !_adsActive(byteData)) {
       unawaited(controller.play());
     }
 
@@ -132,6 +138,9 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       setState(() => _videoFailed = true);
     }
   }
+
+  bool _adsActive(ByteDataEntity? data) =>
+      (widget.ads?.enabled ?? false) && (data?.adTagUrl.isNotEmpty ?? false);
 
   Future<void> _resetVideo() async {
     _loadGen++;
@@ -183,7 +192,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       child: BlocBuilder<BytesBloc, ByteScreenState>(
         bloc: _bloc,
         builder: (context, state) {
-          return ColoredBox(color: widget.theme.backgroundColor, child: _buildBody(state));
+          return ColoredBox(
+            color: widget.theme.backgroundColor,
+            child: _buildBody(state),
+          );
         },
       ),
     );
@@ -254,6 +266,21 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   }
 
   Widget _buildVideo(VideoPlayerController controller) {
+    final surface = _buildSurface(controller);
+    final tag = _byteData?.adTagUrl ?? '';
+    final ads = widget.ads;
+    if (ads == null || !ads.enabled || tag.isEmpty) return surface;
+    return ChorkiAdLayer(
+      key: ObjectKey(controller),
+      controller: controller,
+      adTagUrl: tag,
+      config: ads,
+      autoPlay: widget.autoPlay,
+      child: surface,
+    );
+  }
+
+  Widget _buildSurface(VideoPlayerController controller) {
     return ChorkiPlayerSurface(
       controller: controller,
       onTogglePlayPause: _togglePlayPause,

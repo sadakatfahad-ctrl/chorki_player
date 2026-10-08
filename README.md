@@ -26,6 +26,8 @@ and safe video controller lifecycle handling.
   with `Either<Failure, ByteDataEntity>` results.
 - **HTTP/2 networking** via Dio with sane timeouts.
 - **`VideoPreloader`** helper for building custom shorts/feeds experiences.
+- **Google IMA ads** — pre-, mid-, and post-roll ads from the reel's
+  `data.ad_campaign` VMAP, with event and error callbacks.
 
 ## Installation
 
@@ -33,7 +35,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  chorki_player: ^1.1.0
+  chorki_player: ^1.2.0
 ```
 
 ## Usage
@@ -146,6 +148,84 @@ Video streaming requires the internet permission in your app's
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 ```
+
+## Ads (Google IMA)
+
+Ad UX: break positions are read from the campaign VMAP and drawn as ticks on the
+seek bar (upcoming ticks use `theme.adMarkerColor`, played ones
+`adMarkerPlayedColor`). During the 5 seconds before a break an "Ad starts in N"
+pill appears above the seek bar; tapping it starts the ad immediately. Customize
+with `ChorkiPlayerTheme.adMarker*` / `adCountdown*`,
+`ChorkiPlayerStrings.adCountdown`, or replace the pill with
+`ChorkiPlayerBuilders.adCountdownBuilder`. If the VMAP cannot be fetched, ads
+still play but markers and the countdown are not shown.
+
+Ads are opt-in. Pass a `ChorkiAdConfig` to `ChorkiPlayer` via `ads:`. The ad
+campaign is not configured in Dart code. The reel API response can include
+`data.ad_campaign`, an object with `id`, `title`, and `url`. The `url` is a
+VMAP XML document that IMA loads directly, and the VMAP defines the pre-,
+mid-, and post-roll breaks.
+
+- **No campaign, no ads.** A reel without `data.ad_campaign` plays normally.
+- **Break timing lives in the VMAP.** `ChorkiAdConfig` has no roll settings.
+  To change where ads play, change the campaign's VMAP.
+- While an ad plays, the content surface is hidden and the video is paused.
+  Playback resumes when the ad break ends.
+
+```dart
+import 'package:flutter/foundation.dart';
+import 'package:chorki_player/chorki_player.dart';
+
+ChorkiPlayer(
+  route: byteRoute,
+  autoPlay: true,
+  ads: ChorkiAdConfig(
+    enabled: true,
+    progressInterval: const Duration(milliseconds: 200),
+    enablePreloading: true,
+    onAdEvent: (event) => debugPrint('IMA event: ${event.type}'),
+    onAdError: (message) => debugPrint('Ad error: $message'),
+  ),
+)
+```
+
+| `ChorkiAdConfig` field   | Default     | Purpose                                                    |
+| ------------------------ | ----------- | ---------------------------------------------------------- |
+| `enabled`                | `true`      | Turns ads on or off for this player                        |
+| `progressInterval`       | `200 ms`    | How often content progress is reported to IMA (drives mid-roll timing) |
+| `enablePreloading`       | `true`      | Preloads ad media for smoother breaks                      |
+| `onAdEvent`              | `null`      | Called for each IMA `AdEvent`                              |
+| `onAdError`              | `null`      | Called with a message when an ad fails to load or play     |
+
+### Platform setup checklist
+
+- [ ] **Android**
+  - [ ] `INTERNET` and `ACCESS_NETWORK_STATE` permissions in
+        `android/app/src/main/AndroidManifest.xml`:
+
+    ```xml
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    ```
+
+  - [ ] Core library desugaring enabled in `android/app/build.gradle(.kts)`:
+
+    ```groovy
+    android {
+        compileOptions {
+            coreLibraryDesugaringEnabled true
+        }
+    }
+
+    dependencies {
+        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
+    }
+    ```
+
+  - [ ] `minSdkVersion 24` or higher.
+- [ ] **iOS**
+  - [ ] Deployment target of 13.0 or higher, set in `ios/Podfile`
+        (`platform :ios, '13.0'`) and in the Xcode project.
 
 ## Example
 

@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
-
 class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   FakeVideoPlayerPlatform({
     this.defaultDuration = const Duration(minutes: 2),
@@ -53,11 +52,7 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   int _create() {
     final id = _nextId++;
-    final player = FakePlayer(
-      id,
-      duration: defaultDuration,
-      size: defaultSize,
-    );
+    final player = FakePlayer(id, duration: defaultDuration, size: defaultSize);
     players[id] = player;
     scheduleMicrotask(player.emitInitialized);
     return id;

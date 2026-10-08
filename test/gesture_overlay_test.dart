@@ -17,7 +17,10 @@ void main() {
     platform = FakeVideoPlayerPlatform();
     VideoPlayerPlatform.instance = platform;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(SystemChannels.platform, (call) async => null);
+        .setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async => null,
+        );
     controller = await createTestController(platform);
     gestureActivityLog = [];
   });
@@ -34,8 +37,9 @@ void main() {
           body: SizedBox.expand(
             child: PlayerGestureOverlay(
               controller: controller,
-              onTogglePlayPause: () =>
-                  controller.value.isPlaying ? controller.pause() : controller.play(),
+              onTogglePlayPause: () => controller.value.isPlaying
+                  ? controller.pause()
+                  : controller.play(),
               onGesturesActiveChanged: gestureActivityLog.add,
             ),
           ),
@@ -48,8 +52,12 @@ void main() {
 
   /// Drags horizontally in small increments so the drag recognizer emits
   /// update events (a single huge move is swallowed by slop acceptance).
-  Future<void> dragBy(WidgetTester tester, TestGesture gesture, double dx,
-      {int steps = 10}) async {
+  Future<void> dragBy(
+    WidgetTester tester,
+    TestGesture gesture,
+    double dx, {
+    int steps = 10,
+  }) async {
     final step = Offset(dx / steps, 0);
     for (var i = 0; i < steps; i++) {
       await gesture.moveBy(step);
@@ -83,8 +91,9 @@ void main() {
   });
 
   group('double-tap seek', () {
-    testWidgets('double tap on the right half seeks forward by 10s',
-        (tester) async {
+    testWidgets('double tap on the right half seeks forward by 10s', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.tapAt(const Offset(600, 300));
@@ -99,8 +108,9 @@ void main() {
       await settleAfterGesture(tester);
     });
 
-    testWidgets('double tap on the left half seeks backward, clamped at 0',
-        (tester) async {
+    testWidgets('double tap on the left half seeks backward, clamped at 0', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.tapAt(const Offset(200, 300));
@@ -113,8 +123,7 @@ void main() {
       await settleAfterGesture(tester);
     });
 
-    testWidgets(
-        'rapid double taps accumulate '
+    testWidgets('rapid double taps accumulate '
         '(bug: stale position collapsed N taps into one hop)', (tester) async {
       await pumpOverlay(tester);
 
@@ -130,8 +139,9 @@ void main() {
       expect(platform.seekCalls.last.$2, const Duration(seconds: 30));
     });
 
-    testWidgets('shows the seek feedback ripple with the step label',
-        (tester) async {
+    testWidgets('shows the seek feedback ripple with the step label', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
 
       await tester.tapAt(const Offset(600, 300));
@@ -147,35 +157,36 @@ void main() {
 
   group('horizontal drag scrub', () {
     testWidgets(
-        'dragging right seeks proportionally with HUD, pauses, and resumes',
-        (tester) async {
-      await pumpOverlay(tester);
-      await controller.seekTo(const Duration(seconds: 30));
-      await tester.pump();
-      await controller.play();
-      await tester.pump();
-      platform.resetLog();
+      'dragging right seeks proportionally with HUD, pauses, and resumes',
+      (tester) async {
+        await pumpOverlay(tester);
+        await controller.seekTo(const Duration(seconds: 30));
+        await tester.pump();
+        await controller.play();
+        await tester.pump();
+        platform.resetLog();
 
-      final gesture = await tester.startGesture(const Offset(200, 300));
-      await tester.pump();
-      await dragBy(tester, gesture, 400);
-      await tester.pump();
+        final gesture = await tester.startGesture(const Offset(200, 300));
+        await tester.pump();
+        await dragBy(tester, gesture, 400);
+        await tester.pump();
 
-      // HUD visible while dragging: 30s + (400/800 * 90s) = 75s.
-      expect(find.text('1:15'), findsOneWidget);
-      expect(find.text('+45s'), findsOneWidget);
-      expect(gestureActivityLog, contains(true));
-      expect(controller.value.isPlaying, isFalse); // paused while scrubbing
+        // HUD visible while dragging: 30s + (400/800 * 90s) = 75s.
+        expect(find.text('1:15'), findsOneWidget);
+        expect(find.text('+45s'), findsOneWidget);
+        expect(gestureActivityLog, contains(true));
+        expect(controller.value.isPlaying, isFalse); // paused while scrubbing
 
-      await gesture.up();
-      await tester.pump();
+        await gesture.up();
+        await tester.pump();
 
-      final (_, position) = platform.seekCalls.last;
-      expect(position.inSeconds, closeTo(75, 1));
-      expect(controller.value.isPlaying, isTrue); // resumed
-      expect(gestureActivityLog.last, isFalse);
-      await settleAfterGesture(tester);
-    });
+        final (_, position) = platform.seekCalls.last;
+        expect(position.inSeconds, closeTo(75, 1));
+        expect(controller.value.isPlaying, isTrue); // resumed
+        expect(gestureActivityLog.last, isFalse);
+        await settleAfterGesture(tester);
+      },
+    );
 
     testWidgets('dragging left seeks backward', (tester) async {
       await pumpOverlay(tester);
@@ -219,8 +230,9 @@ void main() {
   });
 
   group('long-press speed', () {
-    testWidgets('holding engages 2x speed and releasing restores it',
-        (tester) async {
+    testWidgets('holding engages 2x speed and releasing restores it', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
       // video_player only forwards speed changes to the platform while playing.
       await controller.play();
@@ -240,8 +252,9 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('restores the custom speed that was active before the hold',
-        (tester) async {
+    testWidgets('restores the custom speed that was active before the hold', (
+      tester,
+    ) async {
       await pumpOverlay(tester);
       await controller.play();
       await controller.setPlaybackSpeed(1.5);

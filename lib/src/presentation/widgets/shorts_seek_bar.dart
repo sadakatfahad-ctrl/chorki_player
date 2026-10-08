@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../ads/ad_timeline.dart';
+import '../../ads/chorki_ad_state.dart';
 import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
-
 
 class ShortsSeekBar extends StatefulWidget {
   const ShortsSeekBar({
@@ -20,6 +21,7 @@ class ShortsSeekBar extends StatefulWidget {
     this.idlePointerRadius = 4.5,
     this.horizontalPadding = 8.0,
     this.height,
+    this.adMarkers,
     this.playedColor,
     this.bufferedColor,
     this.baseColor,
@@ -49,6 +51,9 @@ class ShortsSeekBar extends StatefulWidget {
   final double horizontalPadding;
 
   final double? height;
+
+  /// Ad break ticks. Defaults to the markers published by the ad layer.
+  final List<ChorkiAdMarker>? adMarkers;
 
   final Duration hapticTickInterval;
 
@@ -177,8 +182,7 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
     if (value.position == target) return;
     try {
       await _controller.seekTo(target);
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   Duration _positionOf(double fraction) {
@@ -285,6 +289,39 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
     );
   }
 
+  List<Widget> _buildAdMarkers(double trackWidth, double barHeight) {
+    final markers =
+        widget.adMarkers ?? ChorkiAdScope.maybeOf(context)?.markers ?? const [];
+    if (markers.isEmpty) return const [];
+    final theme = widget.theme;
+    final markerHeight = theme.adMarkerHeight < barHeight
+        ? barHeight
+        : theme.adMarkerHeight;
+    return [
+      for (final m in markers)
+        Positioned(
+          key: Key('chorki_ad_marker_${m.id}'),
+          left:
+              widget.horizontalPadding +
+              m.fraction.clamp(0.0, 1.0) * trackWidth -
+              theme.adMarkerWidth / 2,
+          bottom: barHeight / 2 - markerHeight / 2,
+          child: IgnorePointer(
+            child: Container(
+              width: theme.adMarkerWidth,
+              height: markerHeight,
+              decoration: BoxDecoration(
+                color: m.played
+                    ? theme.adMarkerPlayedColor
+                    : theme.adMarkerColor,
+                borderRadius: BorderRadius.circular(theme.adMarkerWidth / 2),
+              ),
+            ),
+          ),
+        ),
+    ];
+  }
+
   Widget _buildTrack({
     required double width,
     required double positionFraction,
@@ -345,6 +382,7 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
           ),
         ),
 
+        ..._buildAdMarkers(trackWidth, barHeight),
         Positioned(
           key: const Key('chorki_seek_bar_pointer'),
           left: thumbCenter - pointerRadius,
