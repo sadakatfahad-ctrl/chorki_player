@@ -7,6 +7,8 @@ import 'package:chorki_player/src/injection_container.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_event.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_state.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/bytes_screen_bloc.dart';
+import 'package:chorki_player/src/presentation/widgets/chorki_player_surface.dart';
+import 'package:chorki_player/src/theme/chorki_player_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:video_player/video_player.dart';
@@ -17,7 +19,17 @@ class ChorkiPlayer extends StatefulWidget {
     required this.route,
     this.autoPlay = true,
     this.looping = true,
-  });
+    this.showSeekBar = true,
+    this.seekBarBottomOffset = 0,
+    this.enableGestures = true,
+    this.doubleTapSeek = const Duration(seconds: 10),
+    this.longPressSpeed = 2.0,
+    this.theme = const ChorkiPlayerTheme(),
+    this.icons = const ChorkiPlayerIcons(),
+    this.strings = const ChorkiPlayerStrings(),
+    this.builders = const ChorkiPlayerBuilders(),
+    this.initTimeout = const Duration(seconds: 15),
+  }) : assert(seekBarBottomOffset >= 0);
 
   final String route;
 
@@ -25,18 +37,40 @@ class ChorkiPlayer extends StatefulWidget {
 
   final bool looping;
 
+  final bool showSeekBar;
+
+  final double seekBarBottomOffset;
+
+  final bool enableGestures;
+
+  final Duration doubleTapSeek;
+
+  final double longPressSpeed;
+
+  final ChorkiPlayerTheme theme;
+
+  final ChorkiPlayerIcons icons;
+
+  final ChorkiPlayerStrings strings;
+
+  final ChorkiPlayerBuilders builders;
+
+  final Duration initTimeout;
+
   @override
   State<ChorkiPlayer> createState() => _ChorkiPlayerState();
 }
 
 class _ChorkiPlayerState extends State<ChorkiPlayer> {
-  final VideoPreloader _preloader = VideoPreloader();
+  late final VideoPreloader _preloader =
+      VideoPreloader(initTimeout: widget.initTimeout);
 
   late final BytesBloc _bloc;
 
   VideoPlayerController? _controller;
   ByteDataEntity? _byteData;
   bool _videoFailed = false;
+  int _loadGen = 0;
 
   @override
   void initState() {
@@ -58,6 +92,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   }
 
   Future<void> _startVideo(ByteDataEntity byteData) async {
+    final gen = ++_loadGen;
     if (byteData.url.isEmpty) {
       if (mounted) setState(() => _videoFailed = true);
       return;
@@ -65,7 +100,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
 
     final controller = await _preloader.load(Uri.parse(byteData.url));
 
-    if (!mounted) {
+    if (!mounted || gen != _loadGen) {
       await _preloader.disposeQuietly(controller);
       return;
     }
@@ -76,12 +111,11 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     }
 
     final previous = _controller;
-    previous?.removeListener(_onVideoUpdate);
+    previous?.removeListener(_onControllerValue);
     unawaited(_preloader.disposeQuietly(previous));
+    controller.addListener(_onControllerValue);
 
-    controller
-      ..setLooping(widget.looping)
-      ..addListener(_onVideoUpdate);
+    controller.setLooping(widget.looping);
     if (widget.autoPlay) {
       unawaited(controller.play());
     }
@@ -92,12 +126,19 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     });
   }
 
-  void _onVideoUpdate() => setState(() {});
+  void _onControllerValue() {
+    final c = _controller;
+    if (c != null && c.value.hasError && !_videoFailed && mounted) {
+      setState(() => _videoFailed = true);
+    }
+  }
 
   Future<void> _resetVideo() async {
+    _loadGen++;
     final controller = _controller;
-    controller?.removeListener(_onVideoUpdate);
+    controller?.removeListener(_onControllerValue);
     _controller = null;
+    _byteData = null;
     _videoFailed = false;
     await _preloader.disposeQuietly(controller);
     if (mounted) setState(() {});
@@ -121,8 +162,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   @override
   void dispose() {
     _bloc.close();
+    _loadGen++;
     final controller = _controller;
-    controller?.removeListener(_onVideoUpdate);
+    controller?.removeListener(_onControllerValue);
+    _controller = null;
     unawaited(_preloader.disposeQuietly(controller));
     super.dispose();
   }
@@ -140,7 +183,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       child: BlocBuilder<BytesBloc, ByteScreenState>(
         bloc: _bloc,
         builder: (context, state) {
-          return ColoredBox(color: Colors.black, child: _buildBody(state));
+          return ColoredBox(color: widget.theme.backgroundColor, child: _buildBody(state));
         },
       ),
     );
@@ -151,10 +194,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       return _buildLoading();
     }
     if (state is ByteScreenFailedState) {
-      return _PlayerErrorView(message: state.message, onRetry: _retry);
+      return _buildError(state.message, _retry);
     }
     if (_videoFailed) {
-      return const _PlayerErrorView(message: 'Video failed to play');
+      return _buildError(widget.strings.videoFailed, null);
     }
 
     final controller = _controller;
@@ -164,11 +207,28 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     return _buildVideo(controller);
   }
 
+  Widget _buildError(String message, VoidCallback? onRetry) {
+    final custom = widget.builders.errorBuilder;
+    if (custom != null) return custom(context, message, onRetry);
+    return _PlayerErrorView(
+      message: message,
+      onRetry: onRetry,
+      theme: widget.theme,
+      icons: widget.icons,
+      strings: widget.strings,
+    );
+  }
+
   Widget _buildLoading({bool showPoster = false}) {
+    final custom = widget.builders.loadingBuilder;
+    if (custom != null) return custom(context);
     final poster = _byteData?.thumbnailUrl;
     final hasPoster = showPoster && poster != null && poster.isNotEmpty;
 
+    // StackFit.expand: otherwise the Stack shrinks to the spinner under loose
+    // constraints and the poster renders tiny.
     return Stack(
+      fit: StackFit.expand,
       alignment: Alignment.center,
       children: [
         if (hasPoster)
@@ -179,51 +239,51 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
               errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           ),
-        const CircularProgressIndicator(color: Colors.white),
+        Center(
+          child: SizedBox(
+            width: widget.theme.spinnerSize,
+            height: widget.theme.spinnerSize,
+            child: CircularProgressIndicator(
+              color: widget.theme.spinnerColor,
+              strokeWidth: widget.theme.spinnerStrokeWidth,
+            ),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildVideo(VideoPlayerController controller) {
-    final size = controller.value.size;
-
-    return GestureDetector(
-      onTap: _togglePlayPause,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned.fill(
-            child: FittedBox(
-              fit: BoxFit.contain,
-              child: SizedBox(
-                width: size.width,
-                height: size.height,
-                child: VideoPlayer(controller),
-              ),
-            ),
-          ),
-          if (!controller.value.isPlaying) _buildPlayBadge(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlayBadge() {
-    return const DecoratedBox(
-      decoration: BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-      child: Padding(
-        padding: EdgeInsets.all(12),
-        child: Icon(Icons.play_arrow, size: 48, color: Colors.white),
-      ),
+    return ChorkiPlayerSurface(
+      controller: controller,
+      onTogglePlayPause: _togglePlayPause,
+      showSeekBar: widget.showSeekBar,
+      seekBarBottomOffset: widget.seekBarBottomOffset,
+      enableGestures: widget.enableGestures,
+      doubleTapSeek: widget.doubleTapSeek,
+      longPressSpeed: widget.longPressSpeed,
+      theme: widget.theme,
+      icons: widget.icons,
+      strings: widget.strings,
+      builders: widget.builders,
     );
   }
 }
 
 class _PlayerErrorView extends StatelessWidget {
-  const _PlayerErrorView({required this.message, this.onRetry});
+  const _PlayerErrorView({
+    required this.message,
+    required this.theme,
+    required this.icons,
+    required this.strings,
+    this.onRetry,
+  });
 
   final String message;
   final VoidCallback? onRetry;
+  final ChorkiPlayerTheme theme;
+  final ChorkiPlayerIcons icons;
+  final ChorkiPlayerStrings strings;
 
   @override
   Widget build(BuildContext context) {
@@ -236,16 +296,17 @@ class _PlayerErrorView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70),
+              style: theme.errorTextStyle,
             ),
             if (onRetry != null) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: onRetry,
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                label: const Text(
-                  'Retry',
-                  style: TextStyle(color: Colors.white),
+                style: theme.retryButtonStyle,
+                icon: Icon(icons.refresh, color: theme.iconColor),
+                label: Text(
+                  strings.retry,
+                  style: TextStyle(color: theme.iconColor),
                 ),
               ),
             ],

@@ -22,7 +22,7 @@ class ByteRepositoryImpl extends ByteRepository {
     } on ServerException catch (error) {
       return Left(ServerFailure(message: error.serverMessage ?? error.message));
     } catch (error) {
-      return Left(ServerFailure(message: error.toString()));
+      return Left(const ServerFailure(message: 'Something went wrong'));
     }
   }
 }

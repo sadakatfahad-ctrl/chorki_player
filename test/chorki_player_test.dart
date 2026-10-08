@@ -77,7 +77,10 @@ void main() {
       const exception = NoInternetException();
 
       expect(exception.message, 'No internet connection');
-      expect(exception.toString(), 'NoInternetException: No internet connection');
+      expect(
+        exception.toString(),
+        'NoInternetException: No internet connection',
+      );
     });
 
     test('allows a custom message override', () {

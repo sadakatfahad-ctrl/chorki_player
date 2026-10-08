@@ -9,10 +9,12 @@ class VideoPreloader {
 
   Future<VideoPlayerController?> load(Uri source) async {
     final controller = VideoPlayerController.networkUrl(source);
+    final initFuture = controller.initialize();
     try {
-      await controller.initialize().timeout(initTimeout);
+      await initFuture.timeout(initTimeout);
       return controller;
     } catch (_) {
+      initFuture.catchError((Object _) {});
       await disposeQuietly(controller);
       return null;
     }

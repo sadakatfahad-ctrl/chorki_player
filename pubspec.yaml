@@ -1,6 +1,6 @@
 name: chorki_player
 description: A Flutter plugin that resolves a Chorki byte route and plays it out of the box, with HTTP/2 data fetching, poster preview, retry on failure, and safe video controller lifecycle handling.
-version: 0.2.0
+version: 1.1.0
 
 homepage: https://github.com/sadakatfahad-ctrl/chorki_player
 repository: https://github.com/sadakatfahad-ctrl/chorki_player
@@ -24,6 +24,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  video_player_platform_interface: ^6.4.0
 
 flutter:
   uses-material-design: true

@@ -22,19 +22,27 @@ class ExampleApp extends StatelessWidget {
 
 class PlayerPage extends StatelessWidget {
   const PlayerPage({super.key});
-
+  //https://admin-bytes-stage.chorki.net/v1/bytes/butes1
+  //https://admin-bytes-stage.chorki.net/v1/videos/test-2
   static const String byteRoute =
-      'https://admin-bytes-stage.chorki.net/v1/videos/test-2';
+      'https://admin-bytes-stage.chorki.net/v1/bytes/butes1';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(title: const Text('Chorki Player')),
-      body: const Center(
-        child: AspectRatio(
-          aspectRatio: 9 / 16,
-          child: ChorkiPlayer(route: byteRoute),
+      body: Center(
+        child: ChorkiPlayer(
+          route: byteRoute,
+          enableGestures: true,
+          longPressSpeed: 3.0,
+          theme: const ChorkiPlayerTheme(
+            seekBarPlayedColor: Colors.red,
+            seekBarBufferedColor: Colors.grey,
+            seekBarThumbColor: Colors.deepOrange,
+          ),
+          seekBarBottomOffset: 20,
         ),
       ),
     );
