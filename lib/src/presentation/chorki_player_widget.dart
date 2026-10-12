@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:chorki_player/src/ads/chorki_ad_config.dart';
 import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
+import 'package:chorki_player/src/controllers/chorki_player_controller.dart';
 import 'package:chorki_player/src/controllers/video_preloader.dart';
 import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
 import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
 import 'package:chorki_player/src/injection_container.dart';
+import 'package:chorki_player/src/media/chorki_media_options.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_event.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_state.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/bytes_screen_bloc.dart';
 import 'package:chorki_player/src/presentation/widgets/chorki_player_surface.dart';
+import 'package:chorki_player/src/presentation/widgets/chorki_settings_sheet.dart';
 import 'package:chorki_player/src/theme/chorki_player_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -32,6 +35,11 @@ class ChorkiPlayer extends StatefulWidget {
     this.builders = const ChorkiPlayerBuilders(),
     this.initTimeout = const Duration(seconds: 15),
     this.ads,
+    this.controller,
+    this.mediaOptions = const ChorkiMediaOptions(),
+    this.showSettingsButton = true,
+    this.speedOptions = defaultChorkiSpeedOptions,
+    this.initialFit = ChorkiVideoFit.fit,
   }) : assert(seekBarBottomOffset >= 0);
 
   final String route;
@@ -62,6 +70,23 @@ class ChorkiPlayer extends StatefulWidget {
 
   final ChorkiAdConfig? ads;
 
+  /// External handle for quality, audio, speed, fit, PiP and playback. When
+  /// null the player owns an internal one. You dispose the one you pass.
+  final ChorkiPlayerController? controller;
+
+  /// Headers, start position, buffering and background options. Applied on
+  /// the next load (route change or retry).
+  final ChorkiMediaOptions mediaOptions;
+
+  /// Gear button that opens [showChorkiSettings].
+  final bool showSettingsButton;
+
+  /// Choices in the settings speed menu.
+  final List<double> speedOptions;
+
+  /// Initial fit of the internal controller (ignored when [controller] is set).
+  final ChorkiVideoFit initialFit;
+
   @override
   State<ChorkiPlayer> createState() => _ChorkiPlayerState();
 }
@@ -72,6 +97,14 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   );
 
   late final BytesBloc _bloc;
+
+  ChorkiPlayerController? _ownController;
+  ChorkiPlayerController get _chorki =>
+      widget.controller ??
+      (_ownController ??= ChorkiPlayerController(
+        initialFit: widget.initialFit,
+        seekStep: widget.doubleTapSeek,
+      ));
 
   VideoPlayerController? _controller;
   ByteDataEntity? _byteData;
@@ -89,6 +122,17 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   @override
   void didUpdateWidget(covariant ChorkiPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      final old = oldWidget.controller ?? _ownController;
+      old?.detach(_controller);
+      old?.setAdPlaying(false);
+      if (widget.controller != null) {
+        _ownController?.dispose();
+        _ownController = null;
+      }
+      final c = _controller;
+      if (c != null) _chorki.attach(c, onRetry: _retry);
+    }
     if (oldWidget.route != widget.route) {
       unawaited(_resetVideo());
       _bloc.add(ByteScreenInitialEvent(widget.route));
@@ -104,7 +148,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       return;
     }
 
-    final controller = await _preloader.load(Uri.parse(byteData.url));
+    final controller = await _preloader.load(
+      Uri.parse(byteData.url),
+      options: widget.mediaOptions,
+    );
 
     if (!mounted || gen != _loadGen) {
       await _preloader.disposeQuietly(controller);
@@ -118,8 +165,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
 
     final previous = _controller;
     previous?.removeListener(_onControllerValue);
+    if (previous != null) _chorki.detach(previous);
     unawaited(_preloader.disposeQuietly(previous));
     controller.addListener(_onControllerValue);
+    _chorki.attach(controller, onRetry: _retry);
 
     controller.setLooping(widget.looping);
     if (widget.autoPlay && !_adsActive(byteData)) {
@@ -146,6 +195,8 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     _loadGen++;
     final controller = _controller;
     controller?.removeListener(_onControllerValue);
+    if (controller != null) _chorki.detach(controller);
+    _chorki.setAdPlaying(false);
     _controller = null;
     _byteData = null;
     _videoFailed = false;
@@ -174,6 +225,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     _loadGen++;
     final controller = _controller;
     controller?.removeListener(_onControllerValue);
+    if (controller != null) widget.controller?.detach(controller);
+    widget.controller?.setAdPlaying(false);
+    _ownController?.dispose();
+    _ownController = null;
     _controller = null;
     unawaited(_preloader.disposeQuietly(controller));
     super.dispose();
@@ -276,6 +331,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       adTagUrl: tag,
       config: ads,
       autoPlay: widget.autoPlay,
+      onAdPlayingChanged: _chorki.setAdPlaying,
       child: surface,
     );
   }
@@ -289,6 +345,9 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       enableGestures: widget.enableGestures,
       doubleTapSeek: widget.doubleTapSeek,
       longPressSpeed: widget.longPressSpeed,
+      chorkiController: _chorki,
+      showSettingsButton: widget.showSettingsButton,
+      speedOptions: widget.speedOptions,
       theme: widget.theme,
       icons: widget.icons,
       strings: widget.strings,

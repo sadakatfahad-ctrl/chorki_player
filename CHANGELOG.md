@@ -1,3 +1,33 @@
+## 1.3.0
+
+- Fix: tapping the center play badge while paused did nothing; the badge now
+  lets taps through to the gesture layer so playback resumes.
+- **Requires Flutter 3.44 / Dart 3.12** (`video_player` ^2.14.1).
+- New `ChorkiPlayerController`: play, pause, and seek (forward/back by
+  `seekStep`); speed (kept across reloads); fit/fill; quality selection
+  (`selectQuality`, where null means Auto); audio track selection; Android
+  picture-in-picture (`enterPip`, `setAutoPip`); and `retry`. It exposes
+  `ValueListenable`s for the video value, tracks, speed, fit, `pipStatus`,
+  and `isAdPlaying`. Pass it with `ChorkiPlayer(controller:)`.
+- New settings bottom sheet (`showChorkiSettings`, `ChorkiSettingsSheet`),
+  opened by a gear button on the player (`showSettingsButton`). It covers
+  Quality, Audio, Speed (`speedOptions`), Video size, and Picture-in-picture.
+- New `ChorkiMediaOptions` (`ChorkiPlayer.mediaOptions`,
+  `VideoPreloader.load(options:)`): `httpHeaders`, `startPosition`,
+  `backBuffer`, `allowBackgroundPlayback`, `mixWithOthers`, `keepScreenOn`,
+  and `viewType`.
+- `ChorkiPlayerSurface`: new `chorkiController`, `showSettingsButton`,
+  `speedOptions`, and `fit` parameters. It renders the video only while in PiP.
+- Theme: `settingsButtonColor`, `settingsButtonBackgroundColor`,
+  `settingsSheetBackgroundColor`, `settingsTextStyle`,
+  `settingsSecondaryTextStyle`, and `settingsSelectedColor`. Icons:
+  `settings`, `quality`, `audio`, `speed`, `fit`, `pip`, `check`, and `back`.
+  Strings: `settings`, `quality`, `auto`, `audio`, `normalSpeed`, `fit`,
+  `fill`, `videoFit`, and `pictureInPicture`. Builders:
+  `settingsButtonBuilder`, `settingsSheetBuilder`, and `qualityLabelBuilder`.
+- Re-exports `VideoTrack`, `VideoAudioTrack`, and `VideoViewType`.
+- New dependency: `floating` (Android PiP).
+
 ## 1.2.0
 
 - Ad break markers on the seek bar and an "Ad starts in N" countdown pill

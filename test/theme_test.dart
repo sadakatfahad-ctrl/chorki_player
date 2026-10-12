@@ -30,6 +30,21 @@ void main() {
     ),
   );
 
+  test('settings fields have defaults and copyWith', () {
+    const icons = ChorkiPlayerIcons();
+    const strings = ChorkiPlayerStrings();
+    expect(icons.settings, Icons.settings);
+    expect(strings.auto, 'Auto');
+    expect(strings.pictureInPicture, 'Picture-in-picture');
+    final t = const ChorkiPlayerTheme().copyWith(
+      settingsSelectedColor: Colors.green,
+      settingsSheetBackgroundColor: Colors.black,
+    );
+    expect(t.settingsSelectedColor, Colors.green);
+    expect(t.settingsSheetBackgroundColor, Colors.black);
+    expect(t.settingsTextStyle, const ChorkiPlayerTheme().settingsTextStyle);
+  });
+
   test('copyWith overrides only given fields', () {
     final t = const ChorkiPlayerTheme().copyWith(
       seekBarPlayedColor: Colors.red,

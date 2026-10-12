@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../ads/chorki_ad_state.dart';
+import '../../controllers/chorki_player_controller.dart';
+import '../../pip/chorki_pip.dart';
 import '../../theme/chorki_player_theme.dart';
 import 'ad_countdown_pill.dart';
+import 'chorki_settings_sheet.dart';
 import 'gesture_overlay.dart';
 import 'shorts_seek_bar.dart';
 
@@ -18,6 +21,10 @@ class ChorkiPlayerSurface extends StatefulWidget {
     this.doubleTapSeek = const Duration(seconds: 10),
     this.longPressSpeed = 2.0,
     this.overlayButton,
+    this.chorkiController,
+    this.showSettingsButton = true,
+    this.speedOptions = defaultChorkiSpeedOptions,
+    this.fit = ChorkiVideoFit.fit,
     this.theme = const ChorkiPlayerTheme(),
     this.icons = const ChorkiPlayerIcons(),
     this.strings = const ChorkiPlayerStrings(),
@@ -39,6 +46,18 @@ class ChorkiPlayerSurface extends StatefulWidget {
 
   final Widget? overlayButton;
 
+  /// Drives fit, PiP-aware rendering and the settings button. When null the
+  /// surface uses [fit] and shows no settings button.
+  final ChorkiPlayerController? chorkiController;
+
+  /// Shows the gear button (top-right) when [chorkiController] is set.
+  final bool showSettingsButton;
+
+  final List<double> speedOptions;
+
+  /// Used when [chorkiController] is null.
+  final ChorkiVideoFit fit;
+
   final ChorkiPlayerTheme theme;
   final ChorkiPlayerIcons icons;
   final ChorkiPlayerStrings strings;
@@ -53,22 +72,47 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
 
   @override
   Widget build(BuildContext context) {
+    final chorki = widget.chorkiController;
+    if (chorki == null) return _build(context, widget.fit, inPip: false);
+    return ListenableBuilder(
+      listenable: Listenable.merge([chorki.fit, chorki.pipStatus]),
+      builder: (context, _) => _build(
+        context,
+        chorki.fit.value,
+        inPip: chorki.pipStatus.value == ChorkiPipStatus.enabled,
+      ),
+    );
+  }
+
+  Widget _build(
+    BuildContext context,
+    ChorkiVideoFit fit, {
+    required bool inPip,
+  }) {
     final controller = widget.controller;
+    final video = Positioned.fill(
+      child: ClipRect(
+        child: FittedBox(
+          key: const Key('chorki_video_fit'),
+          fit: fit == ChorkiVideoFit.fill ? BoxFit.cover : BoxFit.contain,
+          child: SizedBox(
+            width: controller.value.size.width,
+            height: controller.value.size.height,
+            child: VideoPlayer(controller),
+          ),
+        ),
+      ),
+    );
+
+    // PiP window: video only.
+    if (inPip) {
+      return Stack(alignment: Alignment.center, children: [video]);
+    }
 
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Video, letterboxed by intrinsic aspect ratio.
-        Positioned.fill(
-          child: FittedBox(
-            fit: BoxFit.contain,
-            child: SizedBox(
-              width: controller.value.size.width,
-              height: controller.value.size.height,
-              child: VideoPlayer(controller),
-            ),
-          ),
-        ),
+        video,
 
         Positioned.fill(
           child: widget.enableGestures
@@ -147,6 +191,13 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
             ),
           ),
 
+        if (widget.chorkiController != null && widget.showSettingsButton)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: SafeArea(child: _settingsButton(context)),
+          ),
+
         if (widget.overlayButton != null)
           Positioned(
             right: 2,
@@ -154,6 +205,39 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
             child: widget.overlayButton!,
           ),
       ],
+    );
+  }
+
+  void _openSettings() {
+    final chorki = widget.chorkiController;
+    if (chorki == null) return;
+    showChorkiSettings(
+      context,
+      chorki,
+      theme: widget.theme,
+      icons: widget.icons,
+      strings: widget.strings,
+      builders: widget.builders,
+      speedOptions: widget.speedOptions,
+    );
+  }
+
+  Widget _settingsButton(BuildContext context) {
+    final custom = widget.builders.settingsButtonBuilder;
+    if (custom != null) return custom(context, _openSettings);
+    return Material(
+      color: widget.theme.settingsButtonBackgroundColor,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        key: const Key('chorki_settings_button'),
+        tooltip: widget.strings.settings,
+        icon: Icon(
+          widget.icons.settings,
+          color: widget.theme.settingsButtonColor,
+        ),
+        onPressed: _openSettings,
+      ),
     );
   }
 
@@ -171,17 +255,21 @@ class _PlayBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: theme.playBadgeColor,
-        shape: BoxShape.circle,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Icon(
-          icons.play,
-          size: theme.playBadgeIconSize,
-          color: theme.playBadgeIconColor,
+    // The badge is stacked above the gesture layer; without IgnorePointer its
+    // circular decoration swallows taps and the video can't be resumed from it.
+    return IgnorePointer(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: theme.playBadgeColor,
+          shape: BoxShape.circle,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Icon(
+            icons.play,
+            size: theme.playBadgeIconSize,
+            color: theme.playBadgeIconColor,
+          ),
         ),
       ),
     );

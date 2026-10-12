@@ -28,6 +28,15 @@ and safe video controller lifecycle handling.
 - **`VideoPreloader`** helper for building custom shorts/feeds experiences.
 - **Google IMA ads** — pre-, mid-, and post-roll ads from the reel's
   `data.ad_campaign` VMAP, with event and error callbacks.
+- **Player controller**: `ChorkiPlayerController` lets you drive playback,
+  quality, audio track, speed, fit, and picture-in-picture from outside the
+  widget.
+- **Settings sheet**: a gear button opens Quality (HLS/DASH renditions),
+  Audio, Speed, Video size (fit/fill), and Picture-in-picture.
+- **Media options**: custom HTTP headers, a start position to resume from,
+  back-buffer size, background playback, and keep-screen-on.
+- **Picture-in-picture (Android)**: enter PiP manually, or automatically
+  when the user leaves the app.
 
 ## Installation
 
@@ -35,7 +44,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  chorki_player: ^1.2.0
+  chorki_player: ^1.3.0
 ```
 
 ## Usage
@@ -139,6 +148,84 @@ ChorkiPlayer(
 - `ChorkiPlayerStrings` localizes user-facing text.
 - `ChorkiPlayerBuilders` fully replaces parts of the UI, such as the loading,
   error, or seek bar widgets.
+
+## Controller, settings, and media options
+
+```dart
+final controller = ChorkiPlayerController(); // dispose() it yourself
+
+ChorkiPlayer(
+  route: byteRoute,
+  controller: controller,
+  mediaOptions: const ChorkiMediaOptions(
+    httpHeaders: {'Authorization': 'Bearer <token>'},
+    startPosition: Duration(seconds: 42),   // resume
+    backBuffer: Duration(seconds: 30),      // Android
+    allowBackgroundPlayback: false,
+    keepScreenOn: true,                     // iOS
+  ),
+  showSettingsButton: true,                 // gear, top-right
+  speedOptions: const [0.5, 1.0, 1.5, 2.0],
+);
+
+// Anywhere:
+controller.seekForward();                   // seekStep, default 10s
+controller.setSpeed(1.5);                   // kept across reloads
+controller.toggleFit();                     // fit <-> fill
+controller.selectQuality(controller.videoTracks.value.first);
+controller.selectQuality(null);             // back to Auto
+controller.selectAudioTrack(trackId);
+showChorkiSettings(context, controller);    // open the sheet yourself
+```
+
+The controller exposes `ValueListenable`s: `value` (position, duration,
+buffering, and errors), `videoTracks`, `selectedVideoTrack` (null means Auto),
+`audioTracks`, `selectedAudioTrackId`, `speed`, `fit`, `pipStatus`, and
+`isAdPlaying`.
+
+When you build a feed with `ChorkiPlayerSurface`, call
+`controller.attach(videoController)` / `detach(...)` yourself and pass
+`chorkiController:` to the surface. `VideoPreloader.load(uri, options:)`
+accepts the same `ChorkiMediaOptions`.
+
+You can customize the settings UI through the theme
+(`settingsSheetBackgroundColor`, `settingsTextStyle`, `settingsSelectedColor`,
+`settingsButton*`), icons, strings (`quality`, `auto`, `audio`,
+`normalSpeed`, `fit`, `fill`, `videoFit`, `pictureInPicture`), and builders
+(`settingsButtonBuilder`, `settingsSheetBuilder`, `qualityLabelBuilder`).
+
+### Picture-in-picture (Android only)
+
+```dart
+controller.enterPip();         // now
+controller.setAutoPip(true);   // when the user presses Home
+```
+
+PiP shrinks the whole app, not just the player. While
+`controller.pipStatus.value == ChorkiPipStatus.enabled`, render only the player.
+The player hides its own controls automatically. Enable PiP on your activity
+in `AndroidManifest.xml`:
+
+```xml
+<activity android:name=".MainActivity"
+    android:supportsPictureInPicture="true"
+    android:resizeableActivity="true" ... >
+```
+
+### Platform support
+
+| Feature | Android | iOS |
+|---|---|---|
+| Quality selection (HLS/DASH) | ✓ | ✓ (HLS) |
+| Audio track selection | ✓ | ✓ |
+| Speed, fit/fill, headers, start position | ✓ | ✓ |
+| Back-buffer size | ✓ | n/a |
+| Keep screen on | default | ✓ |
+| Picture-in-picture | ✓ | ✗ |
+| DRM (Widevine / FairPlay) | ✗ | ✗ |
+| Offline downloads | ✗ | ✗ |
+
+The player is built on `video_player`, which has no DRM and no iOS PiP API.
 
 ## Android
 

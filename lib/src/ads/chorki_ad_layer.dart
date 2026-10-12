@@ -18,6 +18,7 @@ class ChorkiAdLayer extends StatefulWidget {
     required this.autoPlay,
     required this.child,
     this.vmapFetcher = defaultVmapFetcher,
+    this.onAdPlayingChanged,
   });
 
   final VideoPlayerController controller;
@@ -28,6 +29,9 @@ class ChorkiAdLayer extends StatefulWidget {
 
   /// Fetches the campaign VMAP for markers/countdown (overridable in tests).
   final VmapFetcher vmapFetcher;
+
+  /// True while an ad has paused the content, false once content resumes.
+  final ValueChanged<bool>? onAdPlayingChanged;
 
   @override
   State<ChorkiAdLayer> createState() => _ChorkiAdLayerState();
@@ -187,6 +191,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       _showContent = false;
       _adActive = true;
     });
+    widget.onAdPlayingChanged?.call(true);
     await _safe(widget.controller.pause);
   }
 
@@ -196,6 +201,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       _showContent = true;
       _adActive = false;
     });
+    widget.onAdPlayingChanged?.call(false);
     _startTimer();
     final shouldPlay = _contentStarted || widget.autoPlay;
     _contentStarted = true;

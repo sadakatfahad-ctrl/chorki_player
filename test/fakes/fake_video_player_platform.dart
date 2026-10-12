@@ -1,7 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
-import 'package:video_player/video_player.dart';
+import 'package:video_player/video_player.dart'
+    hide VideoAudioTrack, VideoTrack;
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
@@ -21,7 +22,17 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   final List<(int, double)> volumeCalls = [];
   final List<int> playCalls = [];
   final List<int> pauseCalls = [];
+  final List<VideoCreationOptions> creationOptions = [];
+  final List<(int, VideoTrack?)> videoTrackCalls = [];
+  final List<(int, String)> audioTrackCalls = [];
+  final List<(int, bool)> preventsSleepCalls = [];
   int initCalls = 0;
+
+  /// Tracks reported for every player; toggle support per test.
+  bool videoTracksSupported = true;
+  bool audioTracksSupported = true;
+  List<VideoTrack> videoTracks = const [];
+  List<VideoAudioTrack> audioTracks = const [];
 
   FakePlayer playerOf(int id) => players[id]!;
 
@@ -33,6 +44,8 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
     volumeCalls.clear();
     playCalls.clear();
     pauseCalls.clear();
+    videoTrackCalls.clear();
+    audioTrackCalls.clear();
   }
 
   @override
@@ -47,6 +60,7 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<int?> createWithOptions(VideoCreationOptions options) async {
+    creationOptions.add(options);
     return _create();
   }
 
@@ -118,6 +132,40 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) async {}
+
+  @override
+  Future<void> setAllowBackgroundPlayback(bool allowBackgroundPlayback) async {}
+
+  @override
+  Future<void> setPreventsDisplaySleepDuringVideoPlayback(
+    int playerId,
+    bool preventsDisplaySleepDuringVideoPlayback,
+  ) async {
+    preventsSleepCalls.add((playerId, preventsDisplaySleepDuringVideoPlayback));
+  }
+
+  @override
+  bool isVideoTrackSupportAvailable() => videoTracksSupported;
+
+  @override
+  Future<List<VideoTrack>> getVideoTracks(int playerId) async => videoTracks;
+
+  @override
+  Future<void> selectVideoTrack(int playerId, VideoTrack? track) async {
+    videoTrackCalls.add((playerId, track));
+  }
+
+  @override
+  bool isAudioTrackSupportAvailable() => audioTracksSupported;
+
+  @override
+  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async =>
+      audioTracks;
+
+  @override
+  Future<void> selectAudioTrack(int playerId, String trackId) async {
+    audioTrackCalls.add((playerId, trackId));
+  }
 }
 
 class FakePlayer {

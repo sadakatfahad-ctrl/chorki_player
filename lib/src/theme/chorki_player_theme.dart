@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
+import '../controllers/chorki_player_controller.dart';
+
 @immutable
 class ChorkiPlayerTheme {
   const ChorkiPlayerTheme({
@@ -35,6 +37,15 @@ class ChorkiPlayerTheme {
       fontSize: 13,
       fontWeight: FontWeight.w600,
     ),
+    this.settingsButtonColor = Colors.white,
+    this.settingsButtonBackgroundColor = const Color(0x59000000),
+    this.settingsSheetBackgroundColor = const Color(0xFF1C1C1E),
+    this.settingsTextStyle = const TextStyle(color: Colors.white, fontSize: 15),
+    this.settingsSecondaryTextStyle = const TextStyle(
+      color: Colors.white60,
+      fontSize: 14,
+    ),
+    this.settingsSelectedColor = const Color(0xFFFFC107),
   });
 
   final Color backgroundColor;
@@ -69,6 +80,14 @@ class ChorkiPlayerTheme {
   final Color adCountdownAccentColor;
   final TextStyle adCountdownTextStyle;
 
+  /// Gear button and the settings bottom sheet.
+  final Color settingsButtonColor;
+  final Color settingsButtonBackgroundColor;
+  final Color settingsSheetBackgroundColor;
+  final TextStyle settingsTextStyle;
+  final TextStyle settingsSecondaryTextStyle;
+  final Color settingsSelectedColor;
+
   ChorkiPlayerTheme copyWith({
     Color? backgroundColor,
     Color? spinnerColor,
@@ -97,6 +116,12 @@ class ChorkiPlayerTheme {
     Color? adCountdownBackgroundColor,
     Color? adCountdownAccentColor,
     TextStyle? adCountdownTextStyle,
+    Color? settingsButtonColor,
+    Color? settingsButtonBackgroundColor,
+    Color? settingsSheetBackgroundColor,
+    TextStyle? settingsTextStyle,
+    TextStyle? settingsSecondaryTextStyle,
+    Color? settingsSelectedColor,
   }) {
     return ChorkiPlayerTheme(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -129,6 +154,16 @@ class ChorkiPlayerTheme {
       adCountdownAccentColor:
           adCountdownAccentColor ?? this.adCountdownAccentColor,
       adCountdownTextStyle: adCountdownTextStyle ?? this.adCountdownTextStyle,
+      settingsButtonColor: settingsButtonColor ?? this.settingsButtonColor,
+      settingsButtonBackgroundColor:
+          settingsButtonBackgroundColor ?? this.settingsButtonBackgroundColor,
+      settingsSheetBackgroundColor:
+          settingsSheetBackgroundColor ?? this.settingsSheetBackgroundColor,
+      settingsTextStyle: settingsTextStyle ?? this.settingsTextStyle,
+      settingsSecondaryTextStyle:
+          settingsSecondaryTextStyle ?? this.settingsSecondaryTextStyle,
+      settingsSelectedColor:
+          settingsSelectedColor ?? this.settingsSelectedColor,
     );
   }
 }
@@ -141,12 +176,28 @@ class ChorkiPlayerIcons {
     this.refresh = Icons.refresh,
     this.fastForward = Icons.fast_forward,
     this.fastRewind = Icons.fast_rewind,
+    this.settings = Icons.settings,
+    this.quality = Icons.high_quality_outlined,
+    this.audio = Icons.audiotrack_outlined,
+    this.speed = Icons.speed,
+    this.fit = Icons.fit_screen_outlined,
+    this.pip = Icons.picture_in_picture_alt_outlined,
+    this.check = Icons.check,
+    this.back = Icons.arrow_back,
   });
 
   final IconData play;
   final IconData refresh;
   final IconData fastForward;
   final IconData fastRewind;
+  final IconData settings;
+  final IconData quality;
+  final IconData audio;
+  final IconData speed;
+  final IconData fit;
+  final IconData pip;
+  final IconData check;
+  final IconData back;
 }
 
 /// Text overrides (localization).
@@ -162,6 +213,15 @@ class ChorkiPlayerStrings {
     this.genericError = 'Something went wrong',
     this.adCountdown = defaultAdCountdown,
     this.adStartNowHint = 'Tap to start now',
+    this.settings = 'Settings',
+    this.quality = 'Quality',
+    this.auto = 'Auto',
+    this.audio = 'Audio',
+    this.normalSpeed = 'Normal',
+    this.fit = 'Fit',
+    this.fill = 'Fill',
+    this.videoFit = 'Video size',
+    this.pictureInPicture = 'Picture-in-picture',
   });
 
   final String videoFailed;
@@ -177,6 +237,17 @@ class ChorkiPlayerStrings {
 
   /// Accessibility hint for the countdown pill.
   final String adStartNowHint;
+
+  /// Settings sheet.
+  final String settings;
+  final String quality;
+  final String auto;
+  final String audio;
+  final String normalSpeed;
+  final String fit;
+  final String fill;
+  final String videoFit;
+  final String pictureInPicture;
 }
 
 String defaultAdCountdown(int seconds) => 'Ad starts in ${seconds}s';
@@ -192,6 +263,9 @@ class ChorkiPlayerBuilders {
     this.timeBubbleBuilder,
     this.gestureFeedbackBuilder,
     this.adCountdownBuilder,
+    this.settingsButtonBuilder,
+    this.settingsSheetBuilder,
+    this.qualityLabelBuilder,
   });
 
   final WidgetBuilder? loadingBuilder;
@@ -220,6 +294,17 @@ class ChorkiPlayerBuilders {
     VoidCallback startNow,
   )?
   adCountdownBuilder;
+
+  /// Replaces the gear button; call [onPressed] to open the settings.
+  final Widget Function(BuildContext, VoidCallback onPressed)?
+  settingsButtonBuilder;
+
+  /// Replaces the content of the settings bottom sheet.
+  final Widget Function(BuildContext, ChorkiPlayerController controller)?
+  settingsSheetBuilder;
+
+  /// Label for a quality entry (default: "720p", plus bitrate on ties).
+  final String Function(VideoTrack track)? qualityLabelBuilder;
 }
 
 @immutable
