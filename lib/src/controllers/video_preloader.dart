@@ -10,23 +10,33 @@ class VideoPreloader {
   final Duration initTimeout;
 
   /// Creates and initializes a controller for [source], or returns null on
-  /// failure / timeout. Applies [options] (headers, buffering, start position).
+  /// failure / timeout. An `asset:` URI (`asset:assets/clip.mp4`) loads a
+  /// bundled file; anything else is fetched over the network. Applies [options] (headers, buffering, start position).
   Future<VideoPlayerController?> load(
     Uri source, {
     ChorkiMediaOptions options = const ChorkiMediaOptions(),
   }) async {
-    final controller = VideoPlayerController.networkUrl(
-      source,
-      httpHeaders: options.httpHeaders,
-      videoPlayerOptions: options.toVideoPlayerOptions(),
-      viewType: options.viewType,
-    );
+    final controller = source.scheme == 'asset'
+        ? VideoPlayerController.asset(
+            // `asset:///a.mp4` and `asset:a.mp4` name the same asset.
+            source.path.replaceFirst(RegExp('^/+'), ''),
+            videoPlayerOptions: options.toVideoPlayerOptions(),
+            viewType: options.viewType,
+          )
+        : VideoPlayerController.networkUrl(
+            source,
+            httpHeaders: options.httpHeaders,
+            videoPlayerOptions: options.toVideoPlayerOptions(),
+            viewType: options.viewType,
+          );
     final initFuture = controller.initialize();
     try {
       await initFuture.timeout(initTimeout);
     } catch (_) {
       initFuture.catchError((Object _) {});
-      await disposeQuietly(controller);
+      // Not awaited: dispose() waits for the platform to finish creating the
+      // player, which may be exactly what is stuck.
+      unawaited(disposeQuietly(controller));
       return null;
     }
     final start = options.startPosition;

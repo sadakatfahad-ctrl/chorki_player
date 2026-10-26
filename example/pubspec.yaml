@@ -25,3 +25,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Aspect-ratio test patterns (example/tool/generate_test_patterns.py).
+  assets:
+    - assets/videos/

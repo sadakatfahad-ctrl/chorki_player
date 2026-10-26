@@ -44,7 +44,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  chorki_player: ^1.3.0
+  chorki_player: ^1.4.0
 ```
 
 ## Usage
@@ -73,6 +73,47 @@ The widget handles the whole lifecycle: it fetches the byte data, shows the
 poster while buffering, plays the video, and disposes everything when it goes
 away. If fetching or playback fails, users get an error view with a retry
 button.
+
+### Playing a URL directly
+
+`ChorkiPlayer.url` skips the Chorki API and plays a video URL (MP4, HLS,
+DASH…) with the same UI, ads and controller. An `asset:` URI plays a file
+bundled with the app:
+
+```dart
+ChorkiPlayer.url(
+  'https://example.com/clip.m3u8',
+  posterUrl: 'https://example.com/poster.jpg', // optional
+  adTagUrl: vastOrVmapUrl,                     // optional, needs `ads:`
+)
+
+ChorkiPlayer.url('asset:assets/videos/intro.mp4')
+```
+
+### Sizing
+
+By default the player fills the box its parent gives it, so it needs bounded
+constraints (`Expanded`, `SizedBox`, `AspectRatio`, a full-screen page). Any
+video shape works inside that box: `ChorkiVideoFit.fit` letterboxes the whole
+frame, `ChorkiVideoFit.fill` crops to cover.
+
+To let the player take the video's own aspect ratio instead, for example in a
+`Column` or `ListView`, turn on `sizeToVideo`. It needs a bounded width.
+`placeholderAspectRatio` (default 16:9) is used until the video is loaded:
+
+```dart
+ListView(
+  children: [
+    ChorkiPlayer(route: byteRoute, sizeToVideo: true),
+  ],
+)
+```
+
+The aspect ratio is read once, when the video loads (`video_player` does not
+report size changes mid-stream).
+
+The player targets on-demand video. Live streams (no fixed duration) are not
+supported: seeking gestures assume a known duration.
 
 ### Playback UX options
 
@@ -270,6 +311,7 @@ ChorkiPlayer(
     enabled: true,
     progressInterval: const Duration(milliseconds: 200),
     enablePreloading: true,
+    loadTimeout: const Duration(seconds: 8),
     onAdEvent: (event) => debugPrint('IMA event: ${event.type}'),
     onAdError: (message) => debugPrint('Ad error: $message'),
   ),
@@ -281,6 +323,7 @@ ChorkiPlayer(
 | `enabled`                | `true`      | Turns ads on or off for this player                        |
 | `progressInterval`       | `200 ms`    | How often content progress is reported to IMA (drives mid-roll timing) |
 | `enablePreloading`       | `true`      | Preloads ad media for smoother breaks                      |
+| `loadTimeout`            | `8 s`       | Shows and plays content if no ad has started by then (`null` disables) |
 | `onAdEvent`              | `null`      | Called for each IMA `AdEvent`                              |
 | `onAdError`              | `null`      | Called with a message when an ad fails to load or play     |
 
@@ -316,7 +359,11 @@ ChorkiPlayer(
 
 ## Example
 
-See the [`example/`](example/) app for a complete runnable sample.
+See the [`example/`](example/) app for a complete runnable sample. It is a
+test catalog for video shapes: Chorki API routes, bundled test patterns (odd
+ratios, a rotated clip, anamorphic pixels), public MP4/HLS streams, and
+Wikimedia Commons clips from 32:9 down to 28 pixels wide. Each video can be
+shown full screen, in a 16:9 or 9:16 box, or with `sizeToVideo` in a list.
 
 ## License
 

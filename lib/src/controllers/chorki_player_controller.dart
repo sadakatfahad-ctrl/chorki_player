@@ -154,7 +154,7 @@ class ChorkiPlayerController {
         unawaited(_safe(() => c.setPlaybackSpeed(_speed.value)));
       }
       unawaited(refreshTracks());
-      if (_autoPip) unawaited(_pip.setAuto(true, _aspectRatio));
+      if (_autoPip) unawaited(_safe(() => _pip.setAuto(true, _aspectRatio)));
     }
   }
 
@@ -271,8 +271,10 @@ class ChorkiPlayerController {
   Future<void> enterPip() async {
     if (_disposed) return;
     _ensureLifecycle();
-    final status = await _pip.enter(_aspectRatio);
-    if (!_disposed) _pipStatus.value = status;
+    try {
+      final status = await _pip.enter(_aspectRatio);
+      if (!_disposed) _pipStatus.value = status;
+    } catch (_) {}
     _schedulePipProbes();
   }
 
@@ -281,14 +283,16 @@ class ChorkiPlayerController {
     if (_disposed) return;
     _autoPip = enabled;
     _ensureLifecycle();
-    await _pip.setAuto(enabled, _aspectRatio);
+    await _safe(() => _pip.setAuto(enabled, _aspectRatio));
     await refreshPipStatus();
   }
 
   Future<void> refreshPipStatus() async {
     if (_disposed) return;
-    final status = await _pip.status();
-    if (!_disposed) _pipStatus.value = status;
+    try {
+      final status = await _pip.status();
+      if (!_disposed) _pipStatus.value = status;
+    } catch (_) {}
   }
 
   void _ensureLifecycle() {
@@ -332,7 +336,7 @@ class ChorkiPlayerController {
     _detachListener();
     _lifecycle?.dispose();
     _lifecycle = null;
-    if (_autoPip) unawaited(_pip.setAuto(false, 1));
+    if (_autoPip) unawaited(_safe(() => _pip.setAuto(false, 1)));
     for (final n in <ChangeNotifier>[
       _video,
       _value,

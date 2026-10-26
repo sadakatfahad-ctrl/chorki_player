@@ -54,6 +54,8 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
   final ChorkiAdState _state = ChorkiAdState();
   AdTimeline _timeline = AdTimeline(const []);
   Timer? _noPreRollFallback;
+  Timer? _loadTimeout;
+  bool _timedOut = false;
   AppLifecycleState _lastState = AppLifecycleState.resumed;
 
   late final AdDisplayContainer _container = AdDisplayContainer(
@@ -67,19 +69,34 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     widget.controller.addListener(_onControllerValue);
     _state.startNow = _startNow;
     unawaited(_loadBreaks());
+    final timeout = widget.config.loadTimeout;
+    if (timeout != null) _loadTimeout = Timer(timeout, _onLoadTimeout);
     // Content must not play under the pre-roll.
     unawaited(_safe(widget.controller.pause));
   }
 
   Future<void> _loadBreaks() async {
-    final raw = await loadVmapBreaks(
-      widget.adTagUrl,
-      fetcher: widget.vmapFetcher,
-    );
-    final duration = widget.controller.value.duration;
-    if (_disposed || raw.isEmpty || duration <= Duration.zero) return;
-    _timeline = AdTimeline(raw.map((b) => b.resolve(duration)).nonNulls);
-    _publish(widget.controller.value.position);
+    try {
+      final raw = await loadVmapBreaks(
+        widget.adTagUrl,
+        fetcher: widget.vmapFetcher,
+      );
+      final duration = widget.controller.value.duration;
+      if (_disposed || raw.isEmpty || duration <= Duration.zero) return;
+      _timeline = AdTimeline(raw.map((b) => b.resolve(duration)).nonNulls);
+      _publish(widget.controller.value.position);
+    } catch (_) {}
+  }
+
+  void _onLoadTimeout() {
+    if (_disposed || _pauseSeen || _showContent) return;
+    _timedOut = true;
+    widget.config.onAdError?.call('Ad load timed out');
+    unawaited(_resumeContent());
+  }
+
+  void _destroy(AdsManager? manager) {
+    if (manager != null) unawaited(_safe(manager.destroy));
   }
 
   void _publish(Duration position, {bool countdown = true}) {
@@ -100,7 +117,9 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
         ? duration - const Duration(milliseconds: 200)
         : next.offset;
     unawaited(_safe(() => c.seekTo(target)));
-    unawaited(_progress.setProgress(progress: target, duration: duration));
+    unawaited(
+      _safe(() => _progress.setProgress(progress: target, duration: duration)),
+    );
   }
 
   void _onContainerAdded(AdDisplayContainer container) {
@@ -135,7 +154,9 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
 
   void _onAdsLoaded(OnAdsLoadedData data) {
     final manager = data.manager;
-    unawaited(_manager?.destroy() ?? Future<void>.value());
+    // From here the no-pre-roll fallback owns the wait.
+    _loadTimeout?.cancel();
+    _destroy(_manager);
     _manager = manager;
 
     manager.setAdsManagerDelegate(
@@ -145,13 +166,13 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
           widget.config.onAdEvent?.call(event);
           switch (event.type) {
             case AdEventType.loaded:
-              manager.start();
+              unawaited(_safe(manager.start));
             case AdEventType.contentPauseRequested:
-              _pauseContent();
+              unawaited(_pauseContent());
             case AdEventType.contentResumeRequested:
-              _resumeContent();
+              unawaited(_resumeContent());
             case AdEventType.allAdsCompleted:
-              manager.destroy();
+              _destroy(manager);
               _timeline.markAllPlayed();
               _publish(widget.controller.value.position, countdown: false);
               if (identical(_manager, manager)) _manager = null;
@@ -169,13 +190,20 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     _pauseSeen = false;
     _noPreRollFallback?.cancel();
     _noPreRollFallback = Timer(const Duration(milliseconds: 1500), () {
-      if (_disposed || _pauseSeen || _showContent) return;
+      if (_disposed || _pauseSeen) return;
+      // Content already revealed by the load timeout: still start the
+      // manager, or a late campaign's mid-rolls would never play.
+      if (_showContent && !_timedOut) return;
       unawaited(_safe(manager.start));
-      _resumeContent();
+      if (!_showContent) _resumeContent();
     });
-    manager.init(
-      settings: AdsRenderingSettings(
-        enablePreloading: widget.config.enablePreloading,
+    unawaited(
+      _safe(
+        () => manager.init(
+          settings: AdsRenderingSettings(
+            enablePreloading: widget.config.enablePreloading,
+          ),
+        ),
       ),
     );
   }
@@ -184,6 +212,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     if (_disposed) return;
     _pauseSeen = true;
     _noPreRollFallback?.cancel();
+    _loadTimeout?.cancel();
     _timeline.markPlayedNear(widget.controller.value.position);
     _publish(widget.controller.value.position, countdown: false);
     _stopTimer();
@@ -197,6 +226,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
 
   Future<void> _resumeContent() async {
     if (_disposed) return;
+    _loadTimeout?.cancel();
     setState(() {
       _showContent = true;
       _adActive = false;
@@ -210,20 +240,22 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
 
   void _startTimer() {
     _timer ??= Timer.periodic(widget.config.progressInterval, (_) async {
-      final c = widget.controller;
-      if (_disposed || !c.value.isInitialized || _adActive) return;
-      final position = c.value.position;
-      final duration = c.value.duration;
-      await _progress.setProgress(progress: position, duration: duration);
-      _publish(position);
+      try {
+        final c = widget.controller;
+        if (_disposed || !c.value.isInitialized || _adActive) return;
+        final position = c.value.position;
+        final duration = c.value.duration;
+        await _progress.setProgress(progress: position, duration: duration);
+        _publish(position);
 
-      final atEnd =
-          duration > Duration.zero &&
-          position >= duration - const Duration(milliseconds: 300);
-      if (atEnd && !_contentCompleteSent && !_adActive) {
-        _contentCompleteSent = true;
-        await _loader?.contentComplete();
-      }
+        final atEnd =
+            duration > Duration.zero &&
+            position >= duration - const Duration(milliseconds: 300);
+        if (atEnd && !_contentCompleteSent && !_adActive) {
+          _contentCompleteSent = true;
+          await _loader?.contentComplete();
+        }
+      } catch (_) {}
     });
   }
 
@@ -254,11 +286,14 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       _lastState = state;
       return;
     }
-    if (state == AppLifecycleState.resumed) {
-      _manager?.resume();
-    } else if (state == AppLifecycleState.inactive &&
-        _lastState == AppLifecycleState.resumed) {
-      _manager?.pause();
+    final manager = _manager;
+    if (manager != null) {
+      if (state == AppLifecycleState.resumed) {
+        unawaited(_safe(manager.resume));
+      } else if (state == AppLifecycleState.inactive &&
+          _lastState == AppLifecycleState.resumed) {
+        unawaited(_safe(manager.pause));
+      }
     }
     _lastState = state;
   }
@@ -270,8 +305,9 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     widget.controller.removeListener(_onControllerValue);
     _stopTimer();
     _noPreRollFallback?.cancel();
+    _loadTimeout?.cancel();
     _state.dispose();
-    unawaited(_manager?.destroy() ?? Future<void>.value());
+    _destroy(_manager);
     _manager = null;
     super.dispose();
   }

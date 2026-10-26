@@ -292,6 +292,78 @@ void main() {
       expect(contentVisible(), isTrue);
       await unmount(tester);
     });
+
+    testWidgets('load timeout shows and plays content when IMA never answers', (
+      tester,
+    ) async {
+      await pumpLayer(tester);
+      // No ads loaded, no error: the SDK hangs.
+      await tester.pump(const Duration(milliseconds: 7900));
+      expect(contentVisible(), isFalse);
+
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(contentVisible(), isTrue);
+      expect(controller.value.isPlaying, isTrue);
+      expect(adErrors, ['Ad load timed out']);
+      await unmount(tester);
+    });
+
+    testWidgets('ads loading just before the timeout still get started', (
+      tester,
+    ) async {
+      await pumpLayer(tester);
+      await tester.pump(const Duration(seconds: 7));
+      final manager = loadAds();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(contentVisible(), isTrue);
+      expect(manager.startCalls, 1);
+      expect(adErrors, isEmpty);
+      await unmount(tester);
+    });
+
+    testWidgets('ads loading after the timeout still get started '
+        '(otherwise mid-rolls never play)', (tester) async {
+      await pumpLayer(tester);
+      await tester.pump(const Duration(seconds: 9));
+      expect(contentVisible(), isTrue);
+
+      final manager = loadAds();
+      await tester.pump(const Duration(milliseconds: 1600));
+
+      expect(contentVisible(), isTrue);
+      expect(manager.startCalls, 1);
+      await unmount(tester);
+    });
+
+    testWidgets('load timeout does not interrupt a playing pre-roll', (
+      tester,
+    ) async {
+      await pumpLayer(tester);
+      final manager = loadAds();
+      await tester.pump();
+      manager.emit(AdEventType.loaded);
+      manager.emit(AdEventType.contentPauseRequested);
+      await tester.pump(const Duration(seconds: 10));
+
+      expect(contentVisible(), isFalse);
+      expect(adErrors, isEmpty);
+      manager.emit(AdEventType.contentResumeRequested);
+      await tester.pump();
+      await unmount(tester);
+    });
+
+    testWidgets('a null load timeout disables it', (tester) async {
+      await pumpLayer(
+        tester,
+        adConfig: ChorkiAdConfig(loadTimeout: null, onAdError: adErrors.add),
+      );
+      await tester.pump(const Duration(seconds: 30));
+
+      expect(contentVisible(), isFalse);
+      expect(adErrors, isEmpty);
+      await unmount(tester);
+    });
   });
 
   group('markers and countdown', () {

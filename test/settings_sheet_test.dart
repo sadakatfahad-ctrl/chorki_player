@@ -191,6 +191,32 @@ void main() {
     await cleanUp(tester);
   });
 
+  testWidgets('entering PiP mid-scrub still resumes playback on release', (
+    tester,
+  ) async {
+    await pumpSurface(tester);
+    await video.play();
+    await tester.pump();
+
+    final gesture = await tester.startGesture(const Offset(200, 300));
+    await tester.pump();
+    for (var i = 0; i < 10; i++) {
+      await gesture.moveBy(const Offset(20, 0));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(video.value.isPlaying, isFalse); // paused by the scrub
+
+    await chorki.enterPip();
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+
+    expect(video.value.isPlaying, isTrue);
+    await video.pause();
+    await tester.pump(const Duration(seconds: 2));
+    await cleanUp(tester);
+  });
+
   testWidgets('no settings button without a chorkiController', (tester) async {
     await tester.runAsync(() async {
       video = await createTestController(platform);

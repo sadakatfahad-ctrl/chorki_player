@@ -93,6 +93,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onControllerValue);
+      _restoreSpeed(oldWidget.controller);
       _resetGestureState();
       widget.controller.addListener(_onControllerValue);
       _notifyGesturesActive(false);
@@ -103,16 +104,20 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
   void dispose() {
     _disposed = true;
     _controller.removeListener(_onControllerValue);
+    // Must run before the reset, which clears the hold flag.
+    _restoreSpeed(_controller);
     _resetGestureState();
-    if (_resumeOnScrubEnd) {
-      _resumeOnScrubEnd = false;
-      _safe(() => _controller.play());
-    }
-    if (_speedHoldActive) {
-      _speedHoldActive = false;
-      _safe(() => _controller.setPlaybackSpeed(_speedBeforeHold));
-    }
     super.dispose();
+  }
+
+  /// Undoes a long-press speed hold when the overlay goes away mid-press (ad
+  /// break, controller swap). A scrub's pause is deliberately not undone: the
+  /// ad layer pauses content right before removing the overlay, and a swapped
+  /// controller is off screen.
+  void _restoreSpeed(VideoPlayerController controller) {
+    if (_speedHoldActive) {
+      _safe(() => controller.setPlaybackSpeed(_speedBeforeHold));
+    }
   }
 
   void _onControllerValue() {

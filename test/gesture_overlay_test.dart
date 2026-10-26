@@ -270,6 +270,28 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('removing the overlay mid-hold restores the speed '
+        '(bug: dispose checked the flag after clearing it)', (tester) async {
+      await pumpOverlay(tester);
+      await controller.play();
+      await tester.pump();
+      platform.resetLog();
+
+      final gesture = await tester.startGesture(const Offset(400, 300));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(platform.speedCalls.single.$2, 2.0);
+
+      // e.g. an ad break removes the surface while the finger is down.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+
+      expect(platform.speedCalls.last.$2, 1.0);
+      expect(controller.value.playbackSpeed, 1.0);
+      await gesture.up();
+      await controller.pause();
+      await tester.pump();
+    });
+
     testWidgets('long press does not toggle play/pause', (tester) async {
       await pumpOverlay(tester);
       platform.resetLog();
@@ -323,6 +345,44 @@ void main() {
       expect(controller.value.isPlaying, isFalse);
       await tester.runAsync(() => secondController.dispose());
       await gesture.up();
+      await tester.pump();
+    });
+
+    testWidgets('swapping controllers mid-hold restores the old speed', (
+      tester,
+    ) async {
+      await pumpOverlay(tester);
+      await controller.play();
+      await tester.pump();
+
+      final gesture = await tester.startGesture(const Offset(400, 300));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(controller.value.playbackSpeed, 2.0);
+
+      final secondController = VideoPlayerController.networkUrl(
+        Uri.parse('https://test.local/video2.mp4'),
+      );
+      await tester.runAsync(() => secondController.initialize());
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox.expand(
+              child: PlayerGestureOverlay(
+                controller: secondController,
+                onTogglePlayPause: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(controller.value.playbackSpeed, 1.0);
+      expect(secondController.value.playbackSpeed, 1.0);
+      await gesture.up();
+      await tester.pump();
+      await tester.runAsync(() => secondController.dispose());
+      await controller.pause();
       await tester.pump();
     });
   });

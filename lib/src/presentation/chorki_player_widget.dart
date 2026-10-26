@@ -4,6 +4,7 @@ import 'package:chorki_player/src/ads/chorki_ad_config.dart';
 import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
 import 'package:chorki_player/src/controllers/chorki_player_controller.dart';
 import 'package:chorki_player/src/controllers/video_preloader.dart';
+import 'package:chorki_player/src/domain/entity/ad_campaign_entity.dart';
 import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
 import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
 import 'package:chorki_player/src/injection_container.dart';
@@ -40,9 +41,59 @@ class ChorkiPlayer extends StatefulWidget {
     this.showSettingsButton = true,
     this.speedOptions = defaultChorkiSpeedOptions,
     this.initialFit = ChorkiVideoFit.fit,
-  }) : assert(seekBarBottomOffset >= 0);
+    this.sizeToVideo = false,
+    this.placeholderAspectRatio = 16 / 9,
+  }) : videoUrl = null,
+       posterUrl = '',
+       adTagUrl = '',
+       assert(seekBarBottomOffset >= 0),
+       assert(placeholderAspectRatio > 0);
 
+  /// Plays [videoUrl] directly instead of fetching a Chorki route.
+  ///
+  /// [videoUrl] is a network URL (MP4, HLS, DASH…) or an `asset:` URI for a
+  /// bundled file, e.g. `asset:assets/videos/clip.mp4`. [posterUrl] is shown
+  /// while the video loads; [adTagUrl] enables IMA ads when [ads] is set.
+  const ChorkiPlayer.url(
+    String this.videoUrl, {
+    super.key,
+    this.posterUrl = '',
+    this.adTagUrl = '',
+    this.autoPlay = true,
+    this.looping = true,
+    this.showSeekBar = true,
+    this.seekBarBottomOffset = 0,
+    this.enableGestures = true,
+    this.doubleTapSeek = const Duration(seconds: 10),
+    this.longPressSpeed = 2.0,
+    this.theme = const ChorkiPlayerTheme(),
+    this.icons = const ChorkiPlayerIcons(),
+    this.strings = const ChorkiPlayerStrings(),
+    this.builders = const ChorkiPlayerBuilders(),
+    this.initTimeout = const Duration(seconds: 15),
+    this.ads,
+    this.controller,
+    this.mediaOptions = const ChorkiMediaOptions(),
+    this.showSettingsButton = true,
+    this.speedOptions = defaultChorkiSpeedOptions,
+    this.initialFit = ChorkiVideoFit.fit,
+    this.sizeToVideo = false,
+    this.placeholderAspectRatio = 16 / 9,
+  }) : route = '',
+       assert(seekBarBottomOffset >= 0),
+       assert(placeholderAspectRatio > 0);
+
+  /// Chorki API route that resolves to the video. Empty for [ChorkiPlayer.url].
   final String route;
+
+  /// Set by [ChorkiPlayer.url]; null when playing a [route].
+  final String? videoUrl;
+
+  /// Poster for [ChorkiPlayer.url].
+  final String posterUrl;
+
+  /// IMA ad tag for [ChorkiPlayer.url].
+  final String adTagUrl;
 
   final bool autoPlay;
 
@@ -87,6 +138,15 @@ class ChorkiPlayer extends StatefulWidget {
   /// Initial fit of the internal controller (ignored when [controller] is set).
   final ChorkiVideoFit initialFit;
 
+  /// Sizes the player to the video's aspect ratio instead of filling the
+  /// parent, so it can sit in a `Column` or `ListView` without a fixed height.
+  /// Needs a bounded width. Under tight constraints the parent still wins.
+  final bool sizeToVideo;
+
+  /// Aspect ratio used by [sizeToVideo] until the video is loaded (and on
+  /// errors).
+  final double placeholderAspectRatio;
+
   @override
   State<ChorkiPlayer> createState() => _ChorkiPlayerState();
 }
@@ -116,7 +176,23 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     super.initState();
     initChorkiPlayer();
     _bloc = BytesBloc(getByteDataUsecase: getIt<BytesUsecase>())
-      ..add(ByteScreenInitialEvent(widget.route));
+      ..add(_loadEvent());
+  }
+
+  ByteScreenEvent _loadEvent() {
+    final url = widget.videoUrl;
+    if (url == null) return ByteScreenInitialEvent(widget.route);
+    final tag = widget.adTagUrl;
+    return ByteScreenSourceEvent(
+      ByteDataEntity(
+        id: 0,
+        thumbnailUrl: widget.posterUrl,
+        url: url,
+        adCampaign: tag.isEmpty
+            ? null
+            : AdCampaignEntity(id: '', title: '', url: tag),
+      ),
+    );
   }
 
   @override
@@ -133,15 +209,33 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       final c = _controller;
       if (c != null) _chorki.attach(c, onRetry: _retry);
     }
-    if (oldWidget.route != widget.route) {
+    if (oldWidget.route != widget.route ||
+        oldWidget.videoUrl != widget.videoUrl ||
+        oldWidget.posterUrl != widget.posterUrl ||
+        oldWidget.adTagUrl != widget.adTagUrl) {
       unawaited(_resetVideo());
-      _bloc.add(ByteScreenInitialEvent(widget.route));
+      _bloc.add(_loadEvent());
     } else if (oldWidget.looping != widget.looping) {
-      _controller?.setLooping(widget.looping);
+      final c = _controller;
+      if (c != null) unawaited(_safe(() => c.setLooping(widget.looping)));
     }
   }
 
+  Future<void> _safe(Future<void> Function() action) async {
+    try {
+      await action();
+    } catch (_) {}
+  }
+
   Future<void> _startVideo(ByteDataEntity byteData) async {
+    try {
+      await _loadVideo(byteData);
+    } catch (_) {
+      if (mounted) setState(() => _videoFailed = true);
+    }
+  }
+
+  Future<void> _loadVideo(ByteDataEntity byteData) async {
     final gen = ++_loadGen;
     if (byteData.url.isEmpty) {
       if (mounted) setState(() => _videoFailed = true);
@@ -170,9 +264,9 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     controller.addListener(_onControllerValue);
     _chorki.attach(controller, onRetry: _retry);
 
-    controller.setLooping(widget.looping);
+    unawaited(_safe(() => controller.setLooping(widget.looping)));
     if (widget.autoPlay && !_adsActive(byteData)) {
-      unawaited(controller.play());
+      unawaited(_safe(controller.play));
     }
 
     setState(() {
@@ -206,17 +300,15 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
 
   void _retry() {
     unawaited(_resetVideo());
-    _bloc.add(ByteScreenInitialEvent(widget.route));
+    _bloc.add(_loadEvent());
   }
 
   void _togglePlayPause() {
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) return;
-    if (controller.value.isPlaying) {
-      controller.pause();
-    } else {
-      controller.play();
-    }
+    unawaited(
+      _safe(controller.value.isPlaying ? controller.pause : controller.play),
+    );
   }
 
   @override
@@ -247,13 +339,23 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       child: BlocBuilder<BytesBloc, ByteScreenState>(
         bloc: _bloc,
         builder: (context, state) {
-          return ColoredBox(
+          final body = ColoredBox(
             color: widget.theme.backgroundColor,
             child: _buildBody(state),
           );
+          if (!widget.sizeToVideo) return body;
+          return AspectRatio(aspectRatio: _aspectRatio, child: body);
         },
       ),
     );
+  }
+
+  double get _aspectRatio {
+    final value = _controller?.value;
+    if (_videoFailed || value == null || !value.isInitialized) {
+      return widget.placeholderAspectRatio;
+    }
+    return value.aspectRatio;
   }
 
   Widget _buildBody(ByteScreenState state) {
@@ -264,7 +366,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       return _buildError(state.message, _retry);
     }
     if (_videoFailed) {
-      return _buildError(widget.strings.videoFailed, null);
+      return _buildError(widget.strings.videoFailed, _retry);
     }
 
     final controller = _controller;
@@ -300,10 +402,14 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       children: [
         if (hasPoster)
           Positioned.fill(
-            child: Image.network(
-              poster,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => const SizedBox.shrink(),
+            // Same fit as the video, so the poster-to-video handoff is seamless.
+            child: ValueListenableBuilder<ChorkiVideoFit>(
+              valueListenable: _chorki.fit,
+              builder: (context, fit, _) => Image.network(
+                poster,
+                fit: fit == ChorkiVideoFit.fill ? BoxFit.cover : BoxFit.contain,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
             ),
           ),
         Center(
@@ -371,8 +477,44 @@ class _PlayerErrorView extends StatelessWidget {
   final ChorkiPlayerIcons icons;
   final ChorkiPlayerStrings strings;
 
+  /// Below this height the stacked message + button can't fit, e.g. a very
+  /// wide video with [ChorkiPlayer.sizeToVideo].
+  static const double _compactBelowHeight = 160;
+
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          constraints.maxHeight < _compactBelowHeight ? _compact() : _full(),
+    );
+  }
+
+  /// One line, scaled down to whatever space there is.
+  Widget _compact() {
+    final retry = onRetry;
+    return Padding(
+      padding: const EdgeInsets.all(4),
+      child: Center(
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(message, maxLines: 1, style: theme.errorTextStyle),
+              if (retry != null)
+                IconButton(
+                  onPressed: retry,
+                  tooltip: strings.retry,
+                  icon: Icon(icons.refresh, color: theme.iconColor),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _full() {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),

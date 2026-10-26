@@ -70,6 +70,37 @@ class ChorkiPlayerSurface extends StatefulWidget {
 class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
   bool _gesturesActive = false;
 
+  // The size is only known once the controller is initialized, which may
+  // happen after the surface is built (feeds pass controllers early).
+  late Size _videoSize = widget.controller.value.size;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onVideoValue);
+  }
+
+  @override
+  void didUpdateWidget(covariant ChorkiPlayerSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onVideoValue);
+      widget.controller.addListener(_onVideoValue);
+      _videoSize = widget.controller.value.size;
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onVideoValue);
+    super.dispose();
+  }
+
+  void _onVideoValue() {
+    final size = widget.controller.value.size;
+    if (size != _videoSize && mounted) setState(() => _videoSize = size);
+  }
+
   @override
   Widget build(BuildContext context) {
     final chorki = widget.chorkiController;
@@ -96,24 +127,35 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
           key: const Key('chorki_video_fit'),
           fit: fit == ChorkiVideoFit.fill ? BoxFit.cover : BoxFit.contain,
           child: SizedBox(
-            width: controller.value.size.width,
-            height: controller.value.size.height,
+            width: _videoSize.width,
+            height: _videoSize.height,
             child: VideoPlayer(controller),
           ),
         ),
       ),
     );
 
-    // PiP window: video only.
-    if (inPip) {
-      return Stack(alignment: Alignment.center, children: [video]);
-    }
-
+    // PiP window: video only. The controls stay mounted offstage rather than
+    // being removed, so a scrub or long-press in progress still finishes and
+    // resumes playback / restores the speed.
     return Stack(
       alignment: Alignment.center,
       children: [
         video,
+        Positioned.fill(
+          child: Offstage(
+            offstage: inPip,
+            child: _controls(context, controller),
+          ),
+        ),
+      ],
+    );
+  }
 
+  Widget _controls(BuildContext context, VideoPlayerController controller) {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
         Positioned.fill(
           child: widget.enableGestures
               ? PlayerGestureOverlay(
