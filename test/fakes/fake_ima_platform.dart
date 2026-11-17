@@ -70,8 +70,7 @@ base class FakeImaPlatform extends InteractiveMediaAdsPlatform {
 /// Container whose widget is a [SizedBox] that reports itself to the SDK
 /// (via `onContainerAdded`) once it has been built.
 base class FakeAdDisplayContainer extends PlatformAdDisplayContainer {
-  FakeAdDisplayContainer(super.params)
-    : super.implementation();
+  FakeAdDisplayContainer(super.params) : super.implementation();
 
   @override
   Widget build(BuildContext context) {
@@ -104,8 +103,7 @@ class _ContainerProbeState extends State<_ContainerProbe> {
 /// Records `requestAds` / `contentComplete`. Tests trigger loading through
 /// `params.onAdsLoaded` or `params.onAdsLoadError`.
 base class FakeAdsLoader extends PlatformAdsLoader {
-  FakeAdsLoader(super.params)
-    : super.implementation();
+  FakeAdsLoader(super.params) : super.implementation();
 
   final List<PlatformAdsRequest> requests = [];
   int contentCompleteCalls = 0;
@@ -170,7 +168,9 @@ class FakeAdsManager extends PlatformAdsManager {
   }
 
   @override
-  Future<void> setAdsManagerDelegate(PlatformAdsManagerDelegate delegate) async {
+  Future<void> setAdsManagerDelegate(
+    PlatformAdsManagerDelegate delegate,
+  ) async {
     this.delegate = delegate;
   }
 
@@ -197,14 +197,12 @@ class FakeAdsManager extends PlatformAdsManager {
 }
 
 base class FakeAdsManagerDelegate extends PlatformAdsManagerDelegate {
-  FakeAdsManagerDelegate(super.params)
-    : super.implementation();
+  FakeAdsManagerDelegate(super.params) : super.implementation();
 }
 
 /// Records every `setProgress` call as `(progress, duration)`.
 base class FakeContentProgressProvider extends PlatformContentProgressProvider {
-  FakeContentProgressProvider(super.params)
-    : super.implementation();
+  FakeContentProgressProvider(super.params) : super.implementation();
 
   final List<(Duration, Duration)> calls = [];
 
@@ -220,13 +218,11 @@ base class FakeContentProgressProvider extends PlatformContentProgressProvider {
 }
 
 base class FakeAdsRenderingSettings extends PlatformAdsRenderingSettings {
-  FakeAdsRenderingSettings(super.params)
-    : super.implementation();
+  FakeAdsRenderingSettings(super.params) : super.implementation();
 }
 
 base class FakeImaSettings extends PlatformImaSettings {
-  FakeImaSettings(super.params)
-    : super.implementation();
+  FakeImaSettings(super.params) : super.implementation();
 
   @override
   Future<void> setPpid(String ppid) async {}

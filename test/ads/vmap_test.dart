@@ -27,11 +27,7 @@ void main() {
     test('parses the real sample into three mid-rolls', () {
       final breaks = parseVmap(_sampleVmap);
       expect(breaks.length, 3);
-      expect(breaks.map((b) => b.id), [
-        'midroll-0',
-        'midroll-1',
-        'midroll-2',
-      ]);
+      expect(breaks.map((b) => b.id), ['midroll-0', 'midroll-1', 'midroll-2']);
       expect(breaks.map((b) => b.kind).toSet(), {ChorkiAdBreakKind.midRoll});
       expect(breaks[0].absolute, const Duration(minutes: 2));
       expect(breaks[1].absolute, const Duration(minutes: 4));

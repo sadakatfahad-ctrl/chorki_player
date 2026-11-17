@@ -12,6 +12,12 @@ layout at the top of the player page:
 The line under the switch shows the expected shape next to the size the
 platform reports. The FIT/FILL button toggles letterbox and crop.
 
+The first entry, **Bytes feed (preload)**, is a vertical `PageView` feed of
+the portrait Commons clips and the Chorki routes. The byte on screen plays;
+the ones above and below are built with `preload: true`, so a swipe starts
+without a spinner. One shared controller drives the visible byte, and the
+progress line under the app bar follows it.
+
 ## Sources
 
 | Group | What it covers |

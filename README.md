@@ -26,6 +26,8 @@ and safe video controller lifecycle handling.
   with `Either<Failure, ByteDataEntity>` results.
 - **HTTP/2 networking** via Dio with sane timeouts.
 - **`VideoPreloader`** helper for building custom shorts/feeds experiences.
+- **Preloading for feeds**: `preload: true` fetches and buffers a byte off
+  screen without playing it, so the next swipe starts instantly.
 - **Google IMA ads** — pre-, mid-, and post-roll ads from the reel's
   `data.ad_campaign` VMAP, with event and error callbacks.
 - **Player controller**: `ChorkiPlayerController` lets you drive playback,
@@ -44,7 +46,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  chorki_player: ^1.4.0
+  chorki_player: ^1.5.0
 ```
 
 ## Usage
@@ -53,7 +55,7 @@ dependencies:
 import 'package:chorki_player/chorki_player.dart';
 
 class PlayerPage extends StatelessWidget {
-  const PlayerPage({super.key});
+  const PlayerPage(claude{super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +138,55 @@ ChorkiPlayer(
 | Horizontal drag    | Scrub — one screen width ≈ 90 seconds     |
 | Long press         | Hold 2× speed, releases restore 1×        |
 
+### Preloading in a feed
+
+In a Bytes feed, set `preload` on every page except the current one. A
+preloading player fetches the route, initializes and buffers the video, and
+shows its first frame, but does not play. When `preload` turns off, it plays
+at once (if `autoPlay` is on). When it turns back on, the player pauses and
+rewinds to the start, so the next visit plays it as a fresh view.
+
+```dart
+PageView.builder(
+  scrollDirection: Axis.vertical,
+  // Keeps the page above and below the current one built, so they preload.
+  allowImplicitScrolling: true,
+  itemCount: bytes.length,
+  onPageChanged: (i) => setState(() => current = i),
+  itemBuilder: (context, i) => ChorkiPlayer(
+    route: bytes[i].route,
+    controller: controller, // optional: one controller can serve the feed
+    preload: i != current,
+  ),
+)
+```
+
+- A plain `PageView` builds only the current page, so nothing would preload.
+  `allowImplicitScrolling: true` keeps one page on each side built.
+- Preload at most one page on each side. Every preloaded player holds its own
+  video decoder, and some Android devices allow only a few at a time.
+- While preloading, the player shows no controls, requests no ads, and leaves
+  `controller` unattached. So one `ChorkiPlayerController` can be shared by
+  every page: it always drives the byte on screen.
+- Ads start when the byte becomes active. With a pre-roll, the content waits
+  for the ad as usual, and the pre-roll plays again when the user comes back.
+- Players are created at most two at a time, the byte on screen first
+  (`VideoLoadScheduler`). A page you swipe past before its turn never creates
+  a player, so fast swiping doesn't run out of decoders. To change the limit,
+  set `VideoLoadScheduler.instance = VideoLoadScheduler(maxConcurrent: 3);`
+  at startup.
+- Transient failures (a network drop, a video that fails to initialize or
+  errors mid-playback) are retried silently twice, after 1s and 3s, with the
+  poster showing. A playback error resumes where it stopped. Only then does
+  the byte on screen show the error view. A preloading byte never shows it:
+  it retries when it becomes active.
+- Resolved routes are cached for 5 minutes, so scrolling back to a byte
+  doesn't fetch it again. A retry after a video failure skips the cache, in
+  case the video URL went stale. A route request whose connection drops
+  (for example a stale HTTP/2 connection) is retried twice right away.
+- `onPageChanged` fires once a page is more than half on screen, so the new
+  byte starts during the swipe.
+
 ### Reusable widgets for custom feeds
 
 `ChorkiPlayerSurface`, `ShortsSeekBar`, and `PlayerGestureOverlay` are all
@@ -157,6 +208,9 @@ ChorkiPlayerSurface(
   ),
 );
 ```
+
+`showControls: false` renders only the video, for example on a page that is
+still preloading off screen.
 
 ## Customization
 

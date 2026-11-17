@@ -41,17 +41,11 @@ void main() {
     });
 
     test('4.2s away rounds up to 5', () {
-      expect(
-        timeline.countdownSeconds(const Duration(milliseconds: 55800)),
-        5,
-      );
+      expect(timeline.countdownSeconds(const Duration(milliseconds: 55800)), 5);
     });
 
     test('0.1s away shows 1', () {
-      expect(
-        timeline.countdownSeconds(const Duration(milliseconds: 59900)),
-        1,
-      );
+      expect(timeline.countdownSeconds(const Duration(milliseconds: 59900)), 1);
     });
 
     test('exactly 1s away shows 1', () {
@@ -97,10 +91,7 @@ void main() {
     test('post-roll counts toward the countdown', () {
       const duration = Duration(seconds: 600);
       final t = AdTimeline([_post('post', duration)]);
-      expect(
-        t.countdownSeconds(const Duration(seconds: 596)),
-        4,
-      );
+      expect(t.countdownSeconds(const Duration(seconds: 596)), 4);
       expect(t.countdownSeconds(const Duration(seconds: 590)), isNull);
     });
   });

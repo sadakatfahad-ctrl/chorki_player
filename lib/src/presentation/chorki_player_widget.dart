@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:chorki_player/src/ads/chorki_ad_config.dart';
 import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
 import 'package:chorki_player/src/controllers/chorki_player_controller.dart';
+import 'package:chorki_player/src/controllers/video_load_scheduler.dart';
 import 'package:chorki_player/src/controllers/video_preloader.dart';
 import 'package:chorki_player/src/domain/entity/ad_campaign_entity.dart';
 import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
@@ -24,6 +25,7 @@ class ChorkiPlayer extends StatefulWidget {
     super.key,
     required this.route,
     this.autoPlay = true,
+    this.preload = false,
     this.looping = true,
     this.showSeekBar = true,
     this.seekBarBottomOffset = 0,
@@ -60,6 +62,7 @@ class ChorkiPlayer extends StatefulWidget {
     this.posterUrl = '',
     this.adTagUrl = '',
     this.autoPlay = true,
+    this.preload = false,
     this.looping = true,
     this.showSeekBar = true,
     this.seekBarBottomOffset = 0,
@@ -96,6 +99,20 @@ class ChorkiPlayer extends StatefulWidget {
   final String adTagUrl;
 
   final bool autoPlay;
+
+  /// Loads and buffers the video without playing it, for feeds that build
+  /// the next byte ahead of time: `preload: index != current`.
+  ///
+  /// While preloading, the player shows only the first frame (no controls),
+  /// requests no ads, and leaves [controller] unattached, so one controller
+  /// can be shared by every page of a feed. Its load waits behind the
+  /// visible player's (see [VideoLoadScheduler]). A failure while preloading
+  /// keeps the poster instead of the error view, and retries when the byte
+  /// becomes active. Turning it off attaches
+  /// [controller], starts the ads and plays when [autoPlay] is set. Turning
+  /// it back on pauses and rewinds to the start
+  /// ([ChorkiMediaOptions.startPosition], else 0:00).
+  final bool preload;
 
   final bool looping;
 
@@ -171,17 +188,46 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   bool _videoFailed = false;
   int _loadGen = 0;
 
+  /// Waits before each silent retry of a transient failure (route fetch,
+  /// video init, playback error). The error view shows once they are used
+  /// up. The count resets on a manual retry, a new source and when a
+  /// preloading byte becomes active.
+  static const List<Duration> _autoRetryDelays = [
+    Duration(seconds: 1),
+    Duration(seconds: 3),
+  ];
+  int _autoRetries = 0;
+
+  /// Pending silent retry. While set, the player shows the poster.
+  Timer? _retryTimer;
+
+  /// Where to resume after a playback error on screen, so a retry continues
+  /// instead of restarting the byte.
+  Duration? _resumeAt;
+
+  /// Position of [_controller] before any error (an erroneous value has none).
+  Duration _lastPosition = Duration.zero;
+
+  /// [ChorkiPlayer.preload] as applied. A flip is applied after the frame
+  /// (see [_syncPreload]): attaching, playing and pausing notify a shared
+  /// controller's listeners, which may live outside this subtree and must
+  /// not be marked dirty during build.
+  late bool _preloading;
+
   @override
   void initState() {
     super.initState();
+    _preloading = widget.preload;
     initChorkiPlayer();
     _bloc = BytesBloc(getByteDataUsecase: getIt<BytesUsecase>())
       ..add(_loadEvent());
   }
 
-  ByteScreenEvent _loadEvent() {
+  ByteScreenEvent _loadEvent({bool refresh = false}) {
     final url = widget.videoUrl;
-    if (url == null) return ByteScreenInitialEvent(widget.route);
+    if (url == null) {
+      return ByteScreenInitialEvent(widget.route, refresh: refresh);
+    }
     final tag = widget.adTagUrl;
     return ByteScreenSourceEvent(
       ByteDataEntity(
@@ -200,24 +246,66 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       final old = oldWidget.controller ?? _ownController;
-      old?.detach(_controller);
-      old?.setAdPlaying(false);
+      final c = _controller;
+      // detach(null) would unbind whatever video `old` drives, which may
+      // belong to another player sharing it.
+      if (c != null) old?.detach(c);
       if (widget.controller != null) {
         _ownController?.dispose();
         _ownController = null;
       }
-      final c = _controller;
-      if (c != null) _chorki.attach(c, onRetry: _retry);
+      if (c != null && !_preloading) _chorki.attach(c, onRetry: _retry);
     }
     if (oldWidget.route != widget.route ||
         oldWidget.videoUrl != widget.videoUrl ||
         oldWidget.posterUrl != widget.posterUrl ||
         oldWidget.adTagUrl != widget.adTagUrl) {
+      _resetRetries();
       unawaited(_resetVideo());
       _bloc.add(_loadEvent());
     } else if (oldWidget.looping != widget.looping) {
       final c = _controller;
       if (c != null) unawaited(_safe(() => c.setLooping(widget.looping)));
+    }
+    if (oldWidget.preload != widget.preload) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncPreload());
+    }
+  }
+
+  /// Applies a [ChorkiPlayer.preload] flip. Back-and-forth flips within a
+  /// frame cancel out.
+  void _syncPreload() {
+    if (!mounted || _preloading == widget.preload) return;
+    final controller = _controller;
+    if (widget.preload) {
+      // Swiped away: the next visit plays it as a fresh view.
+      _resumeAt = null;
+      if (controller != null) {
+        _chorki.detach(controller);
+        final start = widget.mediaOptions.startPosition ?? Duration.zero;
+        unawaited(
+          _safe(() async {
+            await controller.pause();
+            await controller.seekTo(start);
+          }),
+        );
+      }
+      setState(() => _preloading = true);
+      return;
+    }
+    setState(() => _preloading = false);
+    _resetRetries();
+    if (_videoFailed || _bloc.state is ByteScreenFailedState) {
+      // It failed off screen, e.g. on a network blip, or is waiting for a
+      // silent retry: try again now that it is seen.
+      _retry();
+    } else if (controller != null) {
+      _chorki.attach(controller, onRetry: _retry);
+      // play() marks the video playing before its first await, so the play
+      // badge never shows when the controls appear next frame.
+      if (widget.autoPlay && !_adsActive(_byteData)) {
+        unawaited(_safe(controller.play));
+      }
     }
   }
 
@@ -228,23 +316,31 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   }
 
   Future<void> _startVideo(ByteDataEntity byteData) async {
+    final gen = ++_loadGen;
     try {
-      await _loadVideo(byteData);
+      await _loadVideo(byteData, gen);
     } catch (_) {
-      if (mounted) setState(() => _videoFailed = true);
+      if (mounted && gen == _loadGen) _onVideoFailed();
     }
   }
 
-  Future<void> _loadVideo(ByteDataEntity byteData) async {
-    final gen = ++_loadGen;
+  Future<void> _loadVideo(ByteDataEntity byteData, int gen) async {
     if (byteData.url.isEmpty) {
-      if (mounted) setState(() => _videoFailed = true);
+      // Nothing to play: retrying cannot help.
+      _onVideoFailed(transient: false);
       return;
     }
 
+    final resumeAt = _resumeAt;
     final controller = await _preloader.load(
       Uri.parse(byteData.url),
-      options: widget.mediaOptions,
+      options: resumeAt == null
+          ? widget.mediaOptions
+          : widget.mediaOptions.copyWith(startPosition: resumeAt),
+      // `widget.preload`, not `_preloading`: it is a frame ahead.
+      isHighPriority: () => mounted && !widget.preload,
+      // Swiped past before its turn: it never creates a player.
+      isCancelled: () => !mounted || gen != _loadGen,
     );
 
     if (!mounted || gen != _loadGen) {
@@ -253,19 +349,22 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     }
 
     if (controller == null) {
-      setState(() => _videoFailed = true);
+      _onVideoFailed();
       return;
     }
+    _resumeAt = null;
 
     final previous = _controller;
     previous?.removeListener(_onControllerValue);
     if (previous != null) _chorki.detach(previous);
     unawaited(_preloader.disposeQuietly(previous));
+    _lastPosition = controller.value.position;
     controller.addListener(_onControllerValue);
-    _chorki.attach(controller, onRetry: _retry);
+    // A preloading player leaves a shared controller to the visible one.
+    if (!_preloading) _chorki.attach(controller, onRetry: _retry);
 
     unawaited(_safe(() => controller.setLooping(widget.looping)));
-    if (widget.autoPlay && !_adsActive(byteData)) {
+    if (widget.autoPlay && !_preloading && !_adsActive(byteData)) {
       unawaited(_safe(controller.play));
     }
 
@@ -277,9 +376,50 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
 
   void _onControllerValue() {
     final c = _controller;
-    if (c != null && c.value.hasError && !_videoFailed && mounted) {
-      setState(() => _videoFailed = true);
+    if (c != null && !c.value.hasError && c.value.isInitialized) {
+      _lastPosition = c.value.position;
     }
+    if (c != null && c.value.hasError && !_videoFailed && mounted) {
+      // The erroneous value has no position: use the last one seen.
+      final position = _lastPosition;
+      _onVideoFailed(
+        resumeAt: !_preloading && position > Duration.zero ? position : null,
+      );
+    }
+    // Nothing may play a preloading video, e.g. the ad layer resuming the
+    // content in the frame before it is removed.
+    if (c != null && _preloading && c.value.isPlaying) {
+      unawaited(_safe(c.pause));
+    }
+  }
+
+  void _onVideoFailed({bool transient = true, Duration? resumeAt}) {
+    if (!mounted) return;
+    _videoFailed = true;
+    _onLoadFailed(transient: transient, resumeAt: resumeAt);
+  }
+
+  /// A route fetch or the video failed. A [transient] failure is retried
+  /// silently a few times ([_autoRetryDelays]) before the error shows.
+  void _onLoadFailed({bool transient = true, Duration? resumeAt}) {
+    if (!mounted) return;
+    if (resumeAt != null) _resumeAt = resumeAt;
+    if (transient && _autoRetries < _autoRetryDelays.length) {
+      final delay = _autoRetryDelays[_autoRetries++];
+      _retryTimer?.cancel();
+      _retryTimer = Timer(delay, () {
+        _retryTimer = null;
+        if (mounted) _reload();
+      });
+    }
+    setState(() {});
+  }
+
+  void _resetRetries() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _autoRetries = 0;
+    _resumeAt = null;
   }
 
   bool _adsActive(ByteDataEntity? data) =>
@@ -289,8 +429,8 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     _loadGen++;
     final controller = _controller;
     controller?.removeListener(_onControllerValue);
+    // Also clears isAdPlaying, but only if this player is the attached one.
     if (controller != null) _chorki.detach(controller);
-    _chorki.setAdPlaying(false);
     _controller = null;
     _byteData = null;
     _videoFailed = false;
@@ -298,9 +438,20 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     if (mounted) setState(() {});
   }
 
+  /// Manual retry (the Retry button, [ChorkiPlayerController.retry]) or a
+  /// byte becoming active: a fresh set of silent retries.
   void _retry() {
+    _autoRetries = 0;
+    _reload();
+  }
+
+  /// Reloads the route (bypassing the route cache, in case the video URL it
+  /// returned went stale) and the video.
+  void _reload() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
     unawaited(_resetVideo());
-    _bloc.add(_loadEvent());
+    _bloc.add(_loadEvent(refresh: true));
   }
 
   void _togglePlayPause() {
@@ -313,12 +464,13 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
 
   @override
   void dispose() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
     _bloc.close();
     _loadGen++;
     final controller = _controller;
     controller?.removeListener(_onControllerValue);
     if (controller != null) widget.controller?.detach(controller);
-    widget.controller?.setAdPlaying(false);
     _ownController?.dispose();
     _ownController = null;
     _controller = null;
@@ -334,6 +486,8 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
         if (state is ByteScreenLoadedState) {
           _byteData = state.data;
           unawaited(_startVideo(state.data));
+        } else if (state is ByteScreenFailedState) {
+          _onLoadFailed();
         }
       },
       child: BlocBuilder<BytesBloc, ByteScreenState>(
@@ -359,9 +513,15 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   }
 
   Widget _buildBody(ByteScreenState state) {
+    // A silent retry is pending: keep the poster, no error flash.
+    if (_retryTimer != null) return _buildLoading(showPoster: true);
     if (state is ByteScreenLoadingState || state is ByteScreenInitialState) {
       return _buildLoading();
     }
+    final failed = state is ByteScreenFailedState || _videoFailed;
+    // Off screen (or sliding in during a swipe): it retries when it becomes
+    // active, so an error view would only flash.
+    if (failed && _preloading) return _buildLoading(showPoster: true);
     if (state is ByteScreenFailedState) {
       return _buildError(state.message, _retry);
     }
@@ -430,14 +590,22 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     final surface = _buildSurface(controller);
     final tag = _byteData?.adTagUrl ?? '';
     final ads = widget.ads;
-    if (ads == null || !ads.enabled || tag.isEmpty) return surface;
+    // Ads wait until the byte is on screen: while preloading there is no IMA
+    // request, no pre-roll and no load timeout.
+    if (_preloading || ads == null || !ads.enabled || tag.isEmpty) {
+      return surface;
+    }
     return ChorkiAdLayer(
       key: ObjectKey(controller),
       controller: controller,
       adTagUrl: tag,
       config: ads,
       autoPlay: widget.autoPlay,
-      onAdPlayingChanged: _chorki.setAdPlaying,
+      // The layer outlives a flip back to preload by a frame, when a shared
+      // controller may already drive another byte.
+      onAdPlayingChanged: (playing) {
+        if (!_preloading) _chorki.setAdPlaying(playing);
+      },
       child: surface,
     );
   }
@@ -446,6 +614,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     return ChorkiPlayerSurface(
       controller: controller,
       onTogglePlayPause: _togglePlayPause,
+      showControls: !_preloading,
       showSeekBar: widget.showSeekBar,
       seekBarBottomOffset: widget.seekBarBottomOffset,
       enableGestures: widget.enableGestures,

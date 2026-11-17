@@ -126,6 +126,27 @@ void main() {
     await c.dispose();
   });
 
+  test('isAdPlaying belongs to the attached video', () async {
+    final c = await attached();
+    final other = await createTestController(platform);
+    chorki.setAdPlaying(true);
+
+    chorki.detach(other);
+    expect(chorki.isAdPlaying.value, isTrue, reason: 'other is not attached');
+
+    chorki.attach(other);
+    expect(chorki.isAdPlaying.value, isFalse);
+
+    chorki.setAdPlaying(true);
+    chorki.attach(other);
+    expect(chorki.isAdPlaying.value, isTrue, reason: 'same video again');
+
+    chorki.detach(other);
+    expect(chorki.isAdPlaying.value, isFalse);
+    await other.dispose();
+    await c.dispose();
+  });
+
   test('detach ignores a controller that is not attached', () async {
     final c = await attached();
     final other = await createTestController(platform);

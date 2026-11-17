@@ -8,6 +8,8 @@ class BytesUsecase {
 
   final ByteRepository _byteRepository;
 
-  Future<Either<Failure, ByteDataEntity>> call(String url) =>
-      _byteRepository.getByteData(url);
+  Future<Either<Failure, ByteDataEntity>> call(
+    String url, {
+    bool refresh = false,
+  }) => _byteRepository.getByteData(url, refresh: refresh);
 }

@@ -83,7 +83,8 @@ class ChorkiPlayerController {
 
   ValueListenable<ChorkiPipStatus> get pipStatus => _pipStatus;
 
-  /// True while an IMA ad has paused the content.
+  /// True while an IMA ad has paused the attached video. Resets when a
+  /// different video is attached or the video is detached.
   ValueListenable<bool> get isAdPlaying => _isAdPlaying;
 
   bool get isAttached => _video.value != null;
@@ -113,6 +114,7 @@ class ChorkiPlayerController {
     _selectedVideoTrack.value = null;
     _audioTracks.value = const [];
     _selectedAudioTrackId.value = null;
+    _isAdPlaying.value = false;
     _video.value = controller;
     controller.addListener(_onVideoValue);
     _onVideoValue();
@@ -132,6 +134,7 @@ class ChorkiPlayerController {
     _selectedVideoTrack.value = null;
     _audioTracks.value = const [];
     _selectedAudioTrackId.value = null;
+    _isAdPlaying.value = false;
   }
 
   /// Reported by the ad layer.

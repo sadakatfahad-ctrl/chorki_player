@@ -1,3 +1,4 @@
+import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:example_app/main.dart';
@@ -12,6 +13,26 @@ void main() {
       await tester.scrollUntilVisible(find.text(group.title), 200);
       expect(find.text(group.title), findsOneWidget);
     }
+  });
+
+  testWidgets('bytes feed builds the next byte as a preloading player', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ExampleApp());
+    await tester.tap(find.text('Bytes feed (preload)'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    // The current byte plus the one below it (allowImplicitScrolling).
+    final players = tester.widgetList<ChorkiPlayer>(
+      find.byType(ChorkiPlayer, skipOffstage: false),
+    );
+    expect(players.map((p) => p.preload), [false, true]);
+
+    // No video plugin in widget tests: let the loads time out.
+    await tester.pump(const Duration(seconds: 16));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('player page switches through every layout', (tester) async {

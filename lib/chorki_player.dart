@@ -9,6 +9,7 @@ export 'src/presentation/widgets/chorki_settings_sheet.dart';
 export 'src/presentation/widgets/gesture_overlay.dart';
 export 'src/presentation/widgets/shorts_seek_bar.dart';
 export 'src/controllers/chorki_player_controller.dart';
+export 'src/controllers/video_load_scheduler.dart';
 export 'src/controllers/video_preloader.dart';
 export 'src/media/chorki_media_options.dart';
 export 'src/pip/chorki_pip.dart';

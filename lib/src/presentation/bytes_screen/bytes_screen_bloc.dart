@@ -31,7 +31,10 @@ class BytesBloc extends Bloc<ByteScreenEvent, ByteScreenState> {
     final id = ++_requestId;
     emit(const ByteScreenLoadingState());
 
-    final response = await _getByteDataUsecase(event.route);
+    final response = await _getByteDataUsecase(
+      event.route,
+      refresh: event.refresh,
+    );
     if (id != _requestId) return;
 
     response.fold(

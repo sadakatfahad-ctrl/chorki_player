@@ -2,6 +2,7 @@ import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'feed_page.dart';
 import 'test_videos.dart';
 
 void main() {
@@ -38,6 +39,17 @@ class CatalogPage extends StatelessWidget {
       appBar: AppBar(title: const Text('Chorki Player test videos')),
       body: ListView(
         children: [
+          ListTile(
+            leading: const Icon(Icons.swipe_vertical),
+            title: const Text('Bytes feed (preload)'),
+            subtitle: const Text(
+              'Vertical feed; the bytes above and below are preloaded',
+            ),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const BytesFeedPage()),
+            ),
+          ),
+          const Divider(),
           for (final group in testVideoGroups) ...[
             ListTile(
               title: Text(

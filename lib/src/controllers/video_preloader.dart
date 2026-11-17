@@ -3,19 +3,46 @@ import 'dart:async';
 import 'package:video_player/video_player.dart';
 
 import '../media/chorki_media_options.dart';
+import 'video_load_scheduler.dart';
 
 class VideoPreloader {
-  VideoPreloader({this.initTimeout = const Duration(seconds: 15)});
+  VideoPreloader({
+    this.initTimeout = const Duration(seconds: 15),
+    this.scheduler,
+  });
 
   final Duration initTimeout;
 
+  /// Queue for the loads; defaults to [VideoLoadScheduler.instance].
+  final VideoLoadScheduler? scheduler;
+  VideoLoadScheduler get _loads => scheduler ?? VideoLoadScheduler.instance;
+
   /// Creates and initializes a controller for [source], or returns null on
   /// failure / timeout. An `asset:` URI (`asset:assets/clip.mp4`) loads a
-  /// bundled file; anything else is fetched over the network. Applies [options] (headers, buffering, start position).
+  /// bundled file; anything else is fetched over the network. Applies
+  /// [options] (headers, buffering, start position).
+  ///
+  /// The load waits its turn in [VideoLoadScheduler]: [isHighPriority] (the
+  /// visible page) goes first, and once [isCancelled] is true a load still
+  /// queued returns null without creating a player. [initTimeout] counts
+  /// only from the moment the load starts.
   Future<VideoPlayerController?> load(
     Uri source, {
     ChorkiMediaOptions options = const ChorkiMediaOptions(),
-  }) async {
+    bool Function()? isHighPriority,
+    bool Function()? isCancelled,
+  }) {
+    return _loads.run<VideoPlayerController?>(
+      () => _load(source, options),
+      isHighPriority: isHighPriority,
+      isCancelled: isCancelled,
+    );
+  }
+
+  Future<VideoPlayerController?> _load(
+    Uri source,
+    ChorkiMediaOptions options,
+  ) async {
     final controller = source.scheme == 'asset'
         ? VideoPlayerController.asset(
             // `asset:///a.mp4` and `asset:a.mp4` name the same asset.
@@ -48,8 +75,16 @@ class VideoPreloader {
     return controller;
   }
 
-  Future<void> disposeQuietly(VideoPlayerController? controller) async {
-    if (controller == null) return;
+  /// Disposes [controller], ignoring errors. Loads that start meanwhile wait
+  /// briefly for it, so its decoder is free first.
+  Future<void> disposeQuietly(VideoPlayerController? controller) {
+    if (controller == null) return Future.value();
+    final disposal = _dispose(controller);
+    _loads.trackDisposal(disposal);
+    return disposal;
+  }
+
+  Future<void> _dispose(VideoPlayerController controller) async {
     try {
       await controller.dispose();
     } catch (_) {}

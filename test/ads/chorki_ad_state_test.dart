@@ -61,9 +61,7 @@ void main() {
 
       state.update(markers: const [_marker], countdownSeconds: 3);
       state.update(
-        markers: [
-          const ChorkiAdMarker(id: 'm1', fraction: 0.5, played: false),
-        ],
+        markers: [const ChorkiAdMarker(id: 'm1', fraction: 0.5, played: false)],
         countdownSeconds: 3,
       );
       expect(calls, 1);

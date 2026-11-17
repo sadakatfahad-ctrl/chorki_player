@@ -15,6 +15,7 @@ class ChorkiPlayerSurface extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onTogglePlayPause,
+    this.showControls = true,
     this.showSeekBar = true,
     this.seekBarBottomOffset = 0,
     this.enableGestures = true,
@@ -33,6 +34,10 @@ class ChorkiPlayerSurface extends StatefulWidget {
 
   final VideoPlayerController controller;
   final VoidCallback onTogglePlayPause;
+
+  /// When false only the video is shown: no gestures, play badge, seek bar or
+  /// buttons, e.g. for a feed page that is preloading off screen.
+  final bool showControls;
 
   final bool showSeekBar;
 
@@ -137,17 +142,20 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
 
     // PiP window: video only. The controls stay mounted offstage rather than
     // being removed, so a scrub or long-press in progress still finishes and
-    // resumes playback / restores the speed.
+    // resumes playback / restores the speed. Without showControls they are
+    // removed instead, so nothing can resume a hidden video. The video stays
+    // the first child either way, so it is never remounted.
     return Stack(
       alignment: Alignment.center,
       children: [
         video,
-        Positioned.fill(
-          child: Offstage(
-            offstage: inPip,
-            child: _controls(context, controller),
+        if (widget.showControls)
+          Positioned.fill(
+            child: Offstage(
+              offstage: inPip,
+              child: _controls(context, controller),
+            ),
           ),
-        ),
       ],
     );
   }

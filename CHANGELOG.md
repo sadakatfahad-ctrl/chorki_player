@@ -1,3 +1,41 @@
+## 1.5.0
+
+- New `ChorkiPlayer.preload` (opt-in, both constructors) for feeds that build
+  the next byte ahead of time, e.g. `preload: index != current` in a
+  `PageView` with `allowImplicitScrolling: true`. A preloading player fetches
+  the route, initializes and buffers the video, and shows its first frame. It
+  does not play, show controls, or request ads, and it leaves `controller`
+  unattached, so one controller can serve a whole feed. Turning `preload` off
+  plays at once (with `autoPlay`) and starts the ads. Turning it back on
+  pauses and rewinds to the start. A byte that failed while preloading
+  retries when it becomes active.
+- Feeds survive flaky networks and fast swiping:
+  - Silent auto-retry: a failed route fetch, a video init failure or a
+    playback error retries after 1s and 3s, showing the poster, before the
+    error view. A playback error resumes from where it stopped. Retry and a
+    byte becoming active start a fresh round.
+  - A preloading byte never shows the error view (it no longer flashes in
+    mid-swipe).
+  - New `VideoLoadScheduler`: at most two players are created at a time,
+    the visible byte first. A page swiped past before its turn never creates
+    a player. New loads briefly wait for disposals in progress to free their
+    decoders. `VideoPreloader.load` takes `isHighPriority` and `isCancelled`.
+  - Resolved routes are cached for 5 minutes (LRU, 50 entries). Requests for
+    the same route share one fetch, and a retry after a video failure
+    bypasses the cache.
+  - Route GETs whose connection drops before a response (a refused, reset
+    or stale HTTP/2 connection, a GOAWAY) are retried twice, after 300ms and
+    900ms. Timeouts are left to the player's retry, so a dead network still
+    fails fast.
+- New `ChorkiPlayerSurface.showControls` (default `true`): `false` shows only
+  the video.
+- `ChorkiPlayerController.isAdPlaying` now belongs to the attached video: it
+  resets when a different video is attached or the video is detached.
+- Fix: with one controller shared by several players, disposing or reloading
+  a player that was not attached cleared the attached player's `isAdPlaying`.
+- Fix: changing `ChorkiPlayer.controller` while a video was still loading
+  detached another player's video from the old controller.
+
 ## 1.4.0
 
 - New `ChorkiPlayer.url(videoUrl, posterUrl:, adTagUrl:)`: plays a URL
