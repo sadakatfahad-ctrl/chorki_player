@@ -1,0 +1,128 @@
+# Mutants for tool/mutation_smoke.dart. Each must be killed (its tests fail).
+# `find` must occur exactly once in `file`. Keep `tests` narrow: speed.
+- id: session.loopCountLeaks
+  why: the loop count of a swiped-away view leaked into the next one
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "    _loopCount = 0;\n    _pauseCount = 0;"
+  replace: "    _pauseCount = 0;"
+  tests: [test/scenarios]
+- id: session.firstFrameOncePerLoad
+  why: a revisited page reported no first frame
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "    _firstFrameAt = null;\n    _lastSeekAt = null;"
+  replace: "    _lastSeekAt = null;"
+  tests: [test/scenarios]
+- id: watch.segmentEndInclusive
+  why: a loop at an exact multiple of 5 s reported a segment past the end
+  file: lib/src/analytics/watch_tracker.dart
+  find: "final last = (to.inMilliseconds - 1) ~/ len;"
+  replace: "final last = to.inMilliseconds ~/ len;"
+  tests: [test/scenarios, test/analytics/watch_tracker_test.dart]
+- id: watch.percentFromBuckets
+  why: 5.1 s of a 6 s short counted as 100 % watched
+  file: lib/src/analytics/watch_tracker.dart
+  find: "covered += (end < total ? end : total) - start;"
+  replace: "covered += _segments.length * segmentLength.inMilliseconds; break;"
+  tests: [test/scenarios, test/analytics/watch_tracker_test.dart]
+- id: session.consentNotABoundary
+  why: granting consent mid-view lost the impression
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "    } else if (!old.isActive && value.isActive && _active) {\n      _beginView();"
+  replace: "    } else if (!old.isActive && value.isActive && _active) {"
+  tests: [test/scenarios]
+- id: session.replayKeepsQuartiles
+  why: replaying from the start after the end never reported quartiles
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "if (_completed && to < _oneSecond) _watch.resetQuartiles();"
+  replace: ""
+  tests: [test/scenarios]
+- id: session.sinkErrorsSilent
+  why: a throwing sink was swallowed without a diagnostics report
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "ChorkiDiagnostics.report(e, st, 'analytics.sink');"
+  replace: ""
+  tests: [test/scenarios]
+- id: session.scrubIsPause
+  why: the pause caused by a drag-to-seek was reported as a viewer pause
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "if (!_inAd && !atEnd && !_scrubbing) {"
+  replace: "if (!_inAd && !atEnd) {"
+  tests: [test/scenarios]
+- id: session.adTimeWatched
+  why: watched time grew during an ad break
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "final playing = v.isPlaying && !_inAd;"
+  replace: "final playing = v.isPlaying;"
+  tests: [test/scenarios]
+- id: session.noBackgroundHeartbeat
+  why: going to the background lost the progress since the last heartbeat
+  file: lib/src/analytics/chorki_analytics_session.dart
+  find: "    _flush('background');"
+  replace: ""
+  tests: [test/scenarios]
+- id: matomo.throwingTransportStalls
+  why: a transport that throws stalled the queue instead of backing off
+  file: lib/src/analytics/matomo/matomo_sink.dart
+  find: "        ChorkiDiagnostics.report(e, st, 'matomo.send');\n        ok = false;"
+  replace: "        rethrow;"
+  tests: [test/analytics/matomo_test.dart]
+- id: matomo.consentKeepsQueue
+  why: revoking consent still sent the queued requests
+  file: lib/src/analytics/matomo/matomo_sink.dart
+  find: "    await _ready;\n    _queue.clear();"
+  replace: "    await _ready;"
+  tests: [test/analytics/matomo_test.dart]
+- id: matomo.restoreIgnoresCap
+  why: a restored queue could grow past maxQueueLength
+  file: lib/src/analytics/matomo/matomo_sink.dart
+  find: "        final overflow = _queue.length - config.maxQueueLength;\n        if (overflow > 0) _queue.removeRange(0, overflow);\n      }\n    } catch"
+  replace: "      }\n    } catch"
+  tests: [test/analytics/matomo_test.dart]
+- id: builder.stSwappedWithPs
+  why: watched time and position swapped in Media Analytics pings
+  file: lib/src/analytics/matomo/matomo_request_builder.dart
+  find: "'ma_ps': '${event.position.inSeconds}',"
+  replace: "'ma_ps': '${event.watchedTime.inSeconds}',"
+  tests: [test/scenarios, test/analytics/matomo_test.dart]
+- id: player.retryPermanentErrors
+  why: 401/404 route errors were silently retried
+  file: lib/src/presentation/player/retry_policy.dart
+  find: "transient && _attempts < delays.length;"
+  replace: "_attempts < delays.length;"
+  tests: [test/chorki_player_widget_test.dart, test/presentation/retry_policy_test.dart]
+- id: ads.lateManagerLeaks
+  why: an ads manager loaded after dispose was never destroyed
+  file: lib/src/ads/chorki_ad_layer.dart
+  find: "      // Loaded after the layer went away: nothing will ever destroy it.\n      _destroy(manager);"
+  replace: ""
+  tests: [test/ads/ad_layer_test.dart]
+- id: repo.permanentErrorsTransient
+  why: a 404 was treated as transient
+  file: lib/src/errors/chorki_player_error.dart
+  find: "    ChorkiErrorCode.notFound ||\n    ChorkiErrorCode.badRequest ||\n    ChorkiErrorCode.malformedResponse ||\n    ChorkiErrorCode.noVideoUrl => false,"
+  replace: "    ChorkiErrorCode.badRequest ||\n    ChorkiErrorCode.malformedResponse ||\n    ChorkiErrorCode.noVideoUrl => false,\n    ChorkiErrorCode.notFound => true,"
+  tests: [test/byte_repository_test.dart]
+- id: matomo.persistBeforeRestore
+  why: a hide before the saved queue was restored sent every request twice
+  file: lib/src/analytics/matomo/matomo_sink.dart
+  find: "    await _ready;\n    try {\n      await _storage.write("
+  replace: "    try {\n      await _storage.write("
+  tests: [test/analytics/matomo_test.dart]
+- id: services.configureClosesClient
+  why: configuring the network closed the client existing players still use
+  file: lib/src/core/services.dart
+  find: "    // The old client is not closed: players built before keep using it.\n"
+  replace: "    _instance?.apiClient.close();\n"
+  tests: [test/core/core_test.dart]
+- id: seekBar.customSeekUnclamped
+  why: a custom seekBarBuilder reported seeks past the end of the video
+  file: lib/src/presentation/widgets/shorts_seek_bar.dart
+  find: "      _scrub.clamp(target),\n"
+  replace: "      target,\n"
+  tests: [test/shorts_seek_bar_test.dart]
+- id: network.only200and201
+  why: 202 and 206 responses were treated as errors
+  file: lib/src/network/api_result.dart
+  find: "statusCode >= 200 && statusCode < 300"
+  replace: "statusCode == 200 || statusCode == 201 || statusCode == 204"
+  tests: [test/chorki_player_test.dart]

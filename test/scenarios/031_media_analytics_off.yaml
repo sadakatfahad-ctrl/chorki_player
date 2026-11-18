@@ -1,0 +1,17 @@
+name: media_analytics_off
+description: without the Media Analytics plugin impressions become events and no ma_* is sent
+given:
+  duration: 20s
+  matomo: {mediaAnalytics: false}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 1s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events: [impression, sessionEnd]
+  matomo:
+    - {e_c: Video, e_a: impression, ma_id: absent}
+    - {e_a: session end (swipedAway), ma_id: absent}

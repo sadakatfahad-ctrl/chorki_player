@@ -1,0 +1,13 @@
+criteria:
+  - id: file_created
+    weight: 1
+    check: lib/src/presentation/player/retry_policy.dart exists and has a test
+  - id: widget_shrank
+    weight: 2
+    check: chorki_player_state.dart has fewer code lines than at the baseline
+  - id: api_unchanged
+    weight: 3
+    check: test/guardrails/goldens/public_api.txt is unchanged
+  - id: tests_untouched
+    weight: 2
+    check: no existing test file was modified (only new tests added)

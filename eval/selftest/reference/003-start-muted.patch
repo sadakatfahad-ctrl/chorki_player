@@ -1,0 +1,232 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c05e489..17aa7ab 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -62,6 +62,8 @@
+ - `ChorkiAnalyticsConfig.clock` / `idGenerator` (deterministic tests) and
+   `ChorkiAnalyticsSink.onConsentRevoked` (`MatomoAnalyticsSink` and
+   `MemoryAnalyticsSink` drop what they buffered).
++- `ChorkiPlayer(muted:)` / `ChorkiPlayer.url(muted:)`: start at volume 0;
++  changing it later applies at once and is reported as a `volumeChange`.
+ - A `heartbeat` with `trigger: background` when the app goes to the
+   background, followed by a flush of every sink.
+ - `ChorkiSeekBarState.adMarkers`: a custom `seekBarBuilder` can draw the
+diff --git a/README.md b/README.md
+index 6bc94eb..617168c 100644
+--- a/README.md
++++ b/README.md
+@@ -129,6 +129,7 @@ ChorkiPlayer(
+   enableGestures: true, // full gesture stack (default)
+   doubleTapSeek: const Duration(seconds: 10),
+   longPressSpeed: 2.0,
++  muted: true, // start at volume 0 (feeds with sound off)
+ )
+ ```
+ 
+diff --git a/example/lib/readme/snippets.dart b/example/lib/readme/snippets.dart
+index 21227df..3fe8d95 100644
+--- a/example/lib/readme/snippets.dart
++++ b/example/lib/readme/snippets.dart
+@@ -48,6 +48,7 @@ Widget uxOptions(String byteRoute) {
+     enableGestures: true, // full gesture stack (default)
+     doubleTapSeek: const Duration(seconds: 10),
+     longPressSpeed: 2.0,
++    muted: true, // start at volume 0 (feeds with sound off)
+   )
+   // #endregion
+   ;
+diff --git a/lib/src/presentation/chorki_player_state.dart b/lib/src/presentation/chorki_player_state.dart
+index c82bebc..156e3e2 100644
+--- a/lib/src/presentation/chorki_player_state.dart
++++ b/lib/src/presentation/chorki_player_state.dart
+@@ -102,6 +102,10 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
+         fireAndReport(() => c.setLooping(widget.looping), 'player.setLooping');
+       }
+     }
++    final c = _controller;
++    if (oldWidget.muted != widget.muted && c != null) {
++      applyMuted(c, muted: widget.muted);
++    }
+     if (oldWidget.preload != widget.preload) {
+       WidgetsBinding.instance.addPostFrameCallback((_) => _syncPreload());
+     }
+@@ -200,6 +204,8 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
+     unawaited(_preloader.disposeQuietly(previous));
+     _lastPosition = controller.value.position;
+     controller.addListener(_onControllerValue);
++    // Before bind: the session takes this as the starting volume.
++    if (widget.muted) applyMuted(controller, muted: true);
+     _session?.bind(controller);
+     // A preloading player leaves a shared controller to the visible one.
+     if (!_preloading) {
+diff --git a/lib/src/presentation/chorki_player_widget.dart b/lib/src/presentation/chorki_player_widget.dart
+index 5964524..c7ac98a 100644
+--- a/lib/src/presentation/chorki_player_widget.dart
++++ b/lib/src/presentation/chorki_player_widget.dart
+@@ -24,6 +24,7 @@ import '../theme/chorki_player_theme.dart';
+ import 'bytes_screen/byte_screen_event.dart';
+ import 'bytes_screen/byte_screen_state.dart';
+ import 'bytes_screen/bytes_screen_bloc.dart';
++import 'player/player_audio.dart';
+ import 'player/player_loading_view.dart';
+ import 'player/player_source.dart';
+ import 'player/player_video_view.dart';
+@@ -49,6 +50,7 @@ class ChorkiPlayer extends StatefulWidget {
+     this.enableGestures = true,
+     this.doubleTapSeek = const Duration(seconds: 10),
+     this.longPressSpeed = 2.0,
++    this.muted = false,
+     this.theme = const ChorkiPlayerTheme(),
+     this.icons = const ChorkiPlayerIcons(),
+     this.strings = const ChorkiPlayerStrings(),
+@@ -88,6 +90,7 @@ class ChorkiPlayer extends StatefulWidget {
+     this.enableGestures = true,
+     this.doubleTapSeek = const Duration(seconds: 10),
+     this.longPressSpeed = 2.0,
++    this.muted = false,
+     this.theme = const ChorkiPlayerTheme(),
+     this.icons = const ChorkiPlayerIcons(),
+     this.strings = const ChorkiPlayerStrings(),
+@@ -147,6 +150,13 @@ class ChorkiPlayer extends StatefulWidget {
+ 
+   final double longPressSpeed;
+ 
++  /// Starts the video at volume 0, e.g. for a feed that autoplays while
++  /// viewers scroll with the sound off. Default false. Changing it on a
++  /// mounted player applies at once (false restores volume 1) and is
++  /// reported as a `volumeChange`; the initial mute is not, since the
++  /// viewer did not do it.
++  final bool muted;
++
+   final ChorkiPlayerTheme theme;
+ 
+   final ChorkiPlayerIcons icons;
+diff --git a/lib/src/presentation/player/player_audio.dart b/lib/src/presentation/player/player_audio.dart
+new file mode 100644
+index 0000000..6536fa9
+--- /dev/null
++++ b/lib/src/presentation/player/player_audio.dart
+@@ -0,0 +1,8 @@
++import 'package:video_player/video_player.dart';
++
++import '../../core/guard.dart';
++
++/// Sets [controller] to volume 0 when [muted], else back to full volume.
++void applyMuted(VideoPlayerController controller, {required bool muted}) {
++  fireAndReport(() => controller.setVolume(muted ? 0 : 1), 'player.setMuted');
++}
+diff --git a/test/guardrails/goldens/public_api.txt b/test/guardrails/goldens/public_api.txt
+index b28f6f4..d6fd0a6 100644
+--- a/test/guardrails/goldens/public_api.txt
++++ b/test/guardrails/goldens/public_api.txt
+@@ -272,8 +272,8 @@ enum ChorkiPipStatus
+   values: unavailable, disabled, automatic, enabled
+ # ChorkiPlayer
+ class ChorkiPlayer extends StatefulWidget
+-  const ChorkiPlayer({super.key, required this.route, this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+-  const ChorkiPlayer.url(String this.videoUrl, {super.key, this.posterUrl = '', this.adTagUrl = '', this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
++  const ChorkiPlayer({super.key, required this.route, this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.muted = false, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
++  const ChorkiPlayer.url(String this.videoUrl, {super.key, this.posterUrl = '', this.adTagUrl = '', this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.muted = false, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+   final ChorkiAdConfig? ads
+   final ChorkiAnalyticsConfig? analytics
+   final ChorkiMediaMetadata? metadata
+@@ -294,6 +294,7 @@ class ChorkiPlayer extends StatefulWidget
+   final bool autoPlay
+   final bool enableGestures
+   final bool looping
++  final bool muted
+   final bool preload
+   final bool showSeekBar
+   final bool showSettingsButton
+@@ -903,8 +904,8 @@ enum ChorkiPipStatus
+   values: unavailable, disabled, automatic, enabled
+ # ChorkiPlayer
+ class ChorkiPlayer extends StatefulWidget
+-  const ChorkiPlayer({super.key, required this.route, this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+-  const ChorkiPlayer.url(String this.videoUrl, {super.key, this.posterUrl = '', this.adTagUrl = '', this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
++  const ChorkiPlayer({super.key, required this.route, this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.muted = false, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
++  const ChorkiPlayer.url(String this.videoUrl, {super.key, this.posterUrl = '', this.adTagUrl = '', this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.muted = false, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+   final ChorkiAdConfig? ads
+   final ChorkiAnalyticsConfig? analytics
+   final ChorkiMediaMetadata? metadata
+@@ -925,6 +926,7 @@ class ChorkiPlayer extends StatefulWidget
+   final bool autoPlay
+   final bool enableGestures
+   final bool looping
++  final bool muted
+   final bool preload
+   final bool showSeekBar
+   final bool showSettingsButton
+diff --git a/test/presentation/player_muted_test.dart b/test/presentation/player_muted_test.dart
+new file mode 100644
+index 0000000..9052020
+--- /dev/null
++++ b/test/presentation/player_muted_test.dart
+@@ -0,0 +1,67 @@
++import 'package:chorki_player/chorki_player.dart';
++import 'package:chorki_player/src/presentation/player/player_audio.dart';
++import 'package:flutter/material.dart';
++import 'package:flutter_test/flutter_test.dart';
++import 'package:video_player_platform_interface/video_player_platform_interface.dart'
++    show VideoPlayerPlatform;
++
++import '../fakes/fake_video_player_platform.dart';
++
++void main() {
++  late FakeVideoPlayerPlatform platform;
++  late MemoryAnalyticsSink sink;
++
++  setUp(() {
++    platform = FakeVideoPlayerPlatform();
++    VideoPlayerPlatform.instance = platform;
++    sink = MemoryAnalyticsSink();
++  });
++
++  Future<void> pump(WidgetTester tester, {required bool muted}) async {
++    await tester.pumpWidget(
++      MaterialApp(
++        home: ChorkiPlayer.url(
++          'https://test.local/a.mp4',
++          muted: muted,
++          analytics: ChorkiAnalyticsConfig(
++            sinks: [sink],
++            heartbeatInterval: const Duration(hours: 1),
++          ),
++        ),
++      ),
++    );
++    for (var i = 0; i < 5; i++) {
++      await tester.pump();
++    }
++  }
++
++  testWidgets('not muted by default: the volume is left alone', (t) async {
++    await pump(t, muted: false);
++    expect(platform.volumeCalls.where((c) => c.$2 == 0), isEmpty);
++    await t.pumpWidget(const SizedBox());
++  });
++
++  testWidgets('muted starts at 0 and is not reported', (t) async {
++    await pump(t, muted: true);
++    expect(platform.volumeCalls.last.$2, 0);
++    expect(sink.types, isNot(contains(ChorkiAnalyticsEventType.volumeChange)));
++    await t.pumpWidget(const SizedBox());
++  });
++
++  testWidgets('muting a playing player later is reported', (t) async {
++    await pump(t, muted: false);
++    await pump(t, muted: true);
++    expect(platform.volumeCalls.last.$2, 0);
++    expect(sink.types, contains(ChorkiAnalyticsEventType.volumeChange));
++    await t.pumpWidget(const SizedBox());
++  });
++
++  testWidgets('applyMuted sets 0 or 1', (t) async {
++    final c = await t.runAsync(() => createTestController(platform));
++    applyMuted(c!, muted: true);
++    expect(c.value.volume, 0);
++    applyMuted(c, muted: false);
++    expect(c.value.volume, 1);
++    await t.runAsync(c.dispose);
++  });
++}

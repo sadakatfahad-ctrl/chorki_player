@@ -1,0 +1,18 @@
+name: app_background
+description: going to the background sends the progress so far before the OS may kill the app
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 4s}
+  - appHidden
+  - deactivate: disposed
+expect:
+  events:
+    - impression
+    - play
+    - firstFrame
+    - heartbeat: {trigger: background, newSegments: [5], $watched: 4}
+    - heartbeat: {trigger: end, newSegments: []}
+    - sessionEnd: {reason: disposed}

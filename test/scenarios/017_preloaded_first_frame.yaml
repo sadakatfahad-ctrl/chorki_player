@@ -1,0 +1,23 @@
+name: preloaded_first_frame
+description: a page loaded off screen reports startup from activation, without load timings
+given: {duration: 20s}
+steps:
+  - loadStart
+  - advance: 1s
+  - loadRunning
+  - advance: 500ms
+  - loaded
+  - bind
+  - value: {initialized: true}
+  - advance: 10s
+  - activate
+  - advance: 100ms
+  - play: {to: 1s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - play: {timeToPlayMs: 100}
+    - firstFrame: {preloaded: true, startupMs: 600, queueWaitMs: absent, initMs: absent}
+    - heartbeat
+    - sessionEnd

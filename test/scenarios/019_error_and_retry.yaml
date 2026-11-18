@@ -1,0 +1,24 @@
+name: error_and_retry
+description: a transient route error with a silent retry, then playback
+given: {duration: 20s}
+steps:
+  - activate
+  - error: {code: server, stage: route, statusCode: 503, willRetry: true}
+  - advance: 1s
+  - retry: {attempt: 1, auto: true}
+  - bind
+  - value: {initialized: true}
+  - play: {to: 1s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - error: {code: server, stage: route, transient: true, willRetry: true, statusCode: 503}
+    - retry: {attempt: 1, auto: true}
+    - impression
+    - play
+    - firstFrame
+    - heartbeat
+    - sessionEnd: {errorCount: 1}
+  matomo:
+    - {e_a: error (route), e_n: server}
+    - {e_a: auto retry, e_v: "1"}

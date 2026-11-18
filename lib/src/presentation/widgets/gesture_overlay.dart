@@ -7,11 +7,17 @@ import 'package:video_player/video_player.dart';
 import '../../analytics/chorki_analytics_event.dart';
 import '../../analytics/chorki_analytics_scope.dart';
 import '../../analytics/chorki_analytics_session.dart';
+import '../../core/guard.dart';
 import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
+import 'gesture_feedback.dart';
+import 'scrub_session.dart';
 
-class PlayerGestureOverlay extends StatefulWidget {
-  const PlayerGestureOverlay({
+/// The shorts gestures over a video: tap to play/pause, double-tap a side
+/// to seek, drag horizontally to scrub, long-press for a speed boost. Each
+/// reports to the analytics session in scope.
+class ChorkiGestureOverlay extends StatefulWidget {
+  const ChorkiGestureOverlay({
     super.key,
     required this.controller,
     required this.onTogglePlayPause,
@@ -54,28 +60,29 @@ class PlayerGestureOverlay extends StatefulWidget {
   final ChorkiPlayerBuilders builders;
 
   @override
-  State<PlayerGestureOverlay> createState() => _PlayerGestureOverlayState();
+  State<ChorkiGestureOverlay> createState() => _ChorkiGestureOverlayState();
 }
 
-enum _DragDirection { backward, forward }
-
-class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
+class _ChorkiGestureOverlayState extends State<ChorkiGestureOverlay>
     with SingleTickerProviderStateMixin {
   bool _doubleTapForward = false;
   int _doubleTapFeedbackId = 0;
   Duration? _pendingDoubleTapTarget;
   Timer? _doubleTapTargetReset;
 
-  bool _scrubbing = false;
-  _DragDirection _scrubDirection = _DragDirection.forward;
-  Duration _scrubBase = Duration.zero;
-  Duration _scrubTarget = Duration.zero;
+  late final ScrubSession _scrub = ScrubSession(
+    controller: () => widget.controller,
+    analytics: () => _analytics,
+    source: ChorkiSeekSource.scrub,
+    context: 'gestures',
+    tickInterval: widget.hapticTickInterval,
+    throttle: widget.seekThrottle,
+  );
+  bool get _scrubbing => _scrub.active;
+  bool _scrubForward = true;
   double _scrubStartDx = 0;
   double _pointerDownDx = 0;
   double _scrubWidth = 1;
-  bool _resumeOnScrubEnd = false;
-  int _lastHapticTick = 0;
-  Timer? _scrubThrottle;
 
   bool _speedHoldActive = false;
   double _speedBeforeHold = 1.0;
@@ -95,7 +102,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
   }
 
   @override
-  void didUpdateWidget(covariant PlayerGestureOverlay oldWidget) {
+  void didUpdateWidget(covariant ChorkiGestureOverlay oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_onControllerValue);
@@ -150,15 +157,14 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
 
   void _onDoubleTap() {
     if (!_canControl) return;
-    HapticFeedback.selectionClick();
+    unawaited(HapticFeedback.selectionClick());
 
     final value = _controller.value;
     final base = _pendingDoubleTapTarget ?? value.position;
     var target = _doubleTapForward
         ? base + widget.doubleTapSeek
         : base - widget.doubleTapSeek;
-    if (target < Duration.zero) target = Duration.zero;
-    if (target > value.duration) target = value.duration;
+    target = _scrub.clamp(target);
 
     _analytics?.recordSeek(base, target, ChorkiSeekSource.doubleTap);
     _pendingDoubleTapTarget = target;
@@ -167,7 +173,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
       _pendingDoubleTapTarget = null;
     });
 
-    unawaited(_seekClamped(target));
+    unawaited(_scrub.seek(target));
     setState(() => _doubleTapFeedbackId++);
   }
 
@@ -175,54 +181,25 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
 
   void _onHorizontalDragStart(DragStartDetails details) {
     if (!_canControl) return;
-    final value = _controller.value;
-    HapticFeedback.lightImpact();
-
     _scrubStartDx = _pointerDownDx;
-    _scrubBase = value.position;
-    _scrubTarget = value.position;
-    _scrubDirection = _DragDirection.forward;
-    _resumeOnScrubEnd = value.isPlaying;
-    _lastHapticTick = _tickIndex(_scrubTarget);
-
-    _analytics?.recordScrubStart();
-    if (value.isPlaying) {
-      _safe(() => _controller.pause());
-    }
-
-    setState(() => _scrubbing = true);
+    _scrubForward = true;
+    _scrub.begin(_controller.value.position);
+    setState(() {});
     _notifyGesturesActive(true);
-
-    _scrubThrottle?.cancel();
-    _scrubThrottle = Timer.periodic(widget.seekThrottle, (_) {
-      if (_scrubbing) unawaited(_seekClamped(_scrubTarget));
-    });
   }
 
   void _onHorizontalDragUpdate(DragUpdateDetails details) {
     if (!_scrubbing) return;
-
     final pixelsPerSecond = _scrubWidth / widget.fullScreenDragSeconds;
     final deltaSeconds =
         (details.localPosition.dx - _scrubStartDx) / pixelsPerSecond;
     final delta = Duration(
       microseconds: (deltaSeconds * Duration.microsecondsPerSecond).round(),
     );
-    final target = _scrubBase + delta;
-
-    final clamped = _clampToDuration(target);
     setState(() {
-      _scrubTarget = clamped;
-      _scrubDirection = delta.isNegative
-          ? _DragDirection.backward
-          : _DragDirection.forward;
+      _scrub.update(_scrub.start + delta);
+      _scrubForward = !delta.isNegative;
     });
-
-    final tick = _tickIndex(clamped);
-    if (tick != _lastHapticTick) {
-      _lastHapticTick = tick;
-      HapticFeedback.selectionClick();
-    }
   }
 
   void _onHorizontalDragEnd(DragEndDetails details) => _finishScrub();
@@ -230,33 +207,15 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
   void _onHorizontalDragCancel() => _finishScrub();
 
   void _finishScrub() {
-    if (!_scrubbing) return;
-    _scrubThrottle?.cancel();
-    _scrubThrottle = null;
-    HapticFeedback.lightImpact();
-
-    final target = _clampToDuration(_scrubTarget);
-    if (target == _scrubBase) {
-      _analytics?.recordScrubCancel();
-    } else {
-      _analytics?.recordSeek(_scrubBase, target, ChorkiSeekSource.scrub);
-    }
-    unawaited(_seekClamped(_scrubTarget));
-    if (_resumeOnScrubEnd) {
-      _resumeOnScrubEnd = false;
-      _safe(() => _controller.play());
-    }
-    setState(() => _scrubbing = false);
+    if (_scrub.finish() == null) return;
+    setState(() {});
     _notifyGesturesActive(false);
   }
 
   void _resetGestureState() {
     _doubleTapTargetReset?.cancel();
     _pendingDoubleTapTarget = null;
-    _scrubThrottle?.cancel();
-    _scrubThrottle = null;
-    _scrubbing = false;
-    _resumeOnScrubEnd = false;
+    _scrub.abandon();
     _speedHoldActive = false;
   }
 
@@ -264,7 +223,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
 
   void _onLongPressStart(LongPressStartDetails details) {
     if (!_canControl) return;
-    HapticFeedback.mediumImpact();
+    unawaited(HapticFeedback.mediumImpact());
     _speedBeforeHold = _controller.value.playbackSpeed;
     _safe(() => _controller.setPlaybackSpeed(widget.longPressSpeed));
     _analytics?.recordSpeedBoostStart(widget.longPressSpeed);
@@ -287,31 +246,8 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     _notifyGesturesActive(false);
   }
 
-  void _safe(Future<void> Function() action) {
-    action().catchError((Object _) {});
-  }
-
-  // ---------------------------------------------------------------- helpers
-
-  Duration _clampToDuration(Duration target) {
-    final duration = _controller.value.duration;
-    if (target < Duration.zero) return Duration.zero;
-    if (target > duration) return duration;
-    return target;
-  }
-
-  Future<void> _seekClamped(Duration target) async {
-    if (!_canControl) return;
-    try {
-      await _controller.seekTo(_clampToDuration(target));
-    } catch (_) {}
-  }
-
-  int _tickIndex(Duration position) {
-    final interval = widget.hapticTickInterval.inMilliseconds;
-    if (interval <= 0) return 0;
-    return position.inMilliseconds ~/ interval;
-  }
+  void _safe(Future<void> Function() action) =>
+      fireAndReport(action, 'gestures');
 
   // ------------------------------------------------------------------ build
 
@@ -365,7 +301,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
                                 ),
                               ),
                             )
-                          : _DoubleTapFeedback(
+                          : GestureSeekFeedback(
                               key: ValueKey(_doubleTapFeedbackId),
                               forward: _doubleTapForward,
                               label: '$seekSeconds ${widget.strings.seconds}',
@@ -378,10 +314,10 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
                 // Scrub HUD.
                 if (_scrubbing)
                   Center(
-                    child: _ScrubHud(
-                      direction: _scrubDirection,
-                      delta: _scrubTarget - _scrubBase,
-                      target: _scrubTarget,
+                    child: GestureScrubHud(
+                      forward: _scrubForward,
+                      delta: _scrub.target - _scrub.start,
+                      target: _scrub.target,
                       theme: widget.theme,
                       icons: widget.icons,
                     ),
@@ -398,7 +334,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
                                   '${widget.longPressSpeed.toStringAsFixed(1)}x',
                             ),
                           )
-                        : _SpeedBadge(
+                        : GestureSpeedBadge(
                             speed: widget.longPressSpeed,
                             theme: widget.theme,
                             icons: widget.icons,
@@ -410,195 +346,6 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
           ),
         );
       },
-    );
-  }
-}
-
-class _DoubleTapFeedback extends StatefulWidget {
-  const _DoubleTapFeedback({
-    super.key,
-    required this.forward,
-    required this.label,
-    required this.theme,
-    required this.icons,
-  });
-
-  final bool forward;
-  final String label;
-  final ChorkiPlayerTheme theme;
-  final ChorkiPlayerIcons icons;
-
-  @override
-  State<_DoubleTapFeedback> createState() => _DoubleTapFeedbackState();
-}
-
-class _DoubleTapFeedbackState extends State<_DoubleTapFeedback>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..forward();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final t = _controller.value;
-        final double opacity;
-        if (t < 0.15) {
-          opacity = t / 0.15;
-        } else if (t > 0.75) {
-          opacity = ((1.0 - t) / 0.25).clamp(0.0, 1.0);
-        } else {
-          opacity = 1;
-        }
-        return Opacity(
-          opacity: opacity,
-          child: Transform.scale(
-            scale: 0.85 + 0.15 * Curves.easeOut.transform(opacity),
-            child: child,
-          ),
-        );
-      },
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: widget.theme.gestureOverlayColor,
-          shape: BoxShape.circle,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                widget.forward
-                    ? widget.icons.fastForward
-                    : widget.icons.fastRewind,
-                color: widget.theme.gestureIconColor,
-                size: 30,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.label,
-                style: widget.theme.gestureTextStyle.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ScrubHud extends StatelessWidget {
-  const _ScrubHud({
-    required this.direction,
-    required this.delta,
-    required this.target,
-    required this.theme,
-    required this.icons,
-  });
-
-  final _DragDirection direction;
-  final Duration delta;
-  final Duration target;
-  final ChorkiPlayerTheme theme;
-  final ChorkiPlayerIcons icons;
-
-  @override
-  Widget build(BuildContext context) {
-    final forward = direction == _DragDirection.forward;
-    final secondaryColor = theme.gestureIconColor.withValues(alpha: 0.7);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-      decoration: BoxDecoration(
-        color: theme.gestureOverlayColor,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            formatClock(target),
-            style: theme.gestureTextStyle.copyWith(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              fontFeatures: [const FontFeature.tabularFigures()],
-            ),
-          ),
-          const SizedBox(height: 2),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                forward ? icons.fastForward : icons.fastRewind,
-                color: secondaryColor,
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                formatDelta(delta),
-                style: theme.gestureTextStyle.copyWith(
-                  color: secondaryColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  fontFeatures: [const FontFeature.tabularFigures()],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SpeedBadge extends StatelessWidget {
-  const _SpeedBadge({
-    required this.speed,
-    required this.theme,
-    required this.icons,
-    required this.strings,
-  });
-
-  final double speed;
-  final ChorkiPlayerTheme theme;
-  final ChorkiPlayerIcons icons;
-  final ChorkiPlayerStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.gestureOverlayColor,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icons.fastForward, color: theme.gestureIconColor, size: 18),
-          const SizedBox(width: 6),
-          Text(
-            '${speed == speed.roundToDouble() ? speed.toInt() : speed}× '
-            '${strings.speed}',
-            style: theme.gestureTextStyle.copyWith(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

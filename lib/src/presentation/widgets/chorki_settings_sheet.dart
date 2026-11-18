@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../controllers/chorki_player_controller.dart';
+import '../../core/guard.dart';
+import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
 
 const List<double> defaultChorkiSpeedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
@@ -59,10 +61,7 @@ String? _bitrateLabel(int? bps) {
 
 String _speedLabel(double speed, ChorkiPlayerStrings strings) {
   if (speed == 1.0) return strings.normalSpeed;
-  final s = speed == speed.roundToDouble()
-      ? speed.toStringAsFixed(0)
-      : speed.toString();
-  return '${s}x';
+  return '${formatSpeed(speed)}x';
 }
 
 String _audioLabel(VideoAudioTrack t) => t.label ?? t.language ?? t.id;
@@ -193,7 +192,7 @@ class _ChorkiSettingsSheetState extends State<ChorkiSettingsSheet> {
           title: s.pictureInPicture,
           onTap: () {
             Navigator.of(context).maybePop();
-            _c.enterPip();
+            fireAndReport(_c.enterPip, 'settings.enterPip');
           },
         ),
     ];
@@ -249,7 +248,7 @@ class _ChorkiSettingsSheetState extends State<ChorkiSettingsSheet> {
   }
 
   void _pick(Future<void> Function() action) {
-    action();
+    fireAndReport(action, 'settings.pick');
     setState(() => _page = _Page.root);
   }
 

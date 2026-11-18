@@ -1,8 +1,8 @@
-import 'package:chorki_player/src/presentation/widgets/shorts_seek_bar.dart';
+import 'package:chorki_player/chorki_player.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'fakes/fake_video_player_platform.dart';
@@ -31,7 +31,9 @@ void main() {
       MaterialApp(
         home: Scaffold(
           backgroundColor: Colors.black,
-          body: SizedBox.expand(child: ShortsSeekBar(controller: controller)),
+          body: SizedBox.expand(
+            child: ChorkiShortsSeekBar(controller: controller),
+          ),
         ),
       ),
     );
@@ -57,7 +59,7 @@ void main() {
     }
   }
 
-  group('ShortsSeekBar regression: pointer visibility', () {
+  group('ChorkiShortsSeekBar regression: pointer visibility', () {
     testWidgets('shows an always-visible pointer at rest '
         '(bug: thumb only rendered while dragging)', (tester) async {
       await pumpBar(tester);
@@ -96,7 +98,7 @@ void main() {
     });
   });
 
-  group('ShortsSeekBar tap-to-seek', () {
+  group('ChorkiShortsSeekBar tap-to-seek', () {
     testWidgets('tapping the middle of the bar seeks to ~50%', (tester) async {
       await pumpBar(tester);
 
@@ -126,7 +128,7 @@ void main() {
     });
   });
 
-  group('ShortsSeekBar drag scrubbing', () {
+  group('ChorkiShortsSeekBar drag scrubbing', () {
     testWidgets('dragging pauses, seeks proportionally, and resumes', (
       tester,
     ) async {
@@ -225,7 +227,7 @@ void main() {
     });
   });
 
-  group('ShortsSeekBar buffered indicator', () {
+  group('ChorkiShortsSeekBar buffered indicator', () {
     testWidgets('renders a buffered tint when ranges arrive', (tester) async {
       await pumpBar(tester);
       platform.onlyPlayer.emitBuffered(const Duration(seconds: 80));
@@ -235,7 +237,7 @@ void main() {
     });
   });
 
-  group('ShortsSeekBar controller swap safety', () {
+  group('ChorkiShortsSeekBar controller swap safety', () {
     testWidgets('replacing the controller mid-drag does not seek the new one '
         '(bug: stale drag state drove the recycled controller)', (
       tester,
@@ -254,13 +256,13 @@ void main() {
       final secondController = VideoPlayerController.networkUrl(
         Uri.parse('https://test.local/video2.mp4'),
       );
-      await tester.runAsync(() => secondController.initialize());
+      await tester.runAsync(secondController.initialize);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             backgroundColor: Colors.black,
             body: SizedBox.expand(
-              child: ShortsSeekBar(controller: secondController),
+              child: ChorkiShortsSeekBar(controller: secondController),
             ),
           ),
         ),
@@ -275,7 +277,80 @@ void main() {
         isEmpty,
       );
 
-      await tester.runAsync(() => secondController.dispose());
+      await tester.runAsync(secondController.dispose);
+    });
+  });
+
+  group('ChorkiShortsSeekBar custom builder', () {
+    testWidgets('a custom bar reports seeks clamped to [0, duration] '
+        '(bug: its seek callback reported any target, e.g. past the end)', (
+      tester,
+    ) async {
+      final sink = MemoryAnalyticsSink();
+      final session =
+          ChorkiAnalyticsSession(
+              config: ChorkiAnalyticsConfig(
+                sinks: [sink],
+                heartbeatInterval: const Duration(hours: 1),
+              ),
+              metadata: () => const ChorkiMediaMetadata(contentId: 'c'),
+            )
+            ..bind(controller)
+            ..activate();
+      addTearDown(session.dispose);
+      late void Function(Duration) seek;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChorkiAnalyticsScope(
+            session: session,
+            child: ChorkiShortsSeekBar(
+              controller: controller,
+              builders: ChorkiPlayerBuilders(
+                seekBarBuilder: (context, state, onSeek) {
+                  seek = onSeek;
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      final duration = controller.value.duration;
+
+      seek(duration + const Duration(seconds: 30));
+      await tester.pump();
+      final seeks = sink.events.where(
+        (e) => e.type == ChorkiAnalyticsEventType.seek,
+      );
+      expect(
+        seeks.single.data[ChorkiAnalyticsKeys.toMs],
+        duration.inMilliseconds,
+      );
+      expect(platform.seekCalls.last.$2, duration);
+    });
+
+    testWidgets('a custom bar receives the ad markers', (tester) async {
+      const markers = [
+        ChorkiAdMarker(id: 'mid1', fraction: 0.5, played: false),
+      ];
+      ChorkiSeekBarState? seen;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ChorkiShortsSeekBar(
+            controller: controller,
+            adMarkers: markers,
+            builders: ChorkiPlayerBuilders(
+              seekBarBuilder: (context, state, onSeek) {
+                seen = state;
+                return const SizedBox.shrink();
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(seen?.adMarkers, markers);
     });
   });
 }

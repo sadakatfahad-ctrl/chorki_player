@@ -1,0 +1,17 @@
+name: throwing_sink
+description: a sink that throws never breaks the player or the other sinks; each throw is reported
+given:
+  duration: 20s
+  throwingSink: true
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - abandon
+    - heartbeat
+    - sessionEnd
+  diagnostics: [analytics.sink, analytics.sink, analytics.sink, analytics.sink]

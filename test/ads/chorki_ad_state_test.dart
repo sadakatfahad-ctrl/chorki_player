@@ -100,10 +100,10 @@ void main() {
 
     test('markers from AdTimeline feed the state', () {
       final timeline = AdTimeline([
-        ChorkiAdBreak(
+        const ChorkiAdBreak(
           id: 'mid',
           kind: ChorkiAdBreakKind.midRoll,
-          offset: const Duration(seconds: 30),
+          offset: Duration(seconds: 30),
         ),
       ]);
       final state = ChorkiAdState();

@@ -1,0 +1,16 @@
+name: segment_boundary
+description: "regression: a loop at an exact multiple of 5 s reported a segment past the end"
+given: {duration: 10s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 9.9s}
+  - wrap
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - heartbeat: {trigger: complete, newSegments: [5, 10]}
+  matomo:
+    - {ma_se: "5,10"}

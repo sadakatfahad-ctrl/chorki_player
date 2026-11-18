@@ -1,24 +1,27 @@
+import 'dart:async';
 import 'dart:collection';
 
-import 'package:chorki_player/src/data/datasources/bytes_data_sources.dart';
-import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
-import 'package:chorki_player/src/domain/repositories/bytes_repository.dart';
-import 'package:chorki_player/src/errors/no_internet_exception.dart';
-import 'package:chorki_player/src/errors/server_exception.dart';
-import 'package:chorki_player/src/errors/server_failure.dart';
-import 'package:dartz/dartz.dart';
+import '../../core/clock.dart';
+import '../../core/diagnostics.dart';
+import '../../core/result.dart';
+import '../../domain/entity/byte_data_entity.dart';
+import '../../domain/repositories/bytes_repository.dart';
+import '../../errors/chorki_player_error.dart';
+import '../../errors/no_internet_exception.dart';
+import '../../errors/server_exception.dart';
+import '../datasources/bytes_data_sources.dart';
 
 /// Fetches routes and keeps the results for a while: a feed rebuilds a page
 /// whenever it scrolls back into view, and the revisit should not wait for
 /// the network again.
 class ByteRepositoryImpl extends ByteRepository {
+  /// Fetches through [byteDataSources].
   ByteRepositoryImpl({
-    required BytesDataSources byteDataSources,
+    required this._byteDataSources,
     this.cacheTtl = const Duration(minutes: 5),
     this.maxCacheEntries = 50,
-    DateTime Function()? clock,
-  }) : _byteDataSources = byteDataSources,
-       _clock = clock ?? DateTime.now;
+    this._clock = systemClock,
+  });
 
   final BytesDataSources _byteDataSources;
 
@@ -29,27 +32,27 @@ class ByteRepositoryImpl extends ByteRepository {
   /// Most routes kept; the least recently used goes first.
   final int maxCacheEntries;
 
-  final DateTime Function() _clock;
+  final ChorkiClock _clock;
 
   // Insertion order is recency order: a hit is removed and re-added.
   final LinkedHashMap<String, (DateTime, ByteDataEntity)> _cache =
       LinkedHashMap();
-  final Map<String, Future<Either<Failure, ByteDataEntity>>> _inFlight = {};
+  final Map<String, Future<Result<ByteDataEntity>>> _inFlight = {};
 
   @override
-  Future<Either<Failure, ByteDataEntity>> getByteData(
+  Future<Result<ByteDataEntity>> getByteData(
     String url, {
     bool refresh = false,
   }) {
     final hit = _cache.remove(url);
     if (!refresh && hit != null && _clock().isBefore(hit.$1)) {
       _cache[url] = hit;
-      return Future.value(Right(hit.$2));
+      return Future.value(Ok(hit.$2));
     }
     // A page and its neighbour asking for the same route share one request.
     return _inFlight[url] ??= _fetch(url).then((result) {
-      _inFlight.remove(url);
-      result.fold((_) {}, (data) => _remember(url, data));
+      unawaited(_inFlight.remove(url));
+      if (result case Ok(:final value)) _remember(url, value);
       return result;
     });
   }
@@ -63,16 +66,24 @@ class ByteRepositoryImpl extends ByteRepository {
     }
   }
 
-  Future<Either<Failure, ByteDataEntity>> _fetch(String url) async {
+  Future<Result<ByteDataEntity>> _fetch(String url) async {
     try {
       final byteModel = await _byteDataSources.getByteData(url);
-      return Right(byteModel.toEntity());
-    } on NoInternetException {
-      return Left(const ServerFailure(message: 'No internet connection'));
+      final entity = byteModel.toEntity();
+      if (entity.url.isEmpty) {
+        return const Err(ChorkiPlayerError(ChorkiErrorCode.noVideoUrl));
+      }
+      return Ok(entity);
+    } on ChorkiPlayerError catch (error) {
+      return Err(error);
+    } on NoInternetException catch (error) {
+      return Err(ChorkiPlayerError.from(error));
     } on ServerException catch (error) {
-      return Left(ServerFailure(message: error.serverMessage ?? error.message));
-    } catch (error) {
-      return Left(const ServerFailure(message: 'Something went wrong'));
+      return Err(ChorkiPlayerError.from(error));
+    } catch (error, stack) {
+      // Not a network or server error: a bug or an unexpected payload.
+      ChorkiDiagnostics.report(error, stack, 'repository.getByteData');
+      return Err(ChorkiPlayerError.from(error));
     }
   }
 }

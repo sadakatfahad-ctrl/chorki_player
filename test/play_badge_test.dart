@@ -13,7 +13,7 @@ void main() {
     final platform = FakeVideoPlayerPlatform();
     pi.VideoPlayerPlatform.instance = platform;
     var toggles = 0;
-    late final dynamic video;
+    late final VideoPlayerController video;
     await tester.runAsync(() async {
       video = await createTestController(platform);
       await pumpEventQueue();

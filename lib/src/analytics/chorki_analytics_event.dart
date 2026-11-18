@@ -19,122 +19,206 @@ enum ChorkiAnalyticsCategory {
   ux,
 }
 
-/// Every event the player reports. See the README for when each fires and
-/// which [ChorkiAnalyticsEvent.data] keys it carries.
+/// Every event the player reports.
+///
+/// Each value's `Data:` line lists the [ChorkiAnalyticsEvent.data] keys it
+/// carries (constants in [ChorkiAnalyticsKeys]); [ChorkiAnalyticsSchema] has
+/// their types. Ad events also carry the *ad context* (`breakIndex`,
+/// `adCampaignId`, `adCampaignTitle`) and, when IMA provides them, the *ad
+/// details* (`adId`, `adTitle`, `adSystem`, `advertiser`, `adDurationMs`,
+/// `skippable`, `podPosition`, `podTotal`).
 enum ChorkiAnalyticsEventType {
   // ----------------------------------------------------------------- playback
-  /// The item is on screen with its video loaded. Once per session.
+  /// The item is on screen with its video loaded. Once per view.
+  ///
+  /// Data: `loopCount` (a loop's new view).
   impression(ChorkiAnalyticsCategory.playback),
 
-  /// First frame played in this session. `timeToPlayMs`.
+  /// First frame played in this view.
+  ///
+  /// Data: `timeToPlayMs`, `loopCount`.
   play(ChorkiAnalyticsCategory.playback),
 
   /// The viewer (or the app) paused.
+  ///
+  /// Data: none.
   pause(ChorkiAnalyticsCategory.playback),
 
   /// Playback resumed after a [pause].
+  ///
+  /// Data: none.
   resume(ChorkiAnalyticsCategory.playback),
 
-  /// A seek. `fromMs`, `toMs`, `source` ([ChorkiSeekSource] name).
+  /// A seek. `source` is a [ChorkiSeekSource] name.
+  ///
+  /// Data: `fromMs`, `toMs`, `source`.
   seek(ChorkiAnalyticsCategory.playback),
 
   /// Periodic progress while playing, and a final one before pause / seek /
-  /// complete / end. `newSegments` (List of int seconds), `reason`.
+  /// complete / ad / background / end (`trigger`).
+  ///
+  /// Data: `trigger`, `newSegments`.
   heartbeat(ChorkiAnalyticsCategory.playback),
 
-  /// 25 / 50 / 75 / 100 % of the duration reached. `percent`.
+  /// 25 / 50 / 75 / 100 % of the duration reached.
+  ///
+  /// Data: `percent`.
   quartile(ChorkiAnalyticsCategory.playback),
 
   /// Played to the end (also on every loop of a looping video).
+  ///
+  /// Data: none.
   complete(ChorkiAnalyticsCategory.playback),
 
-  /// A looping video restarted. `loopCount`.
+  /// A looping video restarted.
+  ///
+  /// Data: `loopCount`.
   loop(ChorkiAnalyticsCategory.playback),
 
-  /// The session is over. `reason` ([ChorkiSessionEndReason] name),
-  /// `dwellMs`, `watchedPercent`, `maxPositionMs`, `rebufferCount`,
-  /// `rebufferMs`, `pauseCount`, `seekCount`, `loopCount`.
+  /// The view is over. `reason` is a [ChorkiSessionEndReason] name.
+  ///
+  /// Data: `reason`, `dwellMs`, `watchedPercent`, `maxPositionMs`,
+  /// `rebufferCount`, `rebufferMs`, `pauseCount`, `seekCount`, `loopCount`,
+  /// `errorCount`.
   sessionEnd(ChorkiAnalyticsCategory.playback),
 
   // ---------------------------------------------------------------------- QoE
-  /// The video load started (it may still wait in [VideoLoadScheduler]).
+  /// The video load started (it may still wait in [ChorkiVideoLoadScheduler]).
+  ///
+  /// Data: none.
   loadStart(ChorkiAnalyticsCategory.qoe),
 
-  /// The first frame is shown. `startupMs` (from activation or load start,
-  /// whichever is later), `queueWaitMs`, `initMs`.
+  /// The first frame is shown. `startupMs` counts from activation or load
+  /// start, whichever is later; load timings only when this view waited for
+  /// the load.
+  ///
+  /// Data: `startupMs`, `queueWaitMs`, `initMs`, `preloaded`.
   firstFrame(ChorkiAnalyticsCategory.qoe),
 
   /// Playback stalled to buffer (after the first frame).
+  ///
+  /// Data: `afterSeek`.
   bufferStart(ChorkiAnalyticsCategory.qoe),
 
-  /// The stall ended. `durationMs`.
+  /// The stall ended.
+  ///
+  /// Data: `durationMs`.
   bufferEnd(ChorkiAnalyticsCategory.qoe),
 
-  /// A route fetch, video load or playback error. `message`, `stage`
-  /// (`route` | `load` | `playback`), `willRetry`.
+  /// A route, load or playback failure (see [ChorkiPlayerError]).
+  ///
+  /// Data: `code`, `stage`, `transient`, `willRetry`, `statusCode`,
+  /// `detail`.
   error(ChorkiAnalyticsCategory.qoe),
 
-  /// A reload. `attempt`, `auto` (silent retry vs the Retry button).
+  /// A reload; `auto` when it was not the viewer's.
+  ///
+  /// Data: `attempt`, `auto`.
   retry(ChorkiAnalyticsCategory.qoe),
 
-  /// The rendition changed. `fromHeight`, `toHeight`, `bitrate`, `auto`.
+  /// The rendition changed (null heights mean Auto).
+  ///
+  /// Data: `fromHeight`, `toHeight`, `bitrate`, `label`, `auto`.
   qualityChange(ChorkiAnalyticsCategory.qoe),
 
   /// The view ended before anything played ("exit before video start").
-  /// `waitedMs`, `reason` ([ChorkiSessionEndReason] name), `stage`
-  /// (`loading`: the video never loaded; `ready`: loaded but never played,
-  /// e.g. autoPlay off or a pre-roll still running), `errorCount`.
-  /// Sessions = plays + abandons, so this also gives the start-failure rate
-  /// (abandons with errors).
+  /// `abandonStage` is `loading` (never loaded) or `ready` (loaded, never
+  /// played). Views = plays + abandons.
+  ///
+  /// Data: `waitedMs`, `reason`, `abandonStage`, `errorCount`.
   abandon(ChorkiAnalyticsCategory.qoe),
 
   // ---------------------------------------------------------------------- ads
-  /// An ad break paused the content. `breakIndex`, `breakKind`
-  /// (`preRoll` | `midRoll` | `postRoll`).
+  /// An ad break paused the content.
+  ///
+  /// Data: `breakKind` + the ad context.
   adBreakStart(ChorkiAnalyticsCategory.ad),
 
-  /// An ad started. `adId`, `adTitle`, `adSystem`, `adDurationMs`,
-  /// `podPosition`, `podTotal`, `skippable`.
+  /// An ad started.
+  ///
+  /// Data: the ad context and details.
   adStart(ChorkiAnalyticsCategory.ad),
 
-  /// `percent`: 25, 50 or 75.
+  /// 25, 50 or 75 % of the ad played.
+  ///
+  /// Data: `percent` + the ad context and details.
   adQuartile(ChorkiAnalyticsCategory.ad),
+
+  /// The ad played to the end.
+  ///
+  /// Data: the ad context and details.
   adComplete(ChorkiAnalyticsCategory.ad),
+
+  /// The viewer skipped the ad.
+  ///
+  /// Data: the ad context and details.
   adSkip(ChorkiAnalyticsCategory.ad),
+
+  /// The viewer clicked or tapped the ad.
+  ///
+  /// Data: the ad context and details.
   adClick(ChorkiAnalyticsCategory.ad),
+
+  /// The ad paused.
+  ///
+  /// Data: the ad context and details.
   adPause(ChorkiAnalyticsCategory.ad),
+
+  /// The ad resumed.
+  ///
+  /// Data: the ad context and details.
   adResume(ChorkiAnalyticsCategory.ad),
 
-  /// `message`. Includes the ad load timeout.
+  /// An ad failed (including the load timeout).
+  ///
+  /// Data: `message` + the ad context and details.
   adError(ChorkiAnalyticsCategory.ad),
 
-  /// The content resumed after a break, or the session ended during one
-  /// (`interrupted: true`). `durationMs`.
+  /// The content resumed after a break, or the view ended during one
+  /// (`interrupted`).
+  ///
+  /// Data: `durationMs`, `interrupted` + the ad context.
   adBreakEnd(ChorkiAnalyticsCategory.ad),
 
   // ----------------------------------------------------------------------- UX
-  /// `from`, `to`.
+  /// The viewer picked another playback speed.
+  ///
+  /// Data: `from`, `to`.
   speedChange(ChorkiAnalyticsCategory.ux),
 
-  /// Long-press speed boost started. `speed`.
+  /// Long-press speed boost started.
+  ///
+  /// Data: `speed`.
   speedBoostStart(ChorkiAnalyticsCategory.ux),
 
-  /// `durationMs`.
+  /// The long-press speed boost ended.
+  ///
+  /// Data: `durationMs`.
   speedBoostEnd(ChorkiAnalyticsCategory.ux),
 
-  /// `from`, `to` (track ids).
+  /// The viewer picked another audio track.
+  ///
+  /// Data: `fromTrack`, `toTrack`.
   audioTrackChange(ChorkiAnalyticsCategory.ux),
 
-  /// `fit` (`fit` | `fill`).
+  /// The video fit changed (`fit` / `fill`).
+  ///
+  /// Data: `fit`.
   fitChange(ChorkiAnalyticsCategory.ux),
 
-  /// `status` (`enabled` | `disabled` | ...).
+  /// The picture-in-picture status changed.
+  ///
+  /// Data: `status`.
   pipChange(ChorkiAnalyticsCategory.ux),
 
-  /// `from`, `to` (0..1), `muted`.
+  /// The volume changed (0..1).
+  ///
+  /// Data: `from`, `to`, `muted`.
   volumeChange(ChorkiAnalyticsCategory.ux),
 
   /// The settings sheet was opened.
+  ///
+  /// Data: none.
   settingsOpen(ChorkiAnalyticsCategory.ux);
 
   const ChorkiAnalyticsEventType(this.category);

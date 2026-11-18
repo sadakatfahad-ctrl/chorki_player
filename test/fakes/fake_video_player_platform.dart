@@ -34,6 +34,14 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   List<VideoTrack> videoTracks = const [];
   List<VideoAudioTrack> audioTracks = const [];
 
+  /// Methods that throw (e.g. `{'seekTo', 'dispose'}`), to exercise error
+  /// paths.
+  final Set<String> failing = {};
+
+  void _maybeFail(String method) {
+    if (failing.contains(method)) throw StateError('fake $method failed');
+  }
+
   FakePlayer playerOf(int id) => players[id]!;
 
   FakePlayer get onlyPlayer => players.values.single;
@@ -65,6 +73,7 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   }
 
   int _create() {
+    _maybeFail('create');
     final id = _nextId++;
     final player = FakePlayer(id, duration: defaultDuration, size: defaultSize);
     players[id] = player;
@@ -74,6 +83,7 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> dispose(int playerId) async {
+    _maybeFail('dispose');
     players.remove(playerId);
   }
 
@@ -105,12 +115,14 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
 
   @override
   Future<void> seekTo(int playerId, Duration position) async {
+    _maybeFail('seekTo');
     seekCalls.add((playerId, position));
     playerOf(playerId).position = position;
   }
 
   @override
   Future<void> setPlaybackSpeed(int playerId, double speed) async {
+    _maybeFail('setPlaybackSpeed');
     speedCalls.add((playerId, speed));
     playerOf(playerId).speed = speed;
   }
@@ -148,10 +160,14 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   bool isVideoTrackSupportAvailable() => videoTracksSupported;
 
   @override
-  Future<List<VideoTrack>> getVideoTracks(int playerId) async => videoTracks;
+  Future<List<VideoTrack>> getVideoTracks(int playerId) async {
+    _maybeFail('getVideoTracks');
+    return videoTracks;
+  }
 
   @override
   Future<void> selectVideoTrack(int playerId, VideoTrack? track) async {
+    _maybeFail('selectVideoTrack');
     videoTrackCalls.add((playerId, track));
   }
 
@@ -159,11 +175,14 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   bool isAudioTrackSupportAvailable() => audioTracksSupported;
 
   @override
-  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async =>
-      audioTracks;
+  Future<List<VideoAudioTrack>> getAudioTracks(int playerId) async {
+    _maybeFail('getAudioTracks');
+    return audioTracks;
+  }
 
   @override
   Future<void> selectAudioTrack(int playerId, String trackId) async {
+    _maybeFail('selectAudioTrack');
     audioTrackCalls.add((playerId, trackId));
   }
 }

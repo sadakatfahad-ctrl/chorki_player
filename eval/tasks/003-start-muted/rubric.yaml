@@ -1,0 +1,4 @@
+criteria:
+  - id: readme_excerpt
+    weight: 1
+    check: README documents `muted:` through a compiled excerpt

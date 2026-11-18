@@ -1,0 +1,4 @@
+criteria:
+  - id: exported
+    weight: 1
+    check: ChorkiBufferedAnalyticsSink is exported from lib/chorki_player.dart

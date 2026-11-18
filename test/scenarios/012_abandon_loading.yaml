@@ -1,0 +1,18 @@
+name: abandon_loading
+description: leaving before the video loads is an exit before start, with the errors seen
+given: {duration: 20s}
+steps:
+  - activate
+  - loadStart
+  - advance: 3s
+  - error: {code: videoLoad, stage: load, willRetry: true}
+  - deactivate: swipedAway
+expect:
+  events:
+    - loadStart
+    - error: {code: videoLoad, stage: load, transient: true, willRetry: true}
+    - abandon: {waitedMs: 3000, reason: swipedAway, abandonStage: loading, errorCount: 1}
+  never: [sessionEnd, impression]
+  matomo:
+    - {e_c: Video QoE, e_a: error (load), e_n: videoLoad}
+    - {e_a: exit before start (loading), e_v: "3"}

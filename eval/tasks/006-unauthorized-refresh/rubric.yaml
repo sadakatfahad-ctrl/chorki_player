@@ -1,0 +1,4 @@
+criteria:
+  - id: documented
+    weight: 1
+    check: onUnauthorized has a dartdoc and a CHANGELOG line

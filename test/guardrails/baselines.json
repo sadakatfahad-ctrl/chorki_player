@@ -1,0 +1,40 @@
+{
+  "dartdoc": {
+    "lib/src/analytics/chorki_analytics_event.dart": 5,
+    "lib/src/analytics/chorki_analytics_session.dart": 1,
+    "lib/src/analytics/chorki_media_metadata.dart": 5,
+    "lib/src/analytics/matomo/analytics_storage.dart": 2,
+    "lib/src/analytics/matomo/matomo_config.dart": 2,
+    "lib/src/analytics/matomo/matomo_naming.dart": 6,
+    "lib/src/controllers/chorki_player_controller.dart": 16,
+    "lib/src/media/chorki_media_options.dart": 2,
+    "lib/src/pip/chorki_pip.dart": 1,
+    "lib/src/presentation/chorki_player_widget.dart": 13,
+    "lib/src/presentation/widgets/chorki_player_surface.dart": 14,
+    "lib/src/presentation/widgets/chorki_settings_sheet.dart": 8,
+    "lib/src/presentation/widgets/gesture_overlay.dart": 13,
+    "lib/src/presentation/widgets/shorts_seek_bar.dart": 19,
+    "lib/src/theme/chorki_player_theme.dart": 32
+  },
+  "file_size": {
+    "lib/src/ads/chorki_ad_layer.dart": 1,
+    "lib/src/analytics/chorki_analytics_session.dart": 5
+  },
+  "magic_number": {
+    "lib/src/ads/ad_timeline.dart": 1,
+    "lib/src/ads/chorki_ad_layer.dart": 4,
+    "lib/src/network/dio_api_provider.dart": 2,
+    "lib/src/presentation/widgets/ad_countdown_pill.dart": 1,
+    "lib/src/presentation/widgets/chorki_settings_sheet.dart": 1,
+    "lib/src/presentation/widgets/shorts_seek_bar.dart": 2
+  },
+  "uncalled_method": {
+    "lib/src/controllers/chorki_player_controller.dart": 1
+  },
+  "untagged_readme_snippet": {
+    "README.md": 1
+  },
+  "untested_file": {
+    "lib/src/errors/error.dart": 1
+  }
+}

@@ -1,0 +1,13 @@
+name: short_watched_percent
+description: "regression: 5.1 s of a 6 s short counted as 100 % watched"
+given: {duration: 6s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 5.1s, step: 300ms}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - sessionEnd: {watchedPercent: 85}

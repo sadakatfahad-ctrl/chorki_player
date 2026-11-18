@@ -1,0 +1,21 @@
+name: loop_count_resets_after_swipe
+description: "regression: the loop count of a swiped-away view leaked into the next visit"
+given: {duration: 10s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 9.8s}
+  - wrap
+  - deactivate: swipedAway
+  - activate
+  - play: {to: 2s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - loop: {loopCount: 1}
+    - sessionEnd: {reason: looped, loopCount: 1}
+    - sessionEnd: {reason: swipedAway, loopCount: 1}
+    - impression: {$session: $c}
+    - sessionEnd: {reason: swipedAway, loopCount: 0, $session: $c}

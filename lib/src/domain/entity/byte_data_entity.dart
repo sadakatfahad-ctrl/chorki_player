@@ -1,5 +1,6 @@
-import 'package:chorki_player/src/domain/entity/ad_campaign_entity.dart';
 import 'package:equatable/equatable.dart';
+
+import 'ad_campaign_entity.dart';
 
 class ByteDataEntity extends Equatable {
   const ByteDataEntity({

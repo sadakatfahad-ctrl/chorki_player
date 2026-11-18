@@ -1,0 +1,24 @@
+name: rebuffer
+description: a stall after the first frame is timed and totalled; buffering is not watched time
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 3s}
+  - value: {buffering: true}
+  - advance: 1.2s
+  - value: {buffering: false}
+  - play: {to: 4s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - play
+    - firstFrame
+    - bufferStart: {afterSeek: false}
+    - bufferEnd: {durationMs: 1200}
+    - heartbeat: {trigger: end}
+    - sessionEnd: {rebufferCount: 1, rebufferMs: 1200, $watched: 4}
+  matomo:
+    - {e_a: rebuffer, e_v: "1.200"}

@@ -219,11 +219,11 @@
       <text x="94" y="286" class="mono" font-size="9.5" fill="#5b6577">settings gear → settingsOpen</text>
 
       <rect x="100" y="313" width="300" height="54" rx="9" fill="#fff" stroke="#d6dbe4"/>
-      <text x="114" y="334" font-weight="700">PlayerGestureOverlay</text>
+      <text x="114" y="334" font-weight="700">ChorkiGestureOverlay</text>
       <text x="114" y="353" class="mono" font-size="9.5" fill="#5b6577">double tap, scrub, long-press boost</text>
 
       <rect x="100" y="380" width="300" height="54" rx="9" fill="#fff" stroke="#d6dbe4"/>
-      <text x="114" y="401" font-weight="700">ShortsSeekBar</text>
+      <text x="114" y="401" font-weight="700">ChorkiShortsSeekBar</text>
       <text x="114" y="420" class="mono" font-size="9.5" fill="#5b6577">tap, drag, custom builder seek</text>
 
       <rect x="100" y="447" width="300" height="50" rx="9" fill="#fff" stroke="#d6dbe4"/>
@@ -440,7 +440,7 @@
 <!-- ============================================================ 6. WATCHED TIME & SEGMENTS -->
 <section class="page">
   <div class="hdr"><h2>4 · Watched time &amp; segments</h2><span class="sec">ma_st · ma_se</span></div>
-  <p class="lead">video_player reports the position about every 500 ms. Between two ticks the session adds the position delta to the watched time, but only if the video was playing at <b>both</b> ticks, is not buffering, is not in an ad, and the jump is no bigger than 3 s × speed (larger jumps are seeks). The covered 5-second buckets are marked as watched.</p>
+  <p class="lead">video_player reports the position about every 500 ms. Between two ticks the session adds the position delta to the watched time, but only if the video was playing at <b>both</b> ticks, is not buffering, is not in an ad, and the jump is no bigger than 3 s × speed (larger jumps are seeks). The covered 5-second buckets are marked as watched (<code>ma_se</code>); <code>watchedPercent</code> is the share of the duration actually covered, so rewatching never counts twice.</p>
   <svg viewBox="0 0 1060 400" width="100%">
     <!-- position axis -->
     <g font-size="10" fill="#5b6577" text-anchor="middle">
@@ -656,7 +656,7 @@
       <path d="M160,100 L736,100" stroke="#17202e" stroke-width="1.6" marker-end="url(#a3)"/>
       <text x="448" y="116" text-anchor="middle" font-weight="700">startupMs (from max(activation, load start))</text>
       <text x="780" y="34" font-size="10.5" fill="#5b6577">queueWaitMs: waiting for a</text>
-      <text x="780" y="48" font-size="10.5" fill="#5b6577">VideoLoadScheduler slot (max 2)</text>
+      <text x="780" y="48" font-size="10.5" fill="#5b6577">ChorkiVideoLoadScheduler slot (max 2)</text>
 
       <text x="0" y="170" font-weight="700">Preloaded feed page</text>
       <rect x="160" y="152" width="440" height="28" rx="5" fill="#e9edf3"/><text x="380" y="171" text-anchor="middle" fill="#5b6577">loaded off screen (not counted)</text>
@@ -685,12 +685,12 @@
     <div>
       <h3 style="font-size:13px;margin:0 0 2mm">Errors and retries</h3>
       <table>
-        <tr><th>stage</th><th>When</th><th>message</th></tr>
-        <tr><td><code>route</code></td><td>Chorki route fetch failed</td><td>the bloc's failure message</td></tr>
-        <tr><td><code>load</code></td><td>init failed or timed out; empty URL</td><td><code>Video failed to load</code> / <code>No video URL</code></td></tr>
-        <tr><td><code>playback</code></td><td>error while playing</td><td>platform <code>errorDescription</code></td></tr>
+        <tr><th>stage</th><th>When</th><th>code (ChorkiErrorCode)</th></tr>
+        <tr><td><code>route</code></td><td>Chorki route fetch failed</td><td><code>noInternet</code>, <code>timeout</code>, <code>unauthorized</code>, <code>notFound</code>, <code>server</code>, <code>malformedResponse</code>, <code>noVideoUrl</code>, …</td></tr>
+        <tr><td><code>load</code></td><td>init failed or timed out; empty URL</td><td><code>videoLoad</code> / <code>timeout</code> / <code>noVideoUrl</code></td></tr>
+        <tr><td><code>playback</code></td><td>error while playing</td><td><code>playback</code> (platform text in <code>detail</code>)</td></tr>
       </table>
-      <p style="margin:2mm 0 0">Each error has <code>willRetry</code>. Silent retries after 1 s and 3 s emit <span class="pill p-qoe">retry</span> <code>auto: true, attempt: n</code>. The Retry button emits <code>auto: false</code>. A page that failed off screen and becomes active emits <code>auto: true</code>. Errors while preloading are not reported.</p>
+      <p style="margin:2mm 0 0">Each error has <code>transient</code> and <code>willRetry</code>: only transient errors (network, timeouts, 5xx, video errors) are retried silently; a 401/403/404 or a missing video shows the error view at once. Silent retries after 1 s and 3 s emit <span class="pill p-qoe">retry</span> <code>auto: true, attempt: n</code>. The Retry button emits <code>auto: false</code>. A page that failed off screen and becomes active emits <code>auto: true</code>. Errors while preloading are not reported.</p>
     </div>
   </div>
   <div class="note" style="margin-top:3mm">video_player does not report automatic (ABR) rendition switches, so <b>qualityChange</b> covers only the viewer's picks in the Quality menu (fromHeight, toHeight, bitrate, label, auto). The current video height is also attached to every request as <code>qualityHeight</code> (mappable to a dimension).</div>
@@ -763,7 +763,7 @@
   </svg>
   <div class="grid3">
     <div class="card"><h3>Content is frozen</h3><p>During a break the session ignores the content's play state: no watched time, no pause/resume, no rebuffer. Swiped away mid-break? The session closes the break itself (<code>interrupted: true</code>).</p></div>
-    <div class="card"><h3>Campaign context</h3><p><code>ByteDataEntity.adCampaign</code> id/title are set as <code>session.adContext</code> when the route resolves. They can be mapped to dimensions <code>adCampaignId</code>, <code>adCampaignTitle</code>.</p></div>
+    <div class="card"><h3>Campaign context</h3><p>The route's ad campaign id/title are set as <code>session.adContext</code> when the route resolves. They can be mapped to dimensions <code>adCampaignId</code>, <code>adCampaignTitle</code>.</p></div>
     <div class="card"><h3>Your callbacks still fire</h3><p><code>ChorkiAdConfig.onAdEvent</code> and <code>onAdError</code> behave as before. The analytics path is added next to them.</p></div>
   </div>
   <div class="foot"><span>chorki_ad_layer.dart · _reportAdEvent(), _reportError(), _pauseContent(), _resumeContent(), _startNow()</span><span>10</span></div>
@@ -779,19 +779,19 @@
     <tr><td><span class="pill p-play">pause</span></td><td>The viewer or the app paused (not ads, scrubs or the end).</td><td>none</td><td>Video / pause / position s</td></tr>
     <tr><td><span class="pill p-play">resume</span></td><td>Playing again after a pause.</td><td>none</td><td>Video / resume</td></tr>
     <tr><td><span class="pill p-play">seek</span></td><td>A seek from the UI, ad pill or API.</td><td><code>fromMs, toMs, source</code></td><td>Video / seek (source) / jump s</td></tr>
-    <tr><td><span class="pill p-play">heartbeat</span></td><td>Every 10 s while playing, and before pause, seek, ad break, complete and session end.</td><td><code>reason, newSegments</code></td><td><b>Media</b> request: ma_st, ma_ps, ma_se… (not an Event)</td></tr>
+    <tr><td><span class="pill p-play">heartbeat</span></td><td>Every 10 s while playing, and before pause, seek, ad break, complete and session end.</td><td><code>trigger, newSegments</code></td><td><b>Media</b> request: ma_st, ma_ps, ma_se… (not an Event)</td></tr>
     <tr><td><span class="pill p-play">quartile</span></td><td>25 / 50 / 75 / 100 % reached.</td><td><code>percent</code></td><td>Video / progress 50% / 50</td></tr>
     <tr><td><span class="pill p-play">complete</span></td><td>Played to the end (also every loop).</td><td>none</td><td>Video / complete</td></tr>
     <tr><td><span class="pill p-play">loop</span></td><td>A looping video wrapped.</td><td><code>loopCount</code></td><td>Video / loop / count</td></tr>
-    <tr><td><span class="pill p-play">sessionEnd</span></td><td>Deactivated: swiped away, disposed, source changed, looped.</td><td><code>reason, dwellMs, watchedPercent, maxPositionMs, rebufferCount, rebufferMs, pauseCount, seekCount, loopCount</code></td><td>Video / session end (reason) / watched s</td></tr>
+    <tr><td><span class="pill p-play">sessionEnd</span></td><td>Deactivated: swiped away, disposed, source changed, looped.</td><td><code>reason, dwellMs, watchedPercent, maxPositionMs, rebufferCount, rebufferMs, pauseCount, seekCount, loopCount, errorCount</code></td><td>Video / session end (reason) / watched s</td></tr>
     <tr><td><span class="pill p-qoe">loadStart</span></td><td>The video load was requested.</td><td>none</td><td>excluded by default</td></tr>
     <tr><td><span class="pill p-qoe">firstFrame</span></td><td>First frame playing.</td><td><code>startupMs, queueWaitMs, initMs, preloaded</code></td><td>Video QoE / startup time / s</td></tr>
     <tr><td><span class="pill p-qoe">bufferStart</span></td><td>Stall after the first frame, outside ads.</td><td><code>afterSeek</code></td><td>excluded by default</td></tr>
     <tr><td><span class="pill p-qoe">bufferEnd</span></td><td>Stall over.</td><td><code>durationMs</code></td><td>Video QoE / rebuffer / s</td></tr>
-    <tr><td><span class="pill p-qoe">error</span></td><td>Route, load or playback error while active.</td><td><code>message, stage, willRetry</code></td><td>Video QoE / error (stage) / name = message</td></tr>
+    <tr><td><span class="pill p-qoe">error</span></td><td>Route, load or playback error while active.</td><td><code>code, stage, transient, willRetry, statusCode?, detail?</code></td><td>Video QoE / error (stage) / name = code</td></tr>
     <tr><td><span class="pill p-qoe">retry</span></td><td>Silent auto retry, Retry button, or a reactivated failed page.</td><td><code>attempt, auto</code></td><td>Video QoE / auto retry | manual retry / attempt</td></tr>
     <tr><td><span class="pill p-qoe">qualityChange</span></td><td>The viewer picked a quality (or Auto).</td><td><code>fromHeight, toHeight, bitrate, label, auto</code></td><td>Video QoE / quality 720p | quality auto / height</td></tr>
-    <tr><td><span class="pill p-qoe">abandon</span></td><td>The view ended before the first frame (exit before video start).</td><td><code>waitedMs, reason, stage (loading|ready), errorCount</code></td><td>Video QoE / exit before start (stage) / waited s</td></tr>
+    <tr><td><span class="pill p-qoe">abandon</span></td><td>The view ended before the first frame (exit before video start).</td><td><code>waitedMs, reason, abandonStage (loading|ready), errorCount</code></td><td>Video QoE / exit before start (abandonStage) / waited s</td></tr>
   </table>
   <p style="margin-top:3mm; font-size:10px; color:var(--muted)">Every event also carries: <code>sessionId</code>, <code>timestamp</code>, <code>metadata</code>, <code>position</code>, <code>duration</code>, <code>watchedTime</code>, <code>videoSize</code>, <code>timeToPlay</code>. The Event name (<code>e_n</code>) is the title, falling back to contentId, then the media URL.</p>
   <div class="foot"><span>chorki_analytics_event.dart · matomo_request_builder.dart · describe()</span><span>11</span></div>
@@ -814,7 +814,7 @@
     <tr><td><span class="pill p-ux">speedChange</span></td><td>Speed changed from the settings sheet or <code>setSpeed</code>.</td><td><code>from, to</code></td><td>Video Player / speed 1.5x / title / 1.5</td></tr>
     <tr><td><span class="pill p-ux">speedBoostStart</span></td><td>Long press began.</td><td><code>speed</code></td><td>Video Player / speed boost / title / 2</td></tr>
     <tr><td><span class="pill p-ux">speedBoostEnd</span></td><td>Long press released (or the session ended mid-press).</td><td><code>durationMs</code></td><td>Video Player / speed boost end / title / s</td></tr>
-    <tr><td><span class="pill p-ux">audioTrackChange</span></td><td>An audio track was picked.</td><td><code>from, to</code></td><td>Video Player / audio track / track id</td></tr>
+    <tr><td><span class="pill p-ux">audioTrackChange</span></td><td>An audio track was picked.</td><td><code>fromTrack, toTrack</code></td><td>Video Player / audio track / track id</td></tr>
     <tr><td><span class="pill p-ux">fitChange</span></td><td>Fit / fill toggled.</td><td><code>fit</code></td><td>Video Player / fit fill / title</td></tr>
     <tr><td><span class="pill p-ux">pipChange</span></td><td>PiP status changed by the viewer or the system.</td><td><code>status</code></td><td>Video Player / pip enabled / title</td></tr>
     <tr><td><span class="pill p-ux">volumeChange</span></td><td>Volume changed, including mute.</td><td><code>from, to, muted</code></td><td>Video Player / mute | volume / title / 0..1</td></tr>

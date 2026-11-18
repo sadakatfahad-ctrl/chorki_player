@@ -1,0 +1,33 @@
+# Criteria every eval task inherits. `check` ids are scored by the task's
+# checks.sh (objective); `judge` ones by the chorki-reviewer agent.
+criteria:
+  - id: made_changes
+    weight: 1
+    check: the run changed something (otherwise the whole score is 0)
+  - id: gate_quick
+    weight: 3
+    check: tool/check.sh --quick passes (format, analyze --fatal-infos, guardrails)
+  - id: tests
+    weight: 3
+    check: the full test suite passes
+  - id: hidden_tests
+    weight: 4
+    check: the task's held-out tests (eval/tasks/<task>/hidden) pass
+  - id: no_new_allow
+    weight: 1
+    check: no new `guardrail:allow` comments
+  - id: no_wall_clock
+    weight: 1
+    check: no new DateTime.now() / Random() in lib/
+  - id: changelog
+    weight: 1
+    check: CHANGELOG.md changed when lib/ changed
+  - id: proof
+    weight: 2
+    judge: every behaviour change has a test or scenario that fails without it
+  - id: scope
+    weight: 1
+    judge: the change stays within the task; no unrelated rewrites
+  - id: conventions
+    weight: 1
+    judge: CLAUDE.md conventions (Chorki naming, typed errors, schema keys, docs)

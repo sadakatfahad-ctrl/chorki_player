@@ -1,16 +1,21 @@
-import '../chorki_analytics_event.dart';
 import 'dart:ui' show Size;
 
+import '../chorki_analytics_event.dart';
+import '../chorki_analytics_schema.dart';
 import 'matomo_config.dart';
 import 'matomo_naming.dart';
+
+typedef _K = ChorkiAnalyticsKeys;
 
 /// Turns [ChorkiAnalyticsEvent]s into Matomo Tracking API parameter maps.
 ///
 /// Pure (no I/O), so the exact requests can be unit tested. The visitor id
 /// (`_id`) is added at send time by [MatomoAnalyticsSink].
 class MatomoRequestBuilder {
+  /// Builds requests for [config].
   const MatomoRequestBuilder(this.config);
 
+  /// Site, dimensions and naming.
   final MatomoConfig config;
 
   /// The Matomo requests for [event]: none, one or two (a media request and
@@ -64,10 +69,10 @@ class MatomoRequestBuilder {
       'sessionId': event.sessionId,
       'playerName': config.playerName,
       'eventType': event.type.name,
-      if (event.data['adCampaignId'] case final Object id)
-        'adCampaignId': '$id',
-      if (event.data['adCampaignTitle'] case final Object t)
-        'adCampaignTitle': '$t',
+      if (event.data[_K.adCampaignId] case final Object id)
+        _K.adCampaignId: '$id',
+      if (event.data[_K.adCampaignTitle] case final Object t)
+        _K.adCampaignTitle: '$t',
       if (event.videoSize.height > 0)
         'qualityHeight': '${event.videoSize.height.round()}',
     };
@@ -95,7 +100,7 @@ class MatomoRequestBuilder {
   Map<String, String> _media(ChorkiAnalyticsEvent event, Size? viewport) {
     final meta = event.metadata;
     final title = meta.title ?? meta.contentId ?? '';
-    final segments = event.data['newSegments'];
+    final segments = event.data[_K.newSegments];
     final size =
         config.mediaSize == MatomoMediaSize.viewport && viewport != null
         ? viewport
@@ -154,12 +159,21 @@ class MatomoRequestBuilder {
     final d = event.data;
     final meta = event.metadata;
     final title = meta.title ?? meta.contentId ?? meta.mediaUrl ?? '';
-    num? ms(String key) => d[key] is num ? d[key] as num : null;
-    num? secs(String key) => ms(key) == null ? null : ms(key)! / 1000;
+    // Values are read defensively: a custom sink chain may hand in anything.
+    num? n(String key) => switch (d[key]) {
+      final num v => v,
+      final String v => num.tryParse(v),
+      _ => null,
+    };
+    num? secs(String key) => n(key) == null ? null : n(key)! / 1000;
+    String s(String key) => '${d[key] ?? ''}';
+    String ad() => '${d[_K.adTitle] ?? d[_K.adId] ?? ''}';
+    String campaign() =>
+        '${d[_K.adCampaignTitle] ?? d[_K.adCampaignId] ?? title}';
 
     final (String action, String name, num? value) = switch (event.type) {
       ChorkiAnalyticsEventType.impression => ('impression', title, null),
-      ChorkiAnalyticsEventType.play => ('play', title, secs('timeToPlayMs')),
+      ChorkiAnalyticsEventType.play => ('play', title, secs(_K.timeToPlayMs)),
       ChorkiAnalyticsEventType.pause => (
         'pause',
         title,
@@ -167,9 +181,9 @@ class MatomoRequestBuilder {
       ),
       ChorkiAnalyticsEventType.resume => ('resume', title, null),
       ChorkiAnalyticsEventType.seek => (
-        'seek (${d['source']})',
+        'seek (${s(_K.source)})',
         title,
-        ((ms('toMs') ?? 0) - (ms('fromMs') ?? 0)) / 1000,
+        ((n(_K.toMs) ?? 0) - (n(_K.fromMs) ?? 0)) / 1000,
       ),
       ChorkiAnalyticsEventType.heartbeat => (
         'heartbeat',
@@ -177,14 +191,14 @@ class MatomoRequestBuilder {
         event.watchedTime.inSeconds,
       ),
       ChorkiAnalyticsEventType.quartile => (
-        'progress ${d['percent']}%',
+        'progress ${s(_K.percent)}%',
         title,
-        d['percent'] as num?,
+        n(_K.percent),
       ),
       ChorkiAnalyticsEventType.complete => ('complete', title, null),
-      ChorkiAnalyticsEventType.loop => ('loop', title, ms('loopCount')),
+      ChorkiAnalyticsEventType.loop => ('loop', title, n(_K.loopCount)),
       ChorkiAnalyticsEventType.sessionEnd => (
-        'session end (${d['reason']})',
+        'session end (${s(_K.reason)})',
         title,
         event.watchedTime.inSeconds,
       ),
@@ -192,102 +206,90 @@ class MatomoRequestBuilder {
       ChorkiAnalyticsEventType.firstFrame => (
         'startup time',
         title,
-        secs('startupMs'),
+        secs(_K.startupMs),
       ),
       ChorkiAnalyticsEventType.bufferStart => ('rebuffer start', title, null),
       ChorkiAnalyticsEventType.bufferEnd => (
         'rebuffer',
         title,
-        secs('durationMs'),
+        secs(_K.durationMs),
       ),
       ChorkiAnalyticsEventType.error => (
-        'error (${d['stage']})',
-        '${d['message'] ?? ''}',
+        'error (${s(_K.stage)})',
+        s(_K.code),
         null,
       ),
       ChorkiAnalyticsEventType.retry => (
-        d['auto'] == true ? 'auto retry' : 'manual retry',
+        d[_K.auto] == true ? 'auto retry' : 'manual retry',
         title,
-        ms('attempt'),
+        n(_K.attempt),
       ),
       ChorkiAnalyticsEventType.qualityChange => (
-        'quality ${d['toHeight'] == null ? 'auto' : '${d['toHeight']}p'}',
+        'quality ${d[_K.toHeight] == null ? 'auto' : '${d[_K.toHeight]}p'}',
         title,
-        ms('toHeight'),
+        n(_K.toHeight),
       ),
       ChorkiAnalyticsEventType.abandon => (
-        'exit before start (${d['stage']})',
+        'exit before start (${s(_K.abandonStage)})',
         title,
-        secs('waitedMs'),
+        secs(_K.waitedMs),
       ),
       ChorkiAnalyticsEventType.adBreakStart => (
-        'break start (${d['breakKind']})',
-        '${d['adCampaignTitle'] ?? d['adCampaignId'] ?? title}',
-        ms('breakIndex'),
+        'break start (${s(_K.breakKind)})',
+        campaign(),
+        n(_K.breakIndex),
       ),
       ChorkiAnalyticsEventType.adBreakEnd => (
         'break end',
-        '${d['adCampaignTitle'] ?? d['adCampaignId'] ?? title}',
-        secs('durationMs'),
+        campaign(),
+        secs(_K.durationMs),
       ),
       ChorkiAnalyticsEventType.adStart => (
         'ad start',
-        '${d['adTitle'] ?? d['adId'] ?? ''}',
-        secs('adDurationMs'),
+        ad(),
+        secs(_K.adDurationMs),
       ),
       ChorkiAnalyticsEventType.adQuartile => (
-        'ad ${d['percent']}%',
-        '${d['adTitle'] ?? d['adId'] ?? ''}',
-        d['percent'] as num?,
+        'ad ${s(_K.percent)}%',
+        ad(),
+        n(_K.percent),
       ),
-      ChorkiAnalyticsEventType.adComplete => (
-        'ad complete',
-        '${d['adTitle'] ?? d['adId'] ?? ''}',
-        null,
-      ),
-      ChorkiAnalyticsEventType.adSkip => (
-        'ad skip',
-        '${d['adTitle'] ?? d['adId'] ?? ''}',
-        null,
-      ),
-      ChorkiAnalyticsEventType.adClick => (
-        'ad click',
-        '${d['adTitle'] ?? d['adId'] ?? ''}',
-        null,
-      ),
+      ChorkiAnalyticsEventType.adComplete => ('ad complete', ad(), null),
+      ChorkiAnalyticsEventType.adSkip => ('ad skip', ad(), null),
+      ChorkiAnalyticsEventType.adClick => ('ad click', ad(), null),
       ChorkiAnalyticsEventType.adPause => ('ad pause', '', null),
       ChorkiAnalyticsEventType.adResume => ('ad resume', '', null),
-      ChorkiAnalyticsEventType.adError => (
-        'ad error',
-        '${d['message'] ?? ''}',
-        null,
-      ),
+      ChorkiAnalyticsEventType.adError => ('ad error', s(_K.message), null),
       ChorkiAnalyticsEventType.speedChange => (
-        'speed ${d['to']}x',
+        'speed ${s(_K.to)}x',
         title,
-        d['to'] as num?,
+        n(_K.to),
       ),
       ChorkiAnalyticsEventType.speedBoostStart => (
         'speed boost',
         title,
-        d['speed'] as num?,
+        n(_K.speed),
       ),
       ChorkiAnalyticsEventType.speedBoostEnd => (
         'speed boost end',
         title,
-        secs('durationMs'),
+        secs(_K.durationMs),
       ),
       ChorkiAnalyticsEventType.audioTrackChange => (
         'audio track',
-        '${d['to']}',
+        s(_K.toTrack),
         null,
       ),
-      ChorkiAnalyticsEventType.fitChange => ('fit ${d['fit']}', title, null),
-      ChorkiAnalyticsEventType.pipChange => ('pip ${d['status']}', title, null),
-      ChorkiAnalyticsEventType.volumeChange => (
-        d['muted'] == true ? 'mute' : 'volume',
+      ChorkiAnalyticsEventType.fitChange => ('fit ${s(_K.fit)}', title, null),
+      ChorkiAnalyticsEventType.pipChange => (
+        'pip ${s(_K.status)}',
         title,
-        d['to'] as num?,
+        null,
+      ),
+      ChorkiAnalyticsEventType.volumeChange => (
+        d[_K.muted] == true ? 'mute' : 'volume',
+        title,
+        n(_K.to),
       ),
       ChorkiAnalyticsEventType.settingsOpen => ('settings open', title, null),
     };

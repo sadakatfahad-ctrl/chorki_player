@@ -1,0 +1,29 @@
+name: feed_swipe_away
+description: a byte watched for 7 s then swiped away reports one complete view
+given:
+  duration: 20s
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - advance: 300ms
+  - play: {to: 7s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression: {$session: $v}
+    - play: {timeToPlayMs: 300, $session: $v}
+    - firstFrame: {preloaded: false}
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: end, newSegments: [5, 10]}
+    - sessionEnd:
+        reason: swipedAway
+        watchedPercent: 35
+        dwellMs: 7300
+        pauseCount: 0
+        seekCount: 0
+        $session: $v
+  matomo:
+    - {ma_id: view1, ma_st: "0", ma_le: "20", e_c: absent}
+    - {e_c: Video, e_a: play, e_v: "0.300"}
+    - {ma_id: view1, ma_st: "7", ma_se: "5,10"}

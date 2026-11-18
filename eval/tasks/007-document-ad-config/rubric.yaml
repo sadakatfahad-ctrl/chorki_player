@@ -1,0 +1,10 @@
+criteria:
+  - id: dartdoc_zero
+    weight: 3
+    check: the dartdoc baseline has no entries for the ad config / marker files
+  - id: excerpt
+    weight: 2
+    check: README has `<!-- excerpt: ads-markers -->` and docs_test passes
+  - id: lib_logic_unchanged
+    weight: 2
+    check: lib/ changes are comments only

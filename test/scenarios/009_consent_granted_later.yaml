@@ -1,0 +1,21 @@
+name: consent_granted_later
+description: "regression: granting consent mid-view lost the impression; nothing before it counts"
+given:
+  duration: 20s
+  analytics: {consentGranted: false}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 3s}
+  - consent: true
+  - play: {to: 6s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression: {$position: 3}
+    - play: {timeToPlayMs: 0}
+    - firstFrame
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: end, newSegments: [5, 10]}
+    - sessionEnd: {$watched: 3, watchedPercent: 15, dwellMs: 3000}

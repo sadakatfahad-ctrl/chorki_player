@@ -1,0 +1,19 @@
+name: scrub_is_not_a_pause
+description: the pause a drag-to-seek causes is reported as the seek, not as a viewer pause
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 2s}
+  - scrubStart
+  - value: {playing: false}
+  - seek: {to: 9s, source: scrub}
+  - play: {to: 10s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - seek: {source: scrub, fromMs: 2000, toMs: 9000}
+    - sessionEnd: {pauseCount: 0, seekCount: 1}
+  never: [pause, resume]

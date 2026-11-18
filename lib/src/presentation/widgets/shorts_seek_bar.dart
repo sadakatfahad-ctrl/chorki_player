@@ -11,9 +11,13 @@ import '../../analytics/chorki_analytics_scope.dart';
 import '../../analytics/chorki_analytics_session.dart';
 import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
+import 'scrub_session.dart';
 
-class ShortsSeekBar extends StatefulWidget {
-  const ShortsSeekBar({
+/// The shorts seek bar: a thin track that grows while dragged, with the
+/// buffered range, ad break markers and a time bubble. Tap to seek, drag to
+/// scrub; both report to the analytics session in scope.
+class ChorkiShortsSeekBar extends StatefulWidget {
+  const ChorkiShortsSeekBar({
     super.key,
     required this.controller,
     this.theme = const ChorkiPlayerTheme(),
@@ -83,136 +87,78 @@ class ShortsSeekBar extends StatefulWidget {
   final ValueChanged<Duration>? onSeekEnded;
 
   @override
-  State<ShortsSeekBar> createState() => _ShortsSeekBarState();
+  State<ChorkiShortsSeekBar> createState() => _ChorkiShortsSeekBarState();
 }
 
-class _ShortsSeekBarState extends State<ShortsSeekBar> {
-  bool _dragging = false;
-  double _dragFraction = 0;
-  bool _resumeOnEnd = false;
-  int _lastHapticTick = 0;
-  Timer? _throttleTimer;
+class _ChorkiShortsSeekBarState extends State<ChorkiShortsSeekBar> {
+  late final ScrubSession _scrub = ScrubSession(
+    controller: () => widget.controller,
+    analytics: () => _analytics,
+    source: ChorkiSeekSource.seekBarDrag,
+    context: 'seekBar',
+    tickInterval: widget.hapticTickInterval,
+    throttle: widget.seekThrottle,
+    skipSeekToCurrent: true,
+  );
+
+  bool get _dragging => _scrub.active;
 
   VideoPlayerController get _controller => widget.controller;
 
-  @override
-  void didUpdateWidget(covariant ShortsSeekBar oldWidget) {
-    super.didUpdateWidget(oldWidget);
+  ChorkiAnalyticsSession? get _analytics =>
+      mounted ? ChorkiAnalyticsScope.maybeOf(context) : null;
 
+  @override
+  void didUpdateWidget(covariant ChorkiShortsSeekBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The old video is not resumed: in a feed it belongs to a page that was
+    // swiped away.
     if (oldWidget.controller != widget.controller) {
-      _throttleTimer?.cancel();
-      _dragging = false;
-      _resumeOnEnd = false;
+      _scrub.abandon(reportCancel: true);
     }
   }
 
   @override
   void dispose() {
-    _throttleTimer?.cancel();
-    _throttleTimer = null;
-    _dragging = false;
-    _resumeOnEnd = false;
+    _scrub.abandon(reportCancel: true);
     super.dispose();
   }
-
-  /// Position when the current drag began, for the seek event.
-  Duration? _dragStart;
-
-  ChorkiAnalyticsSession? get _analytics =>
-      mounted ? ChorkiAnalyticsScope.maybeOf(context) : null;
 
   void _beginScrub(double fraction) {
     final value = _controller.value;
     if (!value.isInitialized || value.duration == Duration.zero) return;
-
-    HapticFeedback.lightImpact();
-    _dragStart = value.position;
-    _analytics?.recordScrubStart();
-    setState(() {
-      _dragging = true;
-      _dragFraction = fraction.clamp(0.0, 1.0);
-      _resumeOnEnd = value.isPlaying;
-      _lastHapticTick = _tickIndex(_dragFraction);
-    });
-    widget.onSeekStarted?.call(_positionOf(_dragFraction));
-
-    if (value.isPlaying) {
-      _safe(() => _controller.pause());
-    }
-
-    _throttleTimer?.cancel();
-    _throttleTimer = Timer.periodic(widget.seekThrottle, (_) {
-      if (_dragging) _applyDragSeek();
-    });
+    setState(() => _scrub.begin(_positionOf(fraction)));
+    widget.onSeekStarted?.call(_scrub.target);
   }
 
   void _updateScrub(double fraction) {
     if (!_dragging) return;
-    final clamped = fraction.clamp(0.0, 1.0);
-    setState(() => _dragFraction = clamped);
-
-    final tick = _tickIndex(clamped);
-    if (tick != _lastHapticTick) {
-      _lastHapticTick = tick;
-      HapticFeedback.selectionClick();
-    }
+    setState(() => _scrub.update(_positionOf(fraction)));
   }
 
   void _endScrub() {
-    if (!_dragging) return;
-    _throttleTimer?.cancel();
-    _throttleTimer = null;
-    HapticFeedback.lightImpact();
-    _restoreAfterScrub(applySeek: true);
-    setState(() => _dragging = false);
+    final target = _scrub.finish();
+    if (target == null) return;
+    widget.onSeekEnded?.call(target);
+    setState(() {});
   }
 
-  void _restoreAfterScrub({required bool applySeek}) {
-    if (applySeek) {
-      final target = _positionOf(_dragFraction);
-      final from = _dragStart ?? _controller.value.position;
-      if (target == from) {
-        _analytics?.recordScrubCancel();
-      } else {
-        _analytics?.recordSeek(from, target, ChorkiSeekSource.seekBarDrag);
-      }
-      _applyDragSeek();
-      widget.onSeekEnded?.call(target);
-    }
-    _dragStart = null;
-    if (_resumeOnEnd) {
-      _resumeOnEnd = false;
-      _safe(() => _controller.play());
-    }
-  }
-
-  void _safe(Future<void> Function() action) {
-    action().catchError((Object _) {});
-  }
-
-  void _applyDragSeek() {
-    _seekTo(_dragFraction);
-  }
-
-  Future<void> _seekTo(double fraction) async {
-    final value = _controller.value;
-    if (!value.isInitialized) return;
-    final target = _positionOf(fraction);
-    if (value.position == target) return;
-    try {
-      await _controller.seekTo(target);
-    } catch (_) {}
+  /// A tap, or a seek from a custom seek bar: clamped to the video.
+  void _seekNow(Duration target) {
+    _analytics?.recordSeek(
+      _controller.value.position,
+      _scrub.clamp(target),
+      ChorkiSeekSource.seekBarTap,
+    );
+    unawaited(_scrub.seek(target));
   }
 
   Duration _positionOf(double fraction) {
     final duration = _controller.value.duration;
-    return Duration(microseconds: (duration.inMicroseconds * fraction).round());
-  }
-
-  int _tickIndex(double fraction) {
-    final interval = widget.hapticTickInterval.inMilliseconds;
-    if (interval <= 0) return 0;
-    return _positionOf(fraction).inMilliseconds ~/ interval;
+    return Duration(
+      microseconds: (duration.inMicroseconds * fraction.clamp(0.0, 1.0))
+          .round(),
+    );
   }
 
   int _bufferedEndMs(List<DurationRange> ranges, int positionMs) {
@@ -244,7 +190,7 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
 
         final durationMs = value.duration.inMilliseconds;
         final positionMs = _dragging
-            ? _positionOf(_dragFraction).inMilliseconds
+            ? _scrub.target.inMilliseconds
             : value.position.inMilliseconds.clamp(0, durationMs);
         final bufferedMs = _bufferedEndMs(
           value.buffered,
@@ -260,15 +206,9 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
               buffered: Duration(milliseconds: bufferedMs),
               duration: value.duration,
               dragging: _dragging,
+              adMarkers: _adMarkers,
             ),
-            (target) {
-              _analytics?.recordSeek(
-                _controller.value.position,
-                target,
-                ChorkiSeekSource.seekBarTap,
-              );
-              _safe(() => _controller.seekTo(target));
-            },
+            _seekNow,
           );
         }
 
@@ -280,14 +220,10 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (details) {
-                  HapticFeedback.selectionClick();
-                  final fraction = _fractionAt(details.localPosition, width);
-                  _analytics?.recordSeek(
-                    _controller.value.position,
-                    _positionOf(fraction),
-                    ChorkiSeekSource.seekBarTap,
+                  unawaited(HapticFeedback.selectionClick());
+                  _seekNow(
+                    _positionOf(_fractionAt(details.localPosition, width)),
                   );
-                  unawaited(_seekTo(fraction));
                 },
                 onHorizontalDragStart: (details) =>
                     _beginScrub(_fractionAt(details.localPosition, width)),
@@ -321,9 +257,11 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
     );
   }
 
+  List<ChorkiAdMarker> get _adMarkers =>
+      widget.adMarkers ?? ChorkiAdScope.maybeOf(context)?.markers ?? const [];
+
   List<Widget> _buildAdMarkers(double trackWidth, double barHeight) {
-    final markers =
-        widget.adMarkers ?? ChorkiAdScope.maybeOf(context)?.markers ?? const [];
+    final markers = _adMarkers;
     if (markers.isEmpty) return const [];
     final theme = widget.theme;
     final markerHeight = theme.adMarkerHeight < barHeight
@@ -443,7 +381,7 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
             bottom: w.thumbRadius * 2 + 14,
             child: FractionalTranslation(
               translation: const Offset(-0.5, 0),
-              child: _buildTimeBubble(formatClock(_positionOf(_dragFraction))),
+              child: _buildTimeBubble(formatClock(_scrub.target)),
             ),
           ),
       ],

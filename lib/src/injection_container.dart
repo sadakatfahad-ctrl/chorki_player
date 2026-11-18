@@ -1,21 +1,18 @@
-import 'package:chorki_player/src/data/datasources/bytes_data_sources.dart';
-import 'package:chorki_player/src/data/repositories/byte_repository_impl.dart';
-import 'package:chorki_player/src/domain/repositories/bytes_repository.dart';
-import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
 import 'package:get_it/get_it.dart';
 
+/// The app-wide `GetIt.instance`.
+///
+/// The player no longer registers anything in it.
+@Deprecated(
+  'The player no longer uses GetIt; use your own GetIt.instance. '
+  'Removed in 2.0.0.',
+)
 final getIt = GetIt.instance;
 
-void initChorkiPlayer() {
-  if (!getIt.isRegistered<BytesDataSources>()) {
-    getIt.registerLazySingleton<BytesDataSources>(BytesDataSources.new);
-  }
-  if (!getIt.isRegistered<ByteRepository>()) {
-    getIt.registerLazySingleton<ByteRepository>(
-      () => ByteRepositoryImpl(byteDataSources: getIt()),
-    );
-  }
-  if (!getIt.isRegistered<BytesUsecase>()) {
-    getIt.registerLazySingleton<BytesUsecase>(() => BytesUsecase(getIt()));
-  }
-}
+/// Did the player's setup in `GetIt.instance`. Now a no-op: the player keeps
+/// its own services.
+@Deprecated(
+  'No longer needed; the player sets itself up. Use ChorkiPlayer.configure '
+  'for network settings. Removed in 2.0.0.',
+)
+void initChorkiPlayer() {}

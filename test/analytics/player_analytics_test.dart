@@ -1,8 +1,8 @@
 import 'package:chorki_player/chorki_player.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_scope.dart';
+import 'package:chorki_player/src/core/result.dart';
+import 'package:chorki_player/src/core/services.dart';
 import 'package:chorki_player/src/domain/repositories/bytes_repository.dart';
-import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
-import 'package:chorki_player/src/errors/server_failure.dart';
-import 'package:dartz/dartz.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,7 +14,7 @@ import '../fakes/fake_video_player_platform.dart';
 
 class _NoRoutes implements ByteRepository {
   @override
-  Future<Either<Failure, ByteDataEntity>> getByteData(
+  Future<Result<ByteDataEntity>> getByteData(
     String url, {
     bool refresh = false,
   }) async => throw UnimplementedError();
@@ -29,8 +29,7 @@ void main() {
   late MemoryAnalyticsSink sink;
 
   setUp(() async {
-    await getIt.reset();
-    getIt.registerSingleton<BytesUsecase>(BytesUsecase(_NoRoutes()));
+    ChorkiServices.overrideForTesting(repository: _NoRoutes());
     platform = FakeVideoPlayerPlatform();
     VideoPlayerPlatform.instance = platform;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -50,7 +49,7 @@ void main() {
 
   tearDown(() async {
     chorki.dispose();
-    await getIt.reset();
+    ChorkiServices.resetForTesting();
   });
 
   Future<void> settle(WidgetTester tester) async {
@@ -121,9 +120,11 @@ void main() {
     await chorki.seekTo(const Duration(seconds: 30));
     await chorki.setSpeed(1.5);
     chorki.setFit(ChorkiVideoFit.fill);
+    await chorki.selectQuality(null);
     await tester.pump();
 
     final types = of('A').map((e) => e.type);
+    expect(types, contains(ChorkiAnalyticsEventType.qualityChange));
     expect(types, contains(ChorkiAnalyticsEventType.seek));
     expect(types, contains(ChorkiAnalyticsEventType.speedChange));
     expect(types, contains(ChorkiAnalyticsEventType.fitChange));
@@ -135,6 +136,82 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+  });
+
+  testWidgets('analytics can be turned on, changed and off at runtime; '
+      'the player toggles play/pause, loops and uses a custom loader', (
+    tester,
+  ) async {
+    final local = MemoryAnalyticsSink();
+    Widget player({ChorkiAnalyticsConfig? analytics, bool looping = false}) =>
+        MaterialApp(
+          home: ChorkiPlayer.url(
+            a,
+            autoPlay: false,
+            looping: looping,
+            analytics: analytics,
+            builders: ChorkiPlayerBuilders(
+              loadingBuilder: (_) => const Text('LOADING'),
+            ),
+          ),
+        );
+    final on = ChorkiAnalyticsConfig(
+      sinks: [local],
+      heartbeatInterval: const Duration(hours: 1),
+    );
+
+    await tester.pumpWidget(player());
+    expect(find.text('LOADING'), findsOneWidget);
+    await settle(tester);
+    expect(local.events, isEmpty);
+
+    await tester.pumpWidget(player(analytics: on));
+    await settle(tester);
+    expect(local.types, contains(ChorkiAnalyticsEventType.impression));
+
+    await tester.pumpWidget(
+      player(
+        analytics: ChorkiAnalyticsConfig(
+          sinks: [local],
+          heartbeatInterval: const Duration(hours: 2),
+        ),
+        looping: true,
+      ),
+    );
+    await settle(tester);
+    expect(platform.onlyPlayer.isPlaying, isFalse);
+
+    tester
+        .widget<ChorkiPlayerSurface>(find.byType(ChorkiPlayerSurface))
+        .onTogglePlayPause();
+    await settle(tester);
+    expect(platform.onlyPlayer.isPlaying, isTrue);
+
+    await tester.pumpWidget(player(looping: true));
+    await settle(tester);
+    expect(local.types.last, ChorkiAnalyticsEventType.sessionEnd);
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('a callback firing after its widget is gone finds no session', (
+    tester,
+  ) async {
+    late BuildContext captured;
+    await tester.pumpWidget(
+      ChorkiAnalyticsScope(
+        session: null,
+        child: Builder(
+          builder: (context) {
+            captured = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    await tester.pumpWidget(const SizedBox());
+    expect(ChorkiAnalyticsScope.maybeOf(captured), isNull);
   });
 
   testWidgets('changing the URL ends the old view and the new impression '
@@ -178,7 +255,7 @@ void main() {
     await tester.pumpWidget(feed(aActive: true));
     await settle(tester);
 
-    final overlay = find.byType(PlayerGestureOverlay).first;
+    final overlay = find.byType(ChorkiGestureOverlay).first;
     final box = tester.getRect(overlay);
     final right = Offset(box.right - 20, box.center.dy);
     await tester.tapAt(right);

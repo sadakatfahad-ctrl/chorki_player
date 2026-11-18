@@ -1,0 +1,35 @@
+--- a/lib/src/analytics/chorki_analytics_session.dart
++++ b/lib/src/analytics/chorki_analytics_session.dart
+@@ -148,7 +148,7 @@
+   }
+ 
+   void _beginView() {
+-    _activatedAt = _clock();
++    _activatedAt = DateTime.now();
+     _startSession();
+     final v = _video?.value;
+     if (v != null) {
+--- a/lib/src/ads/chorki_ad_layer.dart
++++ b/lib/src/ads/chorki_ad_layer.dart
+@@ -145,7 +145,7 @@
+       case AdEventType.midpoint:
+         analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
+           ...adData(),
+-          ChorkiAnalyticsKeys.percent: 50,
++          'percent': 50,
+         });
+       case AdEventType.thirdQuartile:
+         analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
+--- a/lib/src/controllers/chorki_player_controller.dart
++++ b/lib/src/controllers/chorki_player_controller.dart
+@@ -318,9 +318,7 @@
+         _session?.recordAudioTrackChange(_selectedAudioTrackId.value, trackId);
+         _selectedAudioTrackId.value = trackId;
+       }
+-    } catch (e, st) {
+-      ChorkiDiagnostics.report(e, st, 'controller.selectAudioTrack');
+-    }
++    } catch (_) {}
+   }
+ 
+   // ---------------------------------------------------------------------------

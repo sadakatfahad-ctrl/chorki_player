@@ -1,7 +1,16 @@
+import 'package:chorki_player/chorki_player.dart'
+    show
+        ChorkiAnalyticsCategory,
+        ChorkiAnalyticsConfig,
+        ChorkiAnalyticsEventType,
+        ChorkiAnalyticsSession,
+        ChorkiMediaMetadata,
+        MemoryAnalyticsSink;
 import 'package:chorki_player/src/ads/chorki_ad_config.dart';
 import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
 import 'package:chorki_player/src/ads/chorki_ad_state.dart';
 import 'package:chorki_player/src/ads/vmap.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +21,7 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 
 import '../fakes/fake_ima_platform.dart';
 import '../fakes/fake_video_player_platform.dart';
+import '../support/diagnostics.dart';
 
 const _adTagUrl = 'https://ads.test/tag';
 
@@ -121,6 +131,135 @@ void main() {
   }
 
   bool contentVisible() => find.text('CONTENT').evaluate().isNotEmpty;
+
+  testWidgets('ads that load after the layer is gone are destroyed '
+      '(bug: the manager leaked)', (tester) async {
+    await pumpLayer(tester);
+    final loader = ima.loader;
+    await unmount(tester);
+
+    final late = FakeAdsManager();
+    loader.loadManager(late);
+    await tester.pump();
+    expect(late.destroyCalls, 1);
+    expect(ima.delegates, isEmpty, reason: 'never wired up');
+  });
+
+  testWidgets('IMA events are reported to the analytics session', (
+    tester,
+  ) async {
+    final sink = MemoryAnalyticsSink();
+    final session =
+        ChorkiAnalyticsSession(
+            config: ChorkiAnalyticsConfig(
+              sinks: [sink],
+              heartbeatInterval: const Duration(hours: 1),
+            ),
+            metadata: () => const ChorkiMediaMetadata(contentId: 'c'),
+          )
+          ..bind(controller)
+          ..activate();
+    addTearDown(session.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ChorkiAnalyticsScope(
+          session: session,
+          child: ChorkiAdLayer(
+            controller: controller,
+            adTagUrl: _adTagUrl,
+            config: config(),
+            autoPlay: true,
+            vmapFetcher: _fetchMidroll,
+            child: const Text('CONTENT'),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final manager = loadAds();
+    await tester.pump();
+    for (final type in const [
+      AdEventType.contentPauseRequested,
+      AdEventType.started,
+      AdEventType.firstQuartile,
+      AdEventType.midpoint,
+      AdEventType.thirdQuartile,
+      AdEventType.paused,
+      AdEventType.resumed,
+      AdEventType.clicked,
+      AdEventType.skipped,
+      AdEventType.complete,
+    ]) {
+      manager.emit(type);
+      await tester.pump();
+    }
+    manager.emitError(_playingError);
+    await tester.pump();
+
+    final ads = sink.events
+        .where((e) => e.category == ChorkiAnalyticsCategory.ad)
+        .map(
+          (e) => e.type == ChorkiAnalyticsEventType.adQuartile
+              ? 'adQuartile${e.data['percent']}'
+              : e.type.name,
+        )
+        .toList();
+    expect(
+      ads,
+      containsAllInOrder([
+        'adStart',
+        'adQuartile25',
+        'adQuartile50',
+        'adQuartile75',
+        'adPause',
+        'adResume',
+        'adClick',
+        'adSkip',
+        'adComplete',
+        'adError',
+      ]),
+    );
+    await unmount(tester);
+  });
+
+  testWidgets('the app going inactive pauses a playing ad; resuming resumes '
+      'it', (tester) async {
+    await pumpLayer(tester);
+    final manager = loadAds();
+    await tester.pump();
+    final binding = tester.binding;
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(manager.pauseCalls, 1);
+    expect(manager.resumeCalls, 1);
+    await unmount(tester);
+  });
+
+  testWidgets('reaching the end tells IMA the content completed (post-roll), '
+      'once until the content restarts', (tester) async {
+    await pumpLayer(tester);
+    final manager = loadAds();
+    await tester.pump();
+    manager.emit(AdEventType.contentResumeRequested);
+    await tester.pump();
+
+    final end = controller.value.duration - const Duration(milliseconds: 100);
+    await tester.runAsync(() => controller.seekTo(end));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(ima.loader.contentCompleteCalls, 1);
+
+    await tester.runAsync(() => controller.seekTo(Duration.zero));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.runAsync(() => controller.seekTo(end));
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(ima.loader.contentCompleteCalls, 2, reason: 'restarted, ends again');
+    await unmount(tester);
+  });
 
   group('content gating and pre-roll flow', () {
     testWidgets('content child is hidden until contentResumeRequested', (
@@ -455,6 +594,8 @@ void main() {
     testWidgets('VMAP fetch failure: no markers, but ads still flow', (
       tester,
     ) async {
+      final reports = captureDiagnostics();
+      addTearDown(() => expect(reports, ['ads.vmap']));
       await pumpLayer(
         tester,
         vmapFetcher: (_) async => throw Exception('network down'),

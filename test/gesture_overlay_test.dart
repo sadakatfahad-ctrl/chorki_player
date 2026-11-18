@@ -1,9 +1,8 @@
-import 'package:chorki_player/src/presentation/widgets/gesture_overlay.dart';
+import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'fakes/fake_video_player_platform.dart';
@@ -35,7 +34,7 @@ void main() {
         home: Scaffold(
           backgroundColor: Colors.black,
           body: SizedBox.expand(
-            child: PlayerGestureOverlay(
+            child: ChorkiGestureOverlay(
               controller: controller,
               onTogglePlayPause: () => controller.value.isPlaying
                   ? controller.pause()
@@ -323,14 +322,14 @@ void main() {
       final secondController = VideoPlayerController.networkUrl(
         Uri.parse('https://test.local/video2.mp4'),
       );
-      await tester.runAsync(() => secondController.initialize());
+      await tester.runAsync(secondController.initialize);
 
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             backgroundColor: Colors.black,
             body: SizedBox.expand(
-              child: PlayerGestureOverlay(
+              child: ChorkiGestureOverlay(
                 controller: secondController,
                 onTogglePlayPause: () {},
               ),
@@ -343,7 +342,7 @@ void main() {
       // The swap reset the scrub without resuming the OLD controller (which
       // would keep it playing in the background forever).
       expect(controller.value.isPlaying, isFalse);
-      await tester.runAsync(() => secondController.dispose());
+      await tester.runAsync(secondController.dispose);
       await gesture.up();
       await tester.pump();
     });
@@ -362,12 +361,12 @@ void main() {
       final secondController = VideoPlayerController.networkUrl(
         Uri.parse('https://test.local/video2.mp4'),
       );
-      await tester.runAsync(() => secondController.initialize());
+      await tester.runAsync(secondController.initialize);
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SizedBox.expand(
-              child: PlayerGestureOverlay(
+              child: ChorkiGestureOverlay(
                 controller: secondController,
                 onTogglePlayPause: () {},
               ),
@@ -381,7 +380,63 @@ void main() {
       expect(secondController.value.playbackSpeed, 1.0);
       await gesture.up();
       await tester.pump();
-      await tester.runAsync(() => secondController.dispose());
+      await tester.runAsync(secondController.dispose);
+      await controller.pause();
+      await tester.pump();
+    });
+  });
+
+  group('custom gesture feedback', () {
+    Future<List<ChorkiGestureFeedback>> pumpCustom(WidgetTester tester) async {
+      final shown = <ChorkiGestureFeedback>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox.expand(
+              child: ChorkiGestureOverlay(
+                controller: controller,
+                onTogglePlayPause: () {},
+                builders: ChorkiPlayerBuilders(
+                  gestureFeedbackBuilder: (context, feedback) {
+                    shown.add(feedback);
+                    return Text('custom ${feedback.label}');
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return shown;
+    }
+
+    testWidgets('a double tap shows the builder with the signed jump', (
+      tester,
+    ) async {
+      final shown = await pumpCustom(tester);
+      await tester.tapAt(const Offset(200, 300));
+      await tester.pump(kDoubleTapMinTime);
+      await tester.tapAt(const Offset(200, 300));
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(shown.last.kind, ChorkiGestureKind.seekBackward);
+      expect(find.text('custom -10s'), findsOneWidget);
+      await settleAfterGesture(tester);
+    });
+
+    testWidgets('a long press shows the builder with the speed', (
+      tester,
+    ) async {
+      final shown = await pumpCustom(tester);
+      await controller.play();
+      final gesture = await tester.startGesture(const Offset(400, 300));
+      await tester.pump(kLongPressTimeout + const Duration(milliseconds: 50));
+
+      expect(shown.last.kind, ChorkiGestureKind.speed);
+      expect(find.text('custom 2.0x'), findsOneWidget);
+      await gesture.up();
+      await tester.pump();
       await controller.pause();
       await tester.pump();
     });

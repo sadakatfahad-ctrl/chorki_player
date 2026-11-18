@@ -4,7 +4,6 @@ import 'package:chorki_player/src/presentation/widgets/ad_countdown_pill.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import '../fakes/fake_video_player_platform.dart';
@@ -179,7 +178,7 @@ void main() {
     });
   });
 
-  group('ShortsSeekBar ad markers', () {
+  group('ChorkiShortsSeekBar ad markers', () {
     Finder markerFinders() => find.byWidgetPredicate(_isAdMarkerKey);
 
     Future<void> pumpBar(
@@ -188,7 +187,11 @@ void main() {
       ChorkiPlayerTheme theme = const ChorkiPlayerTheme(),
     }) => pumpIn(
       tester,
-      ShortsSeekBar(controller: controller, adMarkers: markers, theme: theme),
+      ChorkiShortsSeekBar(
+        controller: controller,
+        adMarkers: markers,
+        theme: theme,
+      ),
     );
 
     testWidgets('explicit adMarkers render one keyed widget per marker', (
@@ -312,7 +315,7 @@ void main() {
                 width: 400,
                 child: ChorkiAdScope(
                   state: state,
-                  child: ShortsSeekBar(controller: controller),
+                  child: ChorkiShortsSeekBar(controller: controller),
                 ),
               ),
             ),
@@ -353,7 +356,7 @@ void main() {
                 width: 400,
                 child: ChorkiAdScope(
                   state: state,
-                  child: ShortsSeekBar(
+                  child: ChorkiShortsSeekBar(
                     controller: controller,
                     adMarkers: const [
                       ChorkiAdMarker(

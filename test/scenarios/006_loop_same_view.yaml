@@ -1,0 +1,22 @@
+name: loop_same_view
+description: with newSessionOnLoop off a loop keeps the view and its quartiles fire again
+given:
+  duration: 10s
+  analytics: {newSessionOnLoop: false}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 9.8s}
+  - wrap
+  - play: {to: 3s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - impression: {$session: $a}
+    - complete
+    - loop: {loopCount: 1}
+    - quartile: {percent: 25, $session: $a}
+    - sessionEnd: {reason: swipedAway, loopCount: 1, $watched: 13, $session: $a}
+  never: [abandon]

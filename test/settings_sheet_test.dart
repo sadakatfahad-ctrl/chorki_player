@@ -2,7 +2,6 @@ import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart'
     as pi;
 
@@ -179,13 +178,13 @@ void main() {
   testWidgets('in PiP the surface shows only the video', (tester) async {
     await pumpSurface(tester);
     expect(find.byKey(const Key('chorki_settings_button')), findsOneWidget);
-    expect(find.byType(ShortsSeekBar), findsOneWidget);
+    expect(find.byType(ChorkiShortsSeekBar), findsOneWidget);
 
     await chorki.enterPip();
     await tester.pump();
     expect(find.byKey(const Key('chorki_settings_button')), findsNothing);
-    expect(find.byType(ShortsSeekBar), findsNothing);
-    expect(find.byType(PlayerGestureOverlay), findsNothing);
+    expect(find.byType(ChorkiShortsSeekBar), findsNothing);
+    expect(find.byType(ChorkiGestureOverlay), findsNothing);
     expect(find.byKey(const Key('chorki_video_fit')), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
     await cleanUp(tester);

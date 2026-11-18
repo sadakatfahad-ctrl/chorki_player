@@ -1,0 +1,20 @@
+name: rebuffer_after_seek
+description: a stall right after a seek is flagged afterSeek
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 2s}
+  - seek: {to: 12s, source: seekBarTap}
+  - value: {buffering: true}
+  - advance: 800ms
+  - value: {buffering: false}
+  - deactivate: disposed
+expect:
+  mode: subsequence
+  events:
+    - seek: {source: seekBarTap}
+    - bufferStart: {afterSeek: true}
+    - bufferEnd: {durationMs: 800}
+    - sessionEnd: {reason: disposed, rebufferCount: 1}

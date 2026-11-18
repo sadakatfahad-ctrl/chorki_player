@@ -6,6 +6,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../core/clock.dart';
+import '../../core/diagnostics.dart';
+import '../../core/ids.dart';
 import '../chorki_analytics_event.dart';
 import '../chorki_analytics_sink.dart';
 import 'analytics_storage.dart';
@@ -13,13 +16,15 @@ import 'matomo_config.dart';
 import 'matomo_request_builder.dart';
 
 /// Sends a batch of Matomo requests (query strings starting with `?`).
-/// Returns true when the server accepted them.
 abstract class MatomoTransport {
+  /// Returns true when the server accepted [requests]. Should return false
+  /// rather than throw on network errors; a throw is treated the same way.
   Future<bool> send(Uri endpoint, List<String> requests);
 }
 
 /// Bulk tracking: one `POST matomo.php` with `{"requests": [...]}`.
 class DioMatomoTransport implements MatomoTransport {
+  /// Posts with [dio], or a client with [timeout].
   DioMatomoTransport({Dio? dio, Duration timeout = const Duration(seconds: 10)})
     : _dio =
           dio ??
@@ -47,7 +52,8 @@ class DioMatomoTransport implements MatomoTransport {
       );
       final code = response.statusCode ?? 0;
       return code >= 200 && code < 300;
-    } catch (_) {
+    } on DioException {
+      // Offline or unreachable: the sink retries with backoff.
       return false;
     }
   }
@@ -77,29 +83,33 @@ class DioMatomoTransport implements MatomoTransport {
 /// ChorkiPlayer(route: r, analytics: ChorkiAnalyticsConfig(sinks: [matomo]));
 /// ```
 class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
+  /// Reports to the Matomo described by [config].
   MatomoAnalyticsSink(
     this.config, {
     MatomoTransport? transport,
     this.userId,
     Map<String, String> userProperties = const {},
-    @visibleForTesting DateTime Function()? clock,
+    @visibleForTesting this._clock = systemClock,
   }) : _transport =
            transport ?? DioMatomoTransport(timeout: config.requestTimeout),
        _builder = MatomoRequestBuilder(config),
        _storage = config.storage ?? InMemoryAnalyticsStorage(),
-       _clock = clock ?? DateTime.now,
        _userProperties = Map.of(userProperties) {
     _ready = _restore();
     _listenToLifecycle();
   }
 
+  /// Where and what to report.
   final MatomoConfig config;
   final MatomoTransport _transport;
   final MatomoRequestBuilder _builder;
   final ChorkiAnalyticsStorage _storage;
-  final DateTime Function() _clock;
+  final ChorkiClock _clock;
 
+  /// Storage key of the visitor id.
   static const String visitorIdKey = 'chorki_matomo.visitor_id';
+
+  /// Storage key of the unsent requests.
   static const String queueKey = 'chorki_matomo.queue';
 
   /// Matomo only accepts back-dated requests (`cdt`) within this window
@@ -110,7 +120,7 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
   /// out. Applies to later events.
   String? userId;
   final Map<String, String> _userProperties;
-  String _visitorId = _newVisitorId();
+  String _visitorId = secureHex(8);
   final List<_Queued> _queue = [];
   late final Future<void> _ready;
   Timer? _flushTimer;
@@ -123,6 +133,8 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
   /// Viewer values that can be mapped to custom dimensions, e.g.
   /// `{'subscriptionTier': 'premium'}`. Applies to later events.
   Map<String, String> get userProperties => Map.unmodifiable(_userProperties);
+
+  /// Sets (or with null removes) one of [userProperties].
   void setUserProperty(String key, String? value) {
     if (value == null) {
       _userProperties.remove(key);
@@ -197,9 +209,15 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
 
     while (_queue.isNotEmpty) {
       final batch = _queue.take(config.batchSize).toList();
-      final ok = await _transport.send(config.endpoint, [
-        for (final q in batch) _encode(q.params),
-      ]);
+      bool ok;
+      try {
+        ok = await _transport.send(config.endpoint, [
+          for (final q in batch) _encode(q.params),
+        ]);
+      } catch (e, st) {
+        ChorkiDiagnostics.report(e, st, 'matomo.send');
+        ok = false;
+      }
       if (!ok) {
         _failures++;
         final delay = Duration(
@@ -234,7 +252,9 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
     try {
       final shared = config.visitorIdProvider?.call();
       if (shared != null && _validVisitorId.hasMatch(shared)) return shared;
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'matomo.visitorIdProvider');
+    }
     return _visitorId;
   }
 
@@ -242,7 +262,7 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
     final all = {
       ...params,
       '_id': _effectiveVisitorId,
-      'rand': '${Random().nextInt(1 << 30)}',
+      'rand': '${randomInt(1 << 30)}',
     };
     return '?${Uri(queryParameters: all).query}';
   }
@@ -257,25 +277,34 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
       }
       final raw = await _storage.read(queueKey);
       if (raw != null && raw.isNotEmpty) {
-        final restored = <_Queued>[];
-        for (final item in jsonDecode(raw) as List<Object?>) {
-          if (item is! Map) continue;
-          final params = (item['p'] as Map?)?.map(
-            (k, v) => MapEntry('$k', '$v'),
-          );
-          final at = item['t'];
-          if (params == null || at is! int) continue;
-          restored.add(
-            _Queued(params, DateTime.fromMillisecondsSinceEpoch(at)),
-          );
-        }
-        // Saved ones are older: they go first.
+        final decoded = jsonDecode(raw);
+        final restored = <_Queued>[
+          if (decoded is List)
+            for (final item in decoded)
+              // One damaged entry must not cost the others.
+              if (item case {
+                'p': final Map<Object?, Object?> p,
+                't': final int t,
+              })
+                _Queued(
+                  p.map((k, v) => MapEntry('$k', '$v')),
+                  DateTime.fromMillisecondsSinceEpoch(t),
+                ),
+        ];
+        // Saved ones are older: they go first, then the cap applies.
         _queue.insertAll(0, restored);
+        final overflow = _queue.length - config.maxQueueLength;
+        if (overflow > 0) _queue.removeRange(0, overflow);
       }
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'matomo.restore');
+    }
   }
 
   Future<void> _persist() async {
+    // Never write before the saved queue was read back: the restore would
+    // then load the current requests again and send them twice.
+    await _ready;
     try {
       await _storage.write(
         queueKey,
@@ -286,7 +315,19 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
                   {'p': q.params, 't': q.at.millisecondsSinceEpoch},
               ]),
       );
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'matomo.persist');
+    }
+  }
+
+  /// Drops every unsent request, in memory and in storage.
+  @override
+  Future<void> onConsentRevoked() async {
+    await _ready;
+    _queue.clear();
+    _flushTimer?.cancel();
+    _flushTimer = null;
+    await _persist();
   }
 
   void _listenToLifecycle() {
@@ -295,7 +336,7 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
         onHide: () => unawaited(_flushOrPersist()),
         onDetach: () => unawaited(_flushOrPersist()),
       );
-    } catch (_) {
+    } on FlutterError {
       // No binding (pure Dart tests): flushing still works on the timer.
     }
   }
@@ -313,7 +354,7 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
       final size = views.first.physicalSize;
       if (size.isEmpty) return null;
       return '${size.width.round()}x${size.height.round()}';
-    } catch (_) {
+    } on StateError {
       return null;
     }
   }
@@ -324,7 +365,7 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
       if (views.isEmpty) return null;
       final view = views.first;
       return view.physicalSize / view.devicePixelRatio;
-    } catch (_) {
+    } on StateError {
       return null;
     }
   }
@@ -332,7 +373,7 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
   String? _language() {
     try {
       return PlatformDispatcher.instance.locale.toLanguageTag();
-    } catch (_) {
+    } on StateError {
       return null;
     }
   }
@@ -346,11 +387,6 @@ class MatomoAnalyticsSink extends ChorkiAnalyticsSink {
     _disposed = true;
     _flushTimer?.cancel();
     _flushTimer = null;
-  }
-
-  static String _newVisitorId() {
-    final r = Random.secure();
-    return List.generate(16, (_) => r.nextInt(16).toRadixString(16)).join();
   }
 }
 

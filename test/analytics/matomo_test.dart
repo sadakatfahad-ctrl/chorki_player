@@ -1,7 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:chorki_player/chorki_player.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleState, WidgetsBinding;
 import 'package:flutter_test/flutter_test.dart';
 
 class _FakeTransport implements MatomoTransport {
@@ -46,6 +50,8 @@ ChorkiAnalyticsEvent _event(
 );
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   const config = MatomoConfig(
     url: 'https://analytics.test/',
     siteId: 7,
@@ -415,6 +421,174 @@ void main() {
       await sink.dispose();
     });
 
+    test('a transport that throws is reported and backed off, not stuck '
+        '(bug: the exception escaped flush and skipped the retry)', () async {
+      final reported = <String>[];
+      ChorkiDiagnostics.onError = (e, st, c) => reported.add(c);
+      addTearDown(() => ChorkiDiagnostics.onError = null);
+      final throwing = _ThrowingTransport();
+      final sink = MatomoAnalyticsSink(
+        MatomoConfig(url: 'https://a.test', siteId: 1, storage: storage),
+        transport: throwing,
+        clock: () => now,
+      );
+      sink.onEvent(_event(ChorkiAnalyticsEventType.play));
+      await sink.flush();
+      expect(reported, ['matomo.send']);
+      expect(sink.pendingCount, 1, reason: 'kept for a retry');
+      expect(storage.values[MatomoAnalyticsSink.queueKey], isNotNull);
+
+      // Backing off: an immediate flush does not hammer the server.
+      await sink.flush();
+      expect(throwing.calls, 1);
+      throwing.fail = false;
+      now = now.add(const Duration(seconds: 6));
+      await sink.flush();
+      expect(sink.pendingCount, 0);
+      await sink.dispose();
+    });
+
+    test(
+      'revoking consent drops queued requests, in memory and storage',
+      () async {
+        final sink = create();
+        transport.online = false;
+        sink.onEvent(_event(ChorkiAnalyticsEventType.play));
+        await sink.flush();
+        expect(sink.pendingCount, 1);
+
+        await sink.onConsentRevoked();
+        expect(sink.pendingCount, 0);
+        expect(storage.values[MatomoAnalyticsSink.queueKey], isNull);
+        transport.online = true;
+        await sink.flush();
+        expect(transport.batches, isEmpty);
+        await sink.dispose();
+      },
+    );
+
+    test('a damaged saved queue keeps its good entries and the cap '
+        '(bug: one bad entry dropped them all)', () async {
+      storage.values[MatomoAnalyticsSink.queueKey] = jsonEncode([
+        {'p': 'not a map', 't': 1},
+        for (var i = 0; i < 5; i++)
+          {
+            'p': {'idsite': '1', 'n': '$i'},
+            't': now.millisecondsSinceEpoch,
+          },
+        42,
+      ]);
+      final sink = MatomoAnalyticsSink(
+        MatomoConfig(
+          url: 'https://a.test',
+          siteId: 1,
+          storage: storage,
+          maxQueueLength: 3,
+        ),
+        transport: transport,
+        clock: () => now,
+      );
+      await sink.flush();
+      expect(transport.sent.map((r) => r['n']), ['2', '3', '4']);
+      await sink.dispose();
+    });
+
+    test('an unreadable saved queue is reported, not fatal', () async {
+      final reported = <String>[];
+      ChorkiDiagnostics.onError = (e, st, c) => reported.add(c);
+      addTearDown(() => ChorkiDiagnostics.onError = null);
+      storage.values[MatomoAnalyticsSink.queueKey] = '{not json';
+      final sink = create();
+      sink.onEvent(_event(ChorkiAnalyticsEventType.play));
+      await sink.flush();
+      expect(reported, ['matomo.restore']);
+      expect(transport.sent, hasLength(1));
+      await sink.dispose();
+    });
+
+    test('a throwing visitorIdProvider falls back to the own id', () async {
+      final reported = <String>[];
+      ChorkiDiagnostics.onError = (e, st, c) => reported.add(c);
+      addTearDown(() => ChorkiDiagnostics.onError = null);
+      final sink = MatomoAnalyticsSink(
+        MatomoConfig(
+          url: 'https://a.test',
+          siteId: 1,
+          visitorIdProvider: () => throw StateError('not ready'),
+        ),
+        transport: transport,
+        clock: () => now,
+      );
+      expect(await sink.visitorId, matches(RegExp(r'^[0-9a-f]{16}$')));
+      expect(reported, ['matomo.visitorIdProvider']);
+      await sink.dispose();
+    });
+
+    test('DioMatomoTransport: 2xx is accepted, others and network errors '
+        'are not', () async {
+      final adapter = _StatusAdapter();
+      final transport = DioMatomoTransport(
+        dio: Dio()..httpClientAdapter = adapter,
+      );
+      final endpoint = Uri.parse('https://a.test/matomo.php');
+      adapter.status = 204;
+      expect(await transport.send(endpoint, ['?a=1']), isTrue);
+      expect(jsonDecode(adapter.bodies.single), {
+        'requests': ['?a=1'],
+      });
+      adapter.status = 500;
+      expect(await transport.send(endpoint, ['?a=1']), isFalse);
+      adapter.fail = true;
+      expect(await transport.send(endpoint, ['?a=1']), isFalse);
+      expect(DioMatomoTransport(), isA<MatomoTransport>());
+    });
+
+    test(
+      'the viewport media size reports the screen in logical pixels',
+      () async {
+        final sink = MatomoAnalyticsSink(
+          const MatomoConfig(
+            url: 'https://a.test',
+            siteId: 1,
+            mediaSize: MatomoMediaSize.viewport,
+          ),
+          transport: transport,
+          clock: () => now,
+        );
+        sink.onEvent(_event(ChorkiAnalyticsEventType.impression));
+        await sink.flush();
+        final view = WidgetsBinding.instance.platformDispatcher.views.first;
+        final logical = view.physicalSize / view.devicePixelRatio;
+        expect(transport.sent.single['ma_w'], '${logical.width.round()}');
+        await sink.dispose();
+      },
+    );
+
+    test('going to the background flushes what is queued, once '
+        '(bug: a hide before the saved queue was restored sent every '
+        'request twice)', () async {
+      final sink = create();
+      sink.onEvent(_event(ChorkiAnalyticsEventType.play));
+      expect(transport.batches, isEmpty);
+      WidgetsBinding.instance
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await pumpEventQueue();
+      expect(transport.sent, hasLength(1));
+      WidgetsBinding.instance
+        ..handleAppLifecycleStateChanged(AppLifecycleState.inactive)
+        ..handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await sink.dispose();
+    });
+
+    test('user properties can be removed', () {
+      final sink = create()
+        ..setUserProperty('tier', 'gold')
+        ..setUserProperty('tier', null);
+      expect(sink.userProperties, isEmpty);
+      unawaited(sink.dispose());
+    });
+
     test('the bulk body is Matomo JSON', () async {
       String? body;
       final sink = MatomoAnalyticsSink(
@@ -441,4 +615,42 @@ class _CapturingTransport implements MatomoTransport {
     onBody(jsonEncode({'requests': requests}));
     return true;
   }
+}
+
+class _ThrowingTransport implements MatomoTransport {
+  bool fail = true;
+  int calls = 0;
+
+  @override
+  Future<bool> send(Uri endpoint, List<String> requests) async {
+    calls++;
+    if (fail) throw StateError('socket closed');
+    return true;
+  }
+}
+
+class _StatusAdapter implements HttpClientAdapter {
+  int status = 200;
+  bool fail = false;
+  final List<String> bodies = [];
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    if (fail) {
+      throw DioException.connectionError(
+        requestOptions: options,
+        reason: 'offline',
+      );
+    }
+    final chunks = await requestStream?.toList() ?? [];
+    bodies.add(utf8.decode([for (final c in chunks) ...c]));
+    return ResponseBody.fromString('', status);
+  }
+
+  @override
+  void close({bool force = false}) {}
 }

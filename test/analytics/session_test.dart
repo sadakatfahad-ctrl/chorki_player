@@ -2,7 +2,7 @@ import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart' hide VideoTrack;
+import '../support/diagnostics.dart';
 
 const _duration = Duration(seconds: 60);
 
@@ -118,7 +118,7 @@ void main() {
     session.heartbeat();
 
     final beats = dataOf(ChorkiAnalyticsEventType.heartbeat)
-        .where((d) => d['reason'] == 'interval')
+        .where((d) => d['trigger'] == 'interval')
         .map((d) => d['newSegments'])
         .toList();
     expect(beats, [
@@ -359,14 +359,20 @@ void main() {
   test('leaving before the first frame is an abandon (exit before start)', () {
     session.activate();
     now = now.add(const Duration(seconds: 3));
-    session.recordError('boom', stage: 'load', willRetry: true);
+    session.recordError(
+      const ChorkiPlayerError(
+        ChorkiErrorCode.videoLoad,
+        stage: ChorkiErrorStage.load,
+      ),
+      willRetry: true,
+    );
     session.deactivate(ChorkiSessionEndReason.swipedAway);
 
     final abandon = dataOf(ChorkiAnalyticsEventType.abandon).single;
     expect(abandon, {
       'waitedMs': 3000,
       'reason': 'swipedAway',
-      'stage': 'loading',
+      'abandonStage': 'loading',
       'errorCount': 1,
     });
     expect(
@@ -382,7 +388,10 @@ void main() {
       ..activate()
       ..bind(video);
     session.deactivate(ChorkiSessionEndReason.disposed);
-    expect(dataOf(ChorkiAnalyticsEventType.abandon).single['stage'], 'ready');
+    expect(
+      dataOf(ChorkiAnalyticsEventType.abandon).single['abandonStage'],
+      'ready',
+    );
 
     sink.clear();
     session.activate();
@@ -418,6 +427,8 @@ void main() {
   });
 
   test('a throwing sink does not break the others', () {
+    final reports = captureDiagnostics();
+    addTearDown(() => expect(reports.toSet(), {'analytics.sink'}));
     final other = MemoryAnalyticsSink();
     session.config = ChorkiAnalyticsConfig(
       sinks: [CallbackAnalyticsSink((_) => throw StateError('x')), other],

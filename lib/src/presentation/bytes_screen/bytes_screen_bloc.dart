@@ -1,12 +1,12 @@
-import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
-import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_event.dart';
-import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_state.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/usecases/bytes_usecase.dart';
+import 'byte_screen_event.dart';
+import 'byte_screen_state.dart';
+
 class BytesBloc extends Bloc<ByteScreenEvent, ByteScreenState> {
-  BytesBloc({required BytesUsecase getByteDataUsecase})
-    : _getByteDataUsecase = getByteDataUsecase,
-      super(const ByteScreenInitialState()) {
+  BytesBloc({required this._getByteDataUsecase})
+    : super(const ByteScreenInitialState()) {
     on<ByteScreenInitialEvent>(_onGetByteData);
     on<ByteScreenSourceEvent>(_onSource);
   }
@@ -38,7 +38,7 @@ class BytesBloc extends Bloc<ByteScreenEvent, ByteScreenState> {
     if (id != _requestId) return;
 
     response.fold(
-      (failure) => emit(ByteScreenFailedState(failure.message)),
+      (error) => emit(ByteScreenFailedState(error)),
       (byteData) => emit(ByteScreenLoadedState(byteData)),
     );
   }

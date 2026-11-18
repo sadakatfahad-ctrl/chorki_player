@@ -1,0 +1,21 @@
+name: preroll_interrupted
+description: swiping away during a pre-roll closes the break as interrupted and is an abandon
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - adBreakStart
+  - ad: {type: adStart}
+  - advance: 4s
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - heartbeat: {trigger: ad, newSegments: []}
+    - adBreakStart: {breakKind: preRoll, breakIndex: 0}
+    - adStart: {breakIndex: 0}
+    - abandon: {abandonStage: ready, waitedMs: 4000}
+    - adBreakEnd: {interrupted: true, durationMs: 4000}
+    - heartbeat: {trigger: end}
+    - sessionEnd

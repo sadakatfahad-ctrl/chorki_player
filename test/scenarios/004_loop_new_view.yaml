@@ -1,0 +1,31 @@
+name: loop_new_view
+description: a looping byte counts every loop as a new view with its own ma_id
+given: {duration: 10s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 9.8s}
+  - wrap
+  - play: {to: 3s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression: {$session: $a}
+    - play
+    - firstFrame
+    - quartile: {percent: 25}
+    - quartile: {percent: 50}
+    - quartile: {percent: 75}
+    - heartbeat: {trigger: complete, newSegments: [5, 10]}
+    - quartile: {percent: 100}
+    - complete
+    - loop: {loopCount: 1}
+    - heartbeat: {trigger: end, newSegments: []}
+    - sessionEnd: {reason: looped, loopCount: 1, watchedPercent: 100, $session: $a}
+    - impression: {loopCount: 1, $session: $b}
+    - play: {timeToPlayMs: 0, loopCount: 1, $session: $b}
+    - quartile: {percent: 25, $session: $b}
+    - heartbeat: {trigger: end, newSegments: [5]}
+    - sessionEnd: {reason: swipedAway, loopCount: 1, $session: $b}
+  mode: exact

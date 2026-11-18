@@ -1,5 +1,7 @@
-import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
 import 'package:equatable/equatable.dart';
+
+import '../../domain/entity/byte_data_entity.dart';
+import '../../errors/chorki_player_error.dart';
 
 abstract class ByteScreenState extends Equatable {
   const ByteScreenState({this.byteData});
@@ -28,10 +30,10 @@ class ByteScreenLoadedState extends ByteScreenState {
 }
 
 class ByteScreenFailedState extends ByteScreenState {
-  const ByteScreenFailedState(this.message);
+  const ByteScreenFailedState(this.error);
 
-  final String message;
+  final ChorkiPlayerError error;
 
   @override
-  List<Object?> get props => [byteData, message];
+  List<Object?> get props => [byteData, error];
 }

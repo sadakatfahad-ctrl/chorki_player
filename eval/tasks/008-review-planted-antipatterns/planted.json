@@ -1,0 +1,17 @@
+[
+  {
+    "file": "lib/src/analytics/chorki_analytics_session.dart",
+    "line": 150,
+    "issue": "wall clock instead of the injected clock"
+  },
+  {
+    "file": "lib/src/ads/chorki_ad_layer.dart",
+    "line": 148,
+    "issue": "string literal analytics key instead of ChorkiAnalyticsKeys"
+  },
+  {
+    "file": "lib/src/controllers/chorki_player_controller.dart",
+    "line": 321,
+    "issue": "swallowed error without a diagnostics report"
+  }
+]

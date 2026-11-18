@@ -1,0 +1,201 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c05e489..1681244 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -25,6 +25,8 @@
+   backoff, back-dated `cdt` and a flush when the app goes to the background.
+   Pluggable `ChorkiAnalyticsStorage` for a persistent visitor id.
+ - New `CallbackAnalyticsSink` and `MemoryAnalyticsSink`.
++- New `ChorkiBufferedAnalyticsSink`: hands events to `onBatch` in groups of
++  `batchSize` and on `flush()`; drops what is waiting when consent is revoked.
+ - `abandon` event: the view ended before the first frame (exit before video
+   start), with the wait, the stage (`loading` / `ready`) and the error count.
+ - Chorki app compatibility: `MatomoConfig.visitorIdProvider` (share the app's
+diff --git a/lib/chorki_player.dart b/lib/chorki_player.dart
+index bdd17c6..d181b70 100644
+--- a/lib/chorki_player.dart
++++ b/lib/chorki_player.dart
+@@ -15,6 +15,7 @@ export 'src/analytics/chorki_analytics_event.dart';
+ export 'src/analytics/chorki_analytics_schema.dart';
+ export 'src/analytics/chorki_analytics_session.dart';
+ export 'src/analytics/chorki_analytics_sink.dart';
++export 'src/analytics/chorki_buffered_sink.dart';
+ export 'src/analytics/chorki_media_metadata.dart';
+ export 'src/analytics/matomo/analytics_storage.dart';
+ export 'src/analytics/matomo/matomo_config.dart';
+diff --git a/lib/src/analytics/chorki_buffered_sink.dart b/lib/src/analytics/chorki_buffered_sink.dart
+new file mode 100644
+index 0000000..0a24401
+--- /dev/null
++++ b/lib/src/analytics/chorki_buffered_sink.dart
+@@ -0,0 +1,55 @@
++import '../core/guard.dart';
++import 'chorki_analytics_event.dart';
++import 'chorki_analytics_sink.dart';
++
++/// Collects events and hands them to [onBatch] in groups, for hosts that
++/// forward analytics to their own backend and want fewer calls.
++///
++/// [onBatch] gets [batchSize] events at a time, plus whatever is waiting on
++/// [flush] (the player flushes when the app goes to the background). It is
++/// never called with an empty list. An error it throws is reported to
++/// `ChorkiDiagnostics` and the batch is dropped.
++class ChorkiBufferedAnalyticsSink extends ChorkiAnalyticsSink {
++  /// Batches of [batchSize] (at least 1) go to [onBatch].
++  ChorkiBufferedAnalyticsSink({required this.onBatch, this.batchSize = 20})
++    : assert(batchSize > 0);
++
++  /// Receives each batch, oldest event first.
++  final void Function(List<ChorkiAnalyticsEvent> batch) onBatch;
++
++  /// How many events make a batch.
++  final int batchSize;
++
++  final List<ChorkiAnalyticsEvent> _buffer = [];
++  bool _disposed = false;
++
++  @override
++  void onEvent(ChorkiAnalyticsEvent event) {
++    if (_disposed) return;
++    _buffer.add(event);
++    if (_buffer.length >= batchSize) _send();
++  }
++
++  @override
++  Future<void> flush() async {
++    if (_buffer.isNotEmpty) _send();
++  }
++
++  /// Drops what is waiting; nothing buffered is sent.
++  @override
++  Future<void> onConsentRevoked() async => _buffer.clear();
++
++  /// Sends what is waiting, then ignores further events.
++  @override
++  Future<void> dispose() async {
++    if (_disposed) return;
++    await flush();
++    _disposed = true;
++  }
++
++  void _send() {
++    final batch = List<ChorkiAnalyticsEvent>.unmodifiable(_buffer);
++    _buffer.clear();
++    guardSync(() => onBatch(batch), 'analytics.bufferedSink', null);
++  }
++}
+diff --git a/test/analytics/buffered_sink_test.dart b/test/analytics/buffered_sink_test.dart
+new file mode 100644
+index 0000000..b6ee3d3
+--- /dev/null
++++ b/test/analytics/buffered_sink_test.dart
+@@ -0,0 +1,63 @@
++import 'package:chorki_player/chorki_player.dart';
++import 'package:chorki_player/chorki_player_testing.dart';
++import 'package:flutter_test/flutter_test.dart';
++
++import '../support/diagnostics.dart';
++
++ChorkiAnalyticsEvent _e() =>
++    sampleAnalyticsEvent(ChorkiAnalyticsEventType.heartbeat);
++
++void main() {
++  test('a full batch is sent at once, in order', () {
++    final batches = <List<ChorkiAnalyticsEvent>>[];
++    final events = [_e(), _e()];
++    final sink = ChorkiBufferedAnalyticsSink(
++      onBatch: batches.add,
++      batchSize: 2,
++    );
++    events.forEach(sink.onEvent);
++    expect(batches.single, events);
++  });
++
++  test('flush sends what is waiting and never an empty batch', () async {
++    final sizes = <int>[];
++    final sink = ChorkiBufferedAnalyticsSink(
++      onBatch: (b) => sizes.add(b.length),
++      batchSize: 5,
++    )..onEvent(_e());
++    await sink.flush();
++    await sink.flush();
++    expect(sizes, [1]);
++  });
++
++  test('revoking consent drops what is waiting', () async {
++    final sizes = <int>[];
++    final sink = ChorkiBufferedAnalyticsSink(
++      onBatch: (b) => sizes.add(b.length),
++    )..onEvent(_e());
++    await sink.onConsentRevoked();
++    await sink.flush();
++    expect(sizes, isEmpty);
++  });
++
++  test('dispose sends the rest, then ignores events', () async {
++    final sizes = <int>[];
++    final sink = ChorkiBufferedAnalyticsSink(
++      onBatch: (b) => sizes.add(b.length),
++    )..onEvent(_e());
++    await sink.dispose();
++    sink.onEvent(_e());
++    await sink.flush();
++    expect(sizes, [1]);
++  });
++
++  test('a throwing onBatch is reported, not thrown', () {
++    final reports = captureDiagnostics();
++    final sink = ChorkiBufferedAnalyticsSink(
++      onBatch: (_) => throw StateError('backend down'),
++      batchSize: 1,
++    );
++    expect(() => sink.onEvent(_e()), returnsNormally);
++    expect(reports, ['analytics.bufferedSink']);
++  });
++}
+diff --git a/test/conformance_test.dart b/test/conformance_test.dart
+index b01f29a..0ad9325 100644
+--- a/test/conformance_test.dart
++++ b/test/conformance_test.dart
+@@ -45,6 +45,13 @@ void main() {
+     'MemoryAnalyticsSink',
+     () => run(analyticsSinkConformance(MemoryAnalyticsSink.new)),
+   );
++  group('ChorkiBufferedAnalyticsSink', () {
++    run(
++      analyticsSinkConformance(
++        () => ChorkiBufferedAnalyticsSink(onBatch: (_) {}),
++      ),
++    );
++  });
+   group('CallbackAnalyticsSink', () {
+     run(analyticsSinkConformance(() => CallbackAnalyticsSink((_) {})));
+   });
+diff --git a/test/guardrails/goldens/public_api.txt b/test/guardrails/goldens/public_api.txt
+index b28f6f4..542ab8a 100644
+--- a/test/guardrails/goldens/public_api.txt
++++ b/test/guardrails/goldens/public_api.txt
+@@ -181,6 +181,11 @@ abstract class ChorkiAnalyticsStorage
+ enum ChorkiAnalyticsValueType
+   values: integer, number, boolean, string, integerList
+   bool accepts(Object? value)
++# ChorkiBufferedAnalyticsSink
++class ChorkiBufferedAnalyticsSink extends ChorkiAnalyticsSink
++  ChorkiBufferedAnalyticsSink({required this.onBatch, this.batchSize = 20})
++  final int batchSize
++  final void Function(List<ChorkiAnalyticsEvent> batch) onBatch
+ # ChorkiClock
+ typedef ChorkiClock = DateTime Function();
+ # ChorkiDiagnostics
+@@ -812,6 +817,11 @@ abstract class ChorkiAnalyticsStorage
+ enum ChorkiAnalyticsValueType
+   values: integer, number, boolean, string, integerList
+   bool accepts(Object? value)
++# ChorkiBufferedAnalyticsSink
++class ChorkiBufferedAnalyticsSink extends ChorkiAnalyticsSink
++  ChorkiBufferedAnalyticsSink({required this.onBatch, this.batchSize = 20})
++  final int batchSize
++  final void Function(List<ChorkiAnalyticsEvent> batch) onBatch
+ # ChorkiClock
+ typedef ChorkiClock = DateTime Function();
+ # ChorkiDiagnostics

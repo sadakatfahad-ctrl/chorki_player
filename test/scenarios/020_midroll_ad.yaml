@@ -1,0 +1,40 @@
+name: midroll_ad
+description: a mid-roll break freezes watched time; ad events carry the break and campaign
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 6s}
+  - adBreakStart
+  - value: {playing: false}
+  - ad: {type: adStart, data: {adId: a1, adTitle: Promo, adDurationMs: 15000, skippable: false}}
+  - ad: {type: adQuartile, data: {percent: 25}}
+  - ad: {type: adQuartile, data: {percent: 50}}
+  - ad: {type: adQuartile, data: {percent: 75}}
+  - ad: {type: adComplete}
+  - advance: 15s
+  - adBreakEnd
+  - play: {to: 8s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - play
+    - firstFrame
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: ad, newSegments: [5, 10]}
+    - adBreakStart: {breakKind: midRoll, breakIndex: 0}
+    - adStart: {adId: a1, breakIndex: 0}
+    - adQuartile: {percent: 25}
+    - adQuartile: {percent: 50}
+    - adQuartile: {percent: 75}
+    - adComplete
+    - adBreakEnd: {durationMs: 15000, interrupted: absent}
+    - heartbeat: {trigger: end}
+    - sessionEnd: {$watched: 8, pauseCount: 0}
+  never: [pause, resume]
+  matomo:
+    - {e_c: Video Ads, e_a: break start (midRoll)}
+    - {e_a: ad start, e_n: Promo, e_v: "15"}
+    - {e_a: break end, e_v: "15"}

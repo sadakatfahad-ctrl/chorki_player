@@ -3,20 +3,23 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:chorki_player/src/core/diagnostics.dart';
+import 'package:chorki_player/src/core/result.dart';
 import 'package:chorki_player/src/data/datasources/bytes_data_sources.dart';
 import 'package:chorki_player/src/data/model/byte_model.dart';
 import 'package:chorki_player/src/data/repositories/byte_repository_impl.dart';
 import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
+import 'package:chorki_player/src/errors/chorki_player_error.dart';
 import 'package:chorki_player/src/errors/no_internet_exception.dart';
 import 'package:chorki_player/src/errors/server_exception.dart';
-import 'package:chorki_player/src/errors/server_failure.dart';
-import 'package:dartz/dartz.dart' hide State;
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Answers each call with the next queued result: a [ByteModel], an
 /// exception to throw, or a [Completer] that stays pending.
 class _FakeDataSource extends BytesDataSources {
+  _FakeDataSource() : super(dio: Dio());
+
   final List<Object> results = [];
   int calls = 0;
 
@@ -26,7 +29,8 @@ class _FakeDataSource extends BytesDataSources {
     final next = results.removeAt(0);
     if (next is Completer<ByteModel>) return next.future;
     if (next is ByteModel) return next;
-    throw next;
+    if (next is Error) throw next;
+    throw next as Exception;
   }
 }
 
@@ -54,7 +58,7 @@ class _FakeAdapter implements HttpClientAdapter {
         },
       );
     }
-    throw next;
+    throw next as Exception;
   }
 
   @override
@@ -62,13 +66,10 @@ class _FakeAdapter implements HttpClientAdapter {
 }
 
 class _TestDataSource extends BytesDataSources {
-  _TestDataSource(this.adapter);
+  _TestDataSource(this.adapter)
+    : super(dio: Dio()..httpClientAdapter = adapter);
 
   final _FakeAdapter adapter;
-  late final Dio _dio = Dio()..httpClientAdapter = adapter;
-
-  @override
-  Dio get dioClient => _dio;
 
   @override
   List<Duration> get retryDelays => const [Duration.zero, Duration.zero];
@@ -100,7 +101,7 @@ void main() {
       repo = ByteRepositoryImpl(byteDataSources: source, clock: () => now);
     });
 
-    String? urlOf(Either<Failure, ByteDataEntity> result) =>
+    String? urlOf(Result<ByteDataEntity> result) =>
         result.fold((_) => null, (data) => data.url);
 
     test('a revisit within the TTL is served from the cache', () async {
@@ -136,10 +137,10 @@ void main() {
     test('failures are not cached', () async {
       source.results.addAll([const NoInternetException(), _model('a')]);
       final failed = await repo.getByteData('r');
-      expect(failed.isLeft(), isTrue);
+      expect(failed, isA<Err<ByteDataEntity>>());
       expect(
-        failed.fold((f) => (f as ServerFailure).message, (_) => ''),
-        'No internet connection',
+        failed.fold((e) => e.code, (_) => null),
+        ChorkiErrorCode.noInternet,
       );
       expect(urlOf(await repo.getByteData('r')), 'a');
       expect(source.calls, 2);
@@ -166,15 +167,73 @@ void main() {
       },
     );
 
-    test('a server error message is passed through', () async {
+    test('a server error keeps its status and message as detail', () async {
       source.results.add(
-        const ServerException(message: 'Server Error', serverMessage: 'down'),
+        const ServerException(
+          message: 'Server Error',
+          serverMessage: 'down',
+          statusCode: 503,
+        ),
       );
       final result = await repo.getByteData('r');
       expect(
-        result.fold((f) => (f as ServerFailure).message, (_) => ''),
-        'down',
+        result.fold((e) => e, (_) => null),
+        const ChorkiPlayerError(
+          ChorkiErrorCode.server,
+          statusCode: 503,
+          detail: 'down',
+        ),
       );
+    });
+
+    test('status codes map to codes; only 5xx is transient', () async {
+      for (final (status, code, transient) in const [
+        (401, ChorkiErrorCode.unauthorized, false),
+        (403, ChorkiErrorCode.forbidden, false),
+        (404, ChorkiErrorCode.notFound, false),
+        (422, ChorkiErrorCode.badRequest, false),
+        (502, ChorkiErrorCode.server, true),
+      ]) {
+        source.results.add(ServerException(statusCode: status));
+        final error = (await repo.getByteData(
+          's$status',
+        )).fold((e) => e, (_) => null)!;
+        expect(error.code, code, reason: '$status');
+        expect(error.isTransient, transient, reason: '$status');
+      }
+    });
+
+    test(
+      'a route without a video URL is a permanent noVideoUrl error',
+      () async {
+        source.results.add(_model(''));
+        final result = await repo.getByteData('r');
+        expect(
+          result.fold((e) => e.code, (_) => null),
+          ChorkiErrorCode.noVideoUrl,
+        );
+      },
+    );
+
+    test('a typed error from the data source is passed through', () async {
+      source.results.add(
+        const ChorkiPlayerError(ChorkiErrorCode.malformedResponse),
+      );
+      final result = await repo.getByteData('r');
+      expect(
+        result.fold((e) => e.code, (_) => null),
+        ChorkiErrorCode.malformedResponse,
+      );
+    });
+
+    test('an unexpected exception is reported to diagnostics', () async {
+      final reported = <String>[];
+      ChorkiDiagnostics.onError = (e, st, context) => reported.add(context);
+      addTearDown(() => ChorkiDiagnostics.onError = null);
+      source.results.add(StateError('bug'));
+      final result = await repo.getByteData('r');
+      expect(result.fold((e) => e.code, (_) => null), ChorkiErrorCode.unknown);
+      expect(reported, ['repository.getByteData']);
     });
   });
 
@@ -229,6 +288,20 @@ void main() {
         throwsA(isA<NoInternetException>()),
       );
       expect(adapter.requests, 3);
+    });
+
+    test('a body without result.data is a malformedResponse', () async {
+      adapter.responses.add((200, {'result': 'nope'}));
+      await expectLater(
+        source.getByteData('https://api.test/r'),
+        throwsA(
+          isA<ChorkiPlayerError>().having(
+            (e) => e.code,
+            'code',
+            ChorkiErrorCode.malformedResponse,
+          ),
+        ),
+      );
     });
 
     test('a server response is never retried', () async {

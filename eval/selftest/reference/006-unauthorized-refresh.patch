@@ -1,0 +1,285 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c05e489..20c5c32 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -44,6 +44,9 @@
+ - `ChorkiNetworkConfig` and `ChorkiPlayer.configure(network:)`: headers, an
+   async `headersProvider` (auth tokens), timeouts and HTTP/2 for route
+   lookups. VMAP requests never get these headers.
++- `ChorkiNetworkConfig.onUnauthorized`: on a 401 the player awaits it and, if
++  it returns true (e.g. the token was refreshed), retries the route request
++  once.
+ - `ChorkiVideoPreloader.loadResult` returns a `ChorkiVideoLoadResult` with
+   the reason a load failed (`timeout` vs `videoLoad`).
+ - `package:chorki_player/chorki_player_testing.dart`: conformance suites for
+diff --git a/lib/src/network/api_client.dart b/lib/src/network/api_client.dart
+index 4586705..0e40013 100644
+--- a/lib/src/network/api_client.dart
++++ b/lib/src/network/api_client.dart
+@@ -1,6 +1,7 @@
+ import 'package:dio/dio.dart';
+ import 'package:dio_http2_adapter/dio_http2_adapter.dart';
+ 
++import '../core/diagnostics.dart';
+ import 'chorki_network_config.dart';
+ 
+ /// Builds the [Dio] client the player uses for its own requests.
+@@ -55,9 +56,53 @@ class ApiClient {
+         ),
+       );
+     }
++    final onUnauthorized = config.onUnauthorized;
++    if (onUnauthorized != null) {
++      dio.interceptors.add(_RefreshOn401(dio, onUnauthorized));
++    }
+     return dio;
+   }
+ 
+   /// Closes the client's connections.
+   void close() => _dio?.close(force: true);
+ }
++
++/// Retries a request once after [ChorkiNetworkConfig.onUnauthorized]
++/// allowed it.
++class _RefreshOn401 extends Interceptor {
++  _RefreshOn401(this._dio, this._onUnauthorized);
++
++  final Dio _dio;
++  final Future<bool> Function() _onUnauthorized;
++
++  static const String _retried = 'chorki.retriedAfter401';
++
++  @override
++  Future<void> onError(
++    DioException err,
++    ErrorInterceptorHandler handler,
++  ) async {
++    final options = err.requestOptions;
++    if (err.response?.statusCode != 401 || options.extra[_retried] == true) {
++      handler.next(err);
++      return;
++    }
++    bool retry;
++    try {
++      retry = await _onUnauthorized();
++    } catch (e, st) {
++      ChorkiDiagnostics.report(e, st, 'network.onUnauthorized');
++      retry = false;
++    }
++    if (!retry) {
++      handler.next(err);
++      return;
++    }
++    options.extra[_retried] = true;
++    try {
++      handler.resolve(await _dio.fetch<dynamic>(options));
++    } on DioException catch (again) {
++      handler.next(again);
++    }
++  }
++}
+diff --git a/lib/src/network/chorki_network_config.dart b/lib/src/network/chorki_network_config.dart
+index 7a946f7..1d9980c 100644
+--- a/lib/src/network/chorki_network_config.dart
++++ b/lib/src/network/chorki_network_config.dart
+@@ -16,6 +16,7 @@ class ChorkiNetworkConfig {
+     this.connectTimeout = const Duration(seconds: 8),
+     this.receiveTimeout = const Duration(seconds: 15),
+     this.useHttp2 = true,
++    this.onUnauthorized,
+   });
+ 
+   /// Sent with every request, e.g. `{'X-App-Version': '5.2.0'}`.
+@@ -35,6 +36,12 @@ class ChorkiNetworkConfig {
+   /// or proxies that only speak HTTP/1.1.
+   final bool useHttp2;
+ 
++  /// Called when a route request is answered with 401, e.g. to refresh an
++  /// expired token. Return true to retry the request once (with fresh
++  /// [headersProvider] headers); false, a throw or a second 401 fails it as
++  /// `ChorkiErrorCode.unauthorized`.
++  final Future<bool> Function()? onUnauthorized;
++
+   @override
+   bool operator ==(Object other) =>
+       other is ChorkiNetworkConfig &&
+@@ -42,7 +49,8 @@ class ChorkiNetworkConfig {
+       other.headersProvider == headersProvider &&
+       other.connectTimeout == connectTimeout &&
+       other.receiveTimeout == receiveTimeout &&
+-      other.useHttp2 == useHttp2;
++      other.useHttp2 == useHttp2 &&
++      other.onUnauthorized == onUnauthorized;
+ 
+   @override
+   int get hashCode => Object.hash(
+@@ -53,5 +61,6 @@ class ChorkiNetworkConfig {
+     connectTimeout,
+     receiveTimeout,
+     useHttp2,
++    onUnauthorized,
+   );
+ }
+diff --git a/test/guardrails/goldens/public_api.txt b/test/guardrails/goldens/public_api.txt
+index b28f6f4..be0bd53 100644
+--- a/test/guardrails/goldens/public_api.txt
++++ b/test/guardrails/goldens/public_api.txt
+@@ -256,10 +256,11 @@ class ChorkiMediaOptions
+   final bool mixWithOthers
+ # ChorkiNetworkConfig
+ class ChorkiNetworkConfig
+-  const ChorkiNetworkConfig({this.headers = const {}, this.headersProvider, this.connectTimeout = const Duration(seconds: 8), this.receiveTimeout = const Duration(seconds: 15), this.useHttp2 = true})
++  const ChorkiNetworkConfig({this.headers = const {}, this.headersProvider, this.connectTimeout = const Duration(seconds: 8), this.receiveTimeout = const Duration(seconds: 15), this.useHttp2 = true, this.onUnauthorized})
+   final Duration connectTimeout
+   final Duration receiveTimeout
+   final Future<Map<String, String>> Function()? headersProvider
++  final Future<bool> Function()? onUnauthorized
+   final Map<String, String> headers
+   final bool useHttp2
+ # ChorkiPipDelegate
+@@ -887,10 +888,11 @@ class ChorkiMediaOptions
+   final bool mixWithOthers
+ # ChorkiNetworkConfig
+ class ChorkiNetworkConfig
+-  const ChorkiNetworkConfig({this.headers = const {}, this.headersProvider, this.connectTimeout = const Duration(seconds: 8), this.receiveTimeout = const Duration(seconds: 15), this.useHttp2 = true})
++  const ChorkiNetworkConfig({this.headers = const {}, this.headersProvider, this.connectTimeout = const Duration(seconds: 8), this.receiveTimeout = const Duration(seconds: 15), this.useHttp2 = true, this.onUnauthorized})
+   final Duration connectTimeout
+   final Duration receiveTimeout
+   final Future<Map<String, String>> Function()? headersProvider
++  final Future<bool> Function()? onUnauthorized
+   final Map<String, String> headers
+   final bool useHttp2
+ # ChorkiPipDelegate
+diff --git a/test/network/unauthorized_refresh_test.dart b/test/network/unauthorized_refresh_test.dart
+new file mode 100644
+index 0000000..1ed25ab
+--- /dev/null
++++ b/test/network/unauthorized_refresh_test.dart
+@@ -0,0 +1,127 @@
++import 'dart:typed_data';
++
++import 'package:chorki_player/chorki_player.dart';
++import 'package:chorki_player/src/network/api_client.dart';
++import 'package:dio/dio.dart';
++import 'package:flutter_test/flutter_test.dart';
++
++import '../support/diagnostics.dart';
++
++class _Adapter implements HttpClientAdapter {
++  _Adapter(this.statuses);
++  final List<int> statuses;
++  final List<String?> auth = [];
++
++  @override
++  Future<ResponseBody> fetch(
++    RequestOptions options,
++    Stream<Uint8List>? requestStream,
++    Future<void>? cancelFuture,
++  ) async {
++    auth.add(options.headers['Authorization'] as String?);
++    return ResponseBody.fromString('{}', statuses.removeAt(0));
++  }
++
++  @override
++  void close({bool force = false}) {}
++}
++
++Future<Response<dynamic>> _get(ApiClient c) => c.dio.get<dynamic>(
++  'https://api.test/r',
++  options: Options(validateStatus: (s) => s == 200),
++);
++
++void main() {
++  test(
++    'a 401 asks onUnauthorized, then retries once with new headers',
++    () async {
++      var token = 'old';
++      var calls = 0;
++      final client = ApiClient(
++        ChorkiNetworkConfig(
++          useHttp2: false,
++          headersProvider: () async => {'Authorization': token},
++          onUnauthorized: () async {
++            calls++;
++            token = 'new';
++            return true;
++          },
++        ),
++      );
++      final adapter = _Adapter([401, 200]);
++      client.dio.httpClientAdapter = adapter;
++      expect((await _get(client)).statusCode, 200);
++      expect(calls, 1);
++      expect(adapter.auth, ['old', 'new']);
++    },
++  );
++
++  test('false means no retry', () async {
++    final client = ApiClient(
++      ChorkiNetworkConfig(useHttp2: false, onUnauthorized: () async => false),
++    );
++    final adapter = _Adapter([401]);
++    client.dio.httpClientAdapter = adapter;
++    await expectLater(_get(client), throwsA(isA<DioException>()));
++    expect(adapter.auth, hasLength(1));
++  });
++
++  test('a second 401 fails without asking again', () async {
++    var calls = 0;
++    final client = ApiClient(
++      ChorkiNetworkConfig(
++        useHttp2: false,
++        onUnauthorized: () async {
++          calls++;
++          return true;
++        },
++      ),
++    );
++    final adapter = _Adapter([401, 401]);
++    client.dio.httpClientAdapter = adapter;
++    await expectLater(_get(client), throwsA(isA<DioException>()));
++    expect(adapter.auth, hasLength(2));
++    expect(calls, 1);
++  });
++
++  test('a throwing onUnauthorized is reported and fails the request', () async {
++    final reports = captureDiagnostics();
++    final client = ApiClient(
++      ChorkiNetworkConfig(
++        useHttp2: false,
++        onUnauthorized: () async => throw StateError('refresh failed'),
++      ),
++    );
++    client.dio.httpClientAdapter = _Adapter([401]);
++    await expectLater(_get(client), throwsA(isA<DioException>()));
++    expect(reports, ['network.onUnauthorized']);
++  });
++
++  test('other errors pass straight through', () async {
++    var calls = 0;
++    final client = ApiClient(
++      ChorkiNetworkConfig(
++        useHttp2: false,
++        onUnauthorized: () async {
++          calls++;
++          return true;
++        },
++      ),
++    );
++    client.dio.httpClientAdapter = _Adapter([500]);
++    await expectLater(_get(client), throwsA(isA<DioException>()));
++    expect(calls, 0);
++  });
++
++  test('onUnauthorized is part of equality', () {
++    Future<bool> refresh() async => true;
++    expect(
++      ChorkiNetworkConfig(onUnauthorized: refresh),
++      ChorkiNetworkConfig(onUnauthorized: refresh),
++    );
++    expect(
++      ChorkiNetworkConfig(onUnauthorized: refresh),
++      isNot(const ChorkiNetworkConfig()),
++    );
++  });
++}

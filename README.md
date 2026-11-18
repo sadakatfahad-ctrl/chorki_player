@@ -23,9 +23,9 @@ and safe video controller lifecycle handling.
 - **Graceful error handling** — connection failures render an error view
   with a retry button instead of crashing.
 - **Clean architecture** — bloc + usecase + repository + Dio datasource,
-  with `Either<Failure, ByteDataEntity>` results.
+  with typed `ChorkiPlayerError`s (see `CLAUDE.md` for the layering rules).
 - **HTTP/2 networking** via Dio with sane timeouts.
-- **`VideoPreloader`** helper for building custom shorts/feeds experiences.
+- **`ChorkiVideoPreloader`** helper for building custom shorts/feeds experiences.
 - **Preloading for feeds**: `preload: true` fetches and buffers a byte off
   screen without playing it, so the next swipe starts instantly.
 - **Google IMA ads** — pre-, mid-, and post-roll ads from the reel's
@@ -53,11 +53,13 @@ dependencies:
 
 ## Usage
 
+<!-- excerpt: usage -->
 ```dart
 import 'package:chorki_player/chorki_player.dart';
+import 'package:flutter/material.dart';
 
 class PlayerPage extends StatelessWidget {
-  const PlayerPage(claude{super.key});
+  const PlayerPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -84,14 +86,14 @@ button.
 DASH…) with the same UI, ads and controller. An `asset:` URI plays a file
 bundled with the app:
 
+<!-- excerpt: play-url -->
 ```dart
-ChorkiPlayer.url(
+final remote = ChorkiPlayer.url(
   'https://example.com/clip.m3u8',
   posterUrl: 'https://example.com/poster.jpg', // optional
-  adTagUrl: vastOrVmapUrl,                     // optional, needs `ads:`
-)
-
-ChorkiPlayer.url('asset:assets/videos/intro.mp4')
+  adTagUrl: vastOrVmapUrl, // optional, needs `ads:`
+);
+const bundled = ChorkiPlayer.url('asset:assets/videos/intro.mp4');
 ```
 
 ### Sizing
@@ -105,12 +107,9 @@ To let the player take the video's own aspect ratio instead, for example in a
 `Column` or `ListView`, turn on `sizeToVideo`. It needs a bounded width.
 `placeholderAspectRatio` (default 16:9) is used until the video is loaded:
 
+<!-- excerpt: size-to-video -->
 ```dart
-ListView(
-  children: [
-    ChorkiPlayer(route: byteRoute, sizeToVideo: true),
-  ],
-)
+ListView(children: [ChorkiPlayer(route: byteRoute, sizeToVideo: true)])
 ```
 
 The aspect ratio is read once, when the video loads (`video_player` does not
@@ -121,12 +120,13 @@ supported: seeking gestures assume a known duration.
 
 ### Playback UX options
 
+<!-- excerpt: ux-options -->
 ```dart
 ChorkiPlayer(
   route: byteRoute,
-  showSeekBar: true,        // shorts-style scrub bar (default)
-  seekBarBottomOffset: 0,   // lift the scrub bar N px above the bottom edge (default 0)
-  enableGestures: true,     // full gesture stack (default)
+  showSeekBar: true, // shorts-style scrub bar (default)
+  seekBarBottomOffset: 0, // lift the scrub bar N px above the bottom edge
+  enableGestures: true, // full gesture stack (default)
   doubleTapSeek: const Duration(seconds: 10),
   longPressSpeed: 2.0,
 )
@@ -148,6 +148,7 @@ shows its first frame, but does not play. When `preload` turns off, it plays
 at once (if `autoPlay` is on). When it turns back on, the player pauses and
 rewinds to the start, so the next visit plays it as a fresh view.
 
+<!-- excerpt: feed -->
 ```dart
 PageView.builder(
   scrollDirection: Axis.vertical,
@@ -173,10 +174,9 @@ PageView.builder(
 - Ads start when the byte becomes active. With a pre-roll, the content waits
   for the ad as usual, and the pre-roll plays again when the user comes back.
 - Players are created at most two at a time, the byte on screen first
-  (`VideoLoadScheduler`). A page you swipe past before its turn never creates
+  (`ChorkiVideoLoadScheduler`). A page you swipe past before its turn never creates
   a player, so fast swiping doesn't run out of decoders. To change the limit,
-  set `VideoLoadScheduler.instance = VideoLoadScheduler(maxConcurrent: 3);`
-  at startup.
+  call `ChorkiVideoLoadScheduler.configure(maxConcurrent: 3)` at startup.
 - Transient failures (a network drop, a video that fails to initialize or
   errors mid-playback) are retried silently twice, after 1s and 3s, with the
   poster showing. A playback error resumes where it stopped. Only then does
@@ -191,22 +191,28 @@ PageView.builder(
 
 ### Reusable widgets for custom feeds
 
-`ChorkiPlayerSurface`, `ShortsSeekBar`, and `PlayerGestureOverlay` are all
+`ChorkiPlayerSurface`, `ChorkiShortsSeekBar`, and `ChorkiGestureOverlay` are all
 exported and take a `VideoPlayerController` you own — combine them with
-`VideoPreloader` to build your own feed:
+`ChorkiVideoPreloader` to build your own feed:
 
+<!-- excerpt: custom-feed -->
 ```dart
-final preloader = VideoPreloader();
+final preloader = ChorkiVideoPreloader();
 final controller = await preloader.load(Uri.parse(videoUrl));
-// On success you own the controller — dispose it with
+if (controller == null) return null; // failed or timed out
+// You own the controller: dispose it with
 // preloader.disposeQuietly(controller) when done.
 
-ChorkiPlayerSurface(
+final surface = ChorkiPlayerSurface(
   controller: controller,
-  onTogglePlayPause: () { /* ... */ },
+  onTogglePlayPause: () {
+    /* ... */
+  },
   overlayButton: IconButton(
     icon: const Icon(Icons.more_horiz),
-    onPressed: () { /* ... */ },
+    onPressed: () {
+      /* ... */
+    },
   ),
 );
 ```
@@ -219,6 +225,7 @@ still preloading off screen.
 Pass a theme, icons, strings, or builders to `ChorkiPlayer`. Any field you
 leave out keeps its default.
 
+<!-- excerpt: theming -->
 ```dart
 ChorkiPlayer(
   route: byteRoute,
@@ -227,15 +234,17 @@ ChorkiPlayer(
     seekBarBufferedColor: Colors.grey,
     seekBarBaseColor: Colors.white12,
   ),
-  icons: const ChorkiPlayerIcons(
-    play: Icons.play_circle_outline,
-  ),
+  icons: const ChorkiPlayerIcons(play: Icons.play_circle_outline),
   strings: const ChorkiPlayerStrings(
     retry: 'Try again',
     genericError: 'Could not play this video',
   ),
   builders: ChorkiPlayerBuilders(
     loadingBuilder: (context) => const Center(child: Text('Loading...')),
+    errorViewBuilder: (context, error, onRetry) => TextButton(
+      onPressed: onRetry,
+      child: Text(error.message(const ChorkiPlayerStrings())),
+    ),
   ),
 )
 ```
@@ -248,31 +257,34 @@ ChorkiPlayer(
 
 ## Controller, settings, and media options
 
+<!-- excerpt: controller -->
 ```dart
 final controller = ChorkiPlayerController(); // dispose() it yourself
 
-ChorkiPlayer(
+final player = ChorkiPlayer(
   route: byteRoute,
   controller: controller,
   mediaOptions: const ChorkiMediaOptions(
     httpHeaders: {'Authorization': 'Bearer <token>'},
-    startPosition: Duration(seconds: 42),   // resume
-    backBuffer: Duration(seconds: 30),      // Android
+    startPosition: Duration(seconds: 42), // resume
+    backBuffer: Duration(seconds: 30), // Android
     allowBackgroundPlayback: false,
-    keepScreenOn: true,                     // iOS
+    keepScreenOn: true, // iOS
   ),
-  showSettingsButton: true,                 // gear, top-right
+  showSettingsButton: true, // gear, top-right
   speedOptions: const [0.5, 1.0, 1.5, 2.0],
 );
 
 // Anywhere:
-controller.seekForward();                   // seekStep, default 10s
-controller.setSpeed(1.5);                   // kept across reloads
-controller.toggleFit();                     // fit <-> fill
-controller.selectQuality(controller.videoTracks.value.first);
-controller.selectQuality(null);             // back to Auto
-controller.selectAudioTrack(trackId);
-showChorkiSettings(context, controller);    // open the sheet yourself
+await controller.seekForward(); // seekStep, default 10s
+await controller.setSpeed(1.5); // kept across reloads
+controller.toggleFit(); // fit <-> fill
+await controller.selectQuality(controller.videoTracks.value.first);
+await controller.selectQuality(null); // back to Auto
+await controller.selectAudioTrack(trackId);
+if (context.mounted) {
+  await showChorkiSettings(context, controller); // open the sheet yourself
+}
 ```
 
 The controller exposes `ValueListenable`s: `value` (position, duration,
@@ -282,7 +294,7 @@ buffering, and errors), `videoTracks`, `selectedVideoTrack` (null means Auto),
 
 When you build a feed with `ChorkiPlayerSurface`, call
 `controller.attach(videoController)` / `detach(...)` yourself and pass
-`chorkiController:` to the surface. `VideoPreloader.load(uri, options:)`
+`chorkiController:` to the surface. `ChorkiVideoPreloader.load(uri, options:)`
 accepts the same `ChorkiMediaOptions`.
 
 You can customize the settings UI through the theme
@@ -293,9 +305,10 @@ You can customize the settings UI through the theme
 
 ### Picture-in-picture (Android only)
 
+<!-- excerpt: pip -->
 ```dart
-controller.enterPip();         // now
-controller.setAutoPip(true);   // when the user presses Home
+await controller.enterPip(); // now
+await controller.setAutoPip(true); // when the user presses Home
 ```
 
 PiP shrinks the whole app, not just the player. While
@@ -356,10 +369,8 @@ mid-, and post-roll breaks.
 - While an ad plays, the content surface is hidden and the video is paused.
   Playback resumes when the ad break ends.
 
+<!-- excerpt: ads -->
 ```dart
-import 'package:flutter/foundation.dart';
-import 'package:chorki_player/chorki_player.dart';
-
 ChorkiPlayer(
   route: byteRoute,
   autoPlay: true,
@@ -382,6 +393,43 @@ ChorkiPlayer(
 | `loadTimeout`            | `8 s`       | Shows and plays content if no ad has started by then (`null` disables) |
 | `onAdEvent`              | `null`      | Called for each IMA `AdEvent`                              |
 | `onAdError`              | `null`      | Called with a message when an ad fails to load or play     |
+
+The seek bar marks each mid-roll. A custom seek bar gets the same marks as
+`ChorkiSeekBarState.adMarkers` (`ChorkiAdMarker`: `id`, `fraction` 0..1 of
+the content, `played`):
+
+<!-- excerpt: ads-markers -->
+```dart
+ChorkiPlayer(
+  route: byteRoute,
+  ads: const ChorkiAdConfig(),
+  builders: ChorkiPlayerBuilders(
+    seekBarBuilder: (context, state, onSeek) => LayoutBuilder(
+      builder: (context, box) {
+        final total = state.duration.inMilliseconds;
+        final played = total == 0
+            ? 0.0
+            : state.position.inMilliseconds / total;
+        return Stack(
+          children: [
+            LinearProgressIndicator(value: played),
+            // One tick per mid-roll; played breaks are dimmed.
+            for (final marker in state.adMarkers)
+              Positioned(
+                left: marker.fraction * box.maxWidth - 2,
+                child: Container(
+                  width: 4,
+                  height: 8,
+                  color: marker.played ? Colors.white38 : Colors.amber,
+                ),
+              ),
+          ],
+        );
+      },
+    ),
+  ),
+)
+```
 
 ### Platform setup checklist
 
@@ -413,6 +461,33 @@ ChorkiPlayer(
   - [ ] Deployment target of 13.0 or higher, set in `ios/Podfile`
         (`platform :ios, '13.0'`) and in the Xcode project.
 
+## Errors, diagnostics and network settings
+
+Failures are typed: `ChorkiPlayerError` has a `code` (`noInternet`,
+`timeout`, `unauthorized`, `forbidden`, `notFound`, `badRequest`, `server`,
+`malformedResponse`, `noVideoUrl`, `videoLoad`, `playback`, `unknown`), a
+`stage` (`route`, `load`, `playback`) and `isTransient`. Transient errors are
+retried silently twice before the error view shows; permanent ones (a 404, a
+byte without a video) show at once. Viewers can always tap Retry.
+`ChorkiPlayerBuilders.errorViewBuilder` receives the error, and
+`error.message(strings)` gives the localized text.
+
+The SDK never logs. Errors it recovers from internally (a quality switch the
+platform rejected, a failed IMA call, an analytics sink that threw) go to
+`ChorkiDiagnostics.onError`:
+
+<!-- excerpt: diagnostics -->
+```dart
+// Errors the player recovers from internally (it never logs).
+ChorkiDiagnostics.onError = (error, stack, context) =>
+    recordError(error, stack, context);
+```
+
+Route lookups use their own HTTP client. Set headers (for example an auth
+token that changes) and timeouts once at startup with
+`ChorkiPlayer.configure(network: ChorkiNetworkConfig(headersProvider: ...))`.
+VMAP ad requests never get these headers.
+
 ## Analytics (Matomo)
 
 The player reports detailed viewing analytics: what was watched (impressions,
@@ -425,6 +500,7 @@ fit, PiP, volume, settings).
 Events go to one or more **sinks**. `MatomoAnalyticsSink` is built in; you can
 add your own (Firebase, your API) by implementing `ChorkiAnalyticsSink`.
 
+<!-- excerpt: analytics -->
 ```dart
 // Once for the app.
 final matomo = MatomoAnalyticsSink(
@@ -445,7 +521,7 @@ final matomo = MatomoAnalyticsSink(
 matomo.userId = user.id;
 matomo.setUserProperty('subscriptionTier', user.tier);
 
-ChorkiPlayer(
+final player = ChorkiPlayer(
   route: route,
   metadata: const ChorkiMediaMetadata(
     contentId: 'ep-1042',
@@ -484,7 +560,59 @@ page sends nothing; swiping away ends its session (`sessionEnd`, reason
 
 Without the Media Analytics plugin, set `mediaAnalytics: false`: impressions
 are then sent as events too. Set `ChorkiAnalyticsConfig.consentGranted` to
-false until the viewer agrees; nothing is reported or buffered meanwhile.
+false until the viewer agrees; nothing is tracked, reported or buffered
+meanwhile. Revoking it ends the current view and clears the Matomo queue
+(`ChorkiAnalyticsSink.onConsentRevoked`).
+
+### Events and their data
+
+Each event's `data` keys, generated from `ChorkiAnalyticsSchema` (`?` means
+optional; use the `ChorkiAnalyticsKeys` constants in your own sinks). Ad
+events also carry the *ad context* (`breakIndex`, `adCampaignId`?,
+`adCampaignTitle`?) and, when IMA provides them, the ad details (`adId`,
+`adTitle`, `adSystem`, `advertiser`, `adDurationMs`, `skippable`,
+`podPosition`, `podTotal`).
+
+<!-- analytics-schema:start (generated by test/guardrails) -->
+| Event | Category | Data keys |
+|---|---|---|
+| `impression` | playback | `loopCount`? |
+| `play` | playback | `timeToPlayMs`, `loopCount`? |
+| `pause` | playback | – |
+| `resume` | playback | – |
+| `seek` | playback | `fromMs`, `toMs`, `source` |
+| `heartbeat` | playback | `trigger`, `newSegments` |
+| `quartile` | playback | `percent` |
+| `complete` | playback | – |
+| `loop` | playback | `loopCount` |
+| `sessionEnd` | playback | `reason`, `dwellMs`, `watchedPercent`, `maxPositionMs`, `rebufferCount`, `rebufferMs`, `pauseCount`, `seekCount`, `loopCount`, `errorCount` |
+| `loadStart` | qoe | – |
+| `firstFrame` | qoe | `startupMs`, `queueWaitMs`?, `initMs`?, `preloaded` |
+| `bufferStart` | qoe | `afterSeek` |
+| `bufferEnd` | qoe | `durationMs` |
+| `error` | qoe | `code`, `stage`, `transient`, `willRetry`, `statusCode`?, `detail`? |
+| `retry` | qoe | `attempt`, `auto` |
+| `qualityChange` | qoe | `fromHeight`?, `toHeight`?, `bitrate`?, `label`?, `auto` |
+| `abandon` | qoe | `waitedMs`, `reason`, `abandonStage`, `errorCount` |
+| `adBreakStart` | ad | `breakKind`, *ad context* |
+| `adStart` | ad | *ad context* |
+| `adQuartile` | ad | `percent`, *ad context* |
+| `adComplete` | ad | *ad context* |
+| `adSkip` | ad | *ad context* |
+| `adClick` | ad | *ad context* |
+| `adPause` | ad | *ad context* |
+| `adResume` | ad | *ad context* |
+| `adError` | ad | `message`, *ad context* |
+| `adBreakEnd` | ad | `durationMs`, `interrupted`?, *ad context* |
+| `speedChange` | ux | `from`, `to` |
+| `speedBoostStart` | ux | `speed` |
+| `speedBoostEnd` | ux | `durationMs` |
+| `audioTrackChange` | ux | `fromTrack`?, `toTrack` |
+| `fitChange` | ux | `fit` |
+| `pipChange` | ux | `status` |
+| `volumeChange` | ux | `from`, `to`, `muted` |
+| `settingsOpen` | ux | – |
+<!-- analytics-schema:end -->
 
 ### Inside the Chorki app
 

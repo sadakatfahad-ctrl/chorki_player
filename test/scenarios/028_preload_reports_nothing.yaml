@@ -1,0 +1,11 @@
+name: preload_reports_nothing
+description: a page preloading off screen reports nothing, even if its video moves
+given: {duration: 20s}
+steps:
+  - loadStart
+  - bind
+  - value: {initialized: true}
+  - play: {to: 2s}
+  - deactivate: swipedAway
+expect:
+  events: []

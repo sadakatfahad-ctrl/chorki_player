@@ -1,7 +1,6 @@
 import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart'
     as pi;
 
@@ -177,6 +176,22 @@ void main() {
     await c.dispose();
   });
 
+  test('togglePlayPause flips the attached video', () async {
+    final c = await attached();
+    await chorki.togglePlayPause();
+    expect(c.value.isPlaying, isTrue);
+    await chorki.togglePlayPause();
+    expect(c.value.isPlaying, isFalse);
+  });
+
+  test('dispose turns auto PiP off again', () async {
+    final local = ChorkiPlayerController(pipDelegate: pip);
+    await local.setAutoPip(true);
+    local.dispose();
+    await pumpEventQueue();
+    expect(pip.autoCalls.map((c) => c.$1), [true, false]);
+  });
+
   test('toggleFit flips between fit and fill', () {
     expect(chorki.fit.value, ChorkiVideoFit.fit);
     chorki.toggleFit();
@@ -216,19 +231,25 @@ void main() {
     expect(chorki.pipStatus.value, ChorkiPipStatus.disabled);
   });
 
-  test('FloatingPipDelegate is unavailable off Android', () async {
+  test('ChorkiFloatingPipDelegate is unavailable off Android', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
     try {
-      expect(await FloatingPipDelegate().status(), ChorkiPipStatus.unavailable);
-      expect(await FloatingPipDelegate().enter(1), ChorkiPipStatus.unavailable);
+      expect(
+        await ChorkiFloatingPipDelegate().status(),
+        ChorkiPipStatus.unavailable,
+      );
+      expect(
+        await ChorkiFloatingPipDelegate().enter(1),
+        ChorkiPipStatus.unavailable,
+      );
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
   });
 
-  group('VideoPreloader with ChorkiMediaOptions', () {
+  group('ChorkiVideoPreloader with ChorkiMediaOptions', () {
     test('passes headers, buffer and screen options to the platform', () async {
-      final c = await VideoPreloader().load(
+      final c = await ChorkiVideoPreloader().load(
         Uri.parse('https://test.local/v.m3u8'),
         options: const ChorkiMediaOptions(
           httpHeaders: {'Authorization': 'Bearer x'},
@@ -247,7 +268,7 @@ void main() {
     });
 
     test('seeks to startPosition after init', () async {
-      final c = await VideoPreloader().load(
+      final c = await ChorkiVideoPreloader().load(
         Uri.parse('https://test.local/v.mp4'),
         options: const ChorkiMediaOptions(startPosition: Duration(seconds: 42)),
       );

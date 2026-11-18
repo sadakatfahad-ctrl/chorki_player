@@ -1,0 +1,24 @@
+name: startup_timings
+description: first frame splits startup into queue wait and init when the view waited for the load
+given: {duration: 20s}
+steps:
+  - activate
+  - loadStart
+  - advance: 1s
+  - loadRunning
+  - advance: 500ms
+  - loaded
+  - bind
+  - value: {initialized: true}
+  - advance: 200ms
+  - play: {to: 1s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - loadStart
+    - impression
+    - play: {timeToPlayMs: 200}
+    - firstFrame: {startupMs: 2200, queueWaitMs: 1000, initMs: 500, preloaded: false}
+  matomo:
+    - {e_c: Video QoE, e_a: startup time, e_v: "2.200"}

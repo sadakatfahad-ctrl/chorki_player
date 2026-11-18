@@ -1,0 +1,277 @@
+diff --git a/lib/src/presentation/chorki_player_state.dart b/lib/src/presentation/chorki_player_state.dart
+--- a/lib/src/presentation/chorki_player_state.dart
++++ b/lib/src/presentation/chorki_player_state.dart
+@@ -23,9 +23,18 @@
+   bool get _videoFailed => _videoError != null;
+   int _loadGen = 0;
+ 
+-  /// Silent retries of transient failures; the poster shows while one is
+-  /// pending.
+-  final RetryPolicy _retries = RetryPolicy();
++  /// Waits before each silent retry of a transient failure (route fetch,
++  /// video init, playback error). The error view shows once they are used
++  /// up. The count resets on a manual retry, a new source and when a
++  /// preloading byte becomes active.
++  static const List<Duration> _autoRetryDelays = [
++    Duration(seconds: 1),
++    Duration(seconds: 3),
++  ];
++  int _autoRetries = 0;
++
++  /// Pending silent retry. While set, the player shows the poster.
++  Timer? _retryTimer;
+ 
+   /// Where to resume after a playback error on screen, so a retry continues
+   /// instead of restarting the byte.
+@@ -252,28 +261,32 @@
+ 
+   /// A route fetch or the video failed. A transient failure
+   /// ([ChorkiPlayerError.isTransient]) is retried silently a few times
+-  /// ([RetryPolicy]) before the error shows; a permanent one (404, no
++  /// ([_autoRetryDelays]) before the error shows; a permanent one (404, no
+   /// video URL, ...) shows at once.
+   void _onLoadFailed(ChorkiPlayerError error, {Duration? resumeAt}) {
+     if (!mounted) return;
+     if (resumeAt != null) _resumeAt = resumeAt;
+-    _session?.recordError(
+-      error,
+-      willRetry: _retries.canRetry(transient: error.isTransient),
+-    );
+-    _retries.schedule(
+-      transient: error.isTransient,
+-      onRetry: (attempt) {
++    final willRetry =
++        error.isTransient && _autoRetries < _autoRetryDelays.length;
++    _session?.recordError(error, willRetry: willRetry);
++    if (willRetry) {
++      final delay = _autoRetryDelays[_autoRetries++];
++      final attempt = _autoRetries;
++      _retryTimer?.cancel();
++      _retryTimer = Timer(delay, () {
++        _retryTimer = null;
+         if (!mounted) return;
+         _session?.recordRetry(attempt: attempt, auto: true);
+         _reload();
+-      },
+-    );
++      });
++    }
+     setState(() {});
+   }
+ 
+   void _resetRetries() {
+-    _retries.reset();
++    _retryTimer?.cancel();
++    _retryTimer = null;
++    _autoRetries = 0;
+     _resumeAt = null;
+   }
+ 
+@@ -300,7 +313,7 @@
+   /// [auto] is true when it is not the viewer asking (a byte that failed off
+   /// screen becoming active).
+   void _retry({bool auto = false}) {
+-    _retries.reset();
++    _autoRetries = 0;
+     _session?.recordRetry(attempt: 1, auto: auto);
+     _reload();
+   }
+@@ -308,7 +321,8 @@
+   /// Reloads the route (bypassing the route cache, in case the video URL it
+   /// returned went stale) and the video.
+   void _reload() {
+-    _retries.cancel();
++    _retryTimer?.cancel();
++    _retryTimer = null;
+     unawaited(_resetVideo());
+     _bloc.add(_loadEvent(refresh: true));
+   }
+@@ -324,7 +338,8 @@
+ 
+   @override
+   void dispose() {
+-    _retries.cancel();
++    _retryTimer?.cancel();
++    _retryTimer = null;
+     _session?.dispose();
+     _session = null;
+     fireAndReport(_bloc.close, 'player.closeBloc');
+@@ -379,7 +394,7 @@
+ 
+   Widget _buildBody(ByteScreenState state) {
+     // A silent retry is pending: keep the poster, no error flash.
+-    if (_retries.pending) return _buildLoading(showPoster: true);
++    if (_retryTimer != null) return _buildLoading(showPoster: true);
+     if (state is ByteScreenLoadingState || state is ByteScreenInitialState) {
+       return _buildLoading();
+     }
+diff --git a/lib/src/presentation/chorki_player_widget.dart b/lib/src/presentation/chorki_player_widget.dart
+--- a/lib/src/presentation/chorki_player_widget.dart
++++ b/lib/src/presentation/chorki_player_widget.dart
+@@ -27,7 +27,6 @@
+ import 'player/player_loading_view.dart';
+ import 'player/player_source.dart';
+ import 'player/player_video_view.dart';
+-import 'player/retry_policy.dart';
+ import 'widgets/chorki_settings_sheet.dart';
+ import 'widgets/player_error_view.dart';
+ 
+diff --git a/tool/mutants.yaml b/tool/mutants.yaml
+--- a/tool/mutants.yaml
++++ b/tool/mutants.yaml
+@@ -86,10 +86,10 @@
+   tests: [test/scenarios, test/analytics/matomo_test.dart]
+ - id: player.retryPermanentErrors
+   why: 401/404 route errors were silently retried
+-  file: lib/src/presentation/player/retry_policy.dart
+-  find: "transient && _attempts < delays.length;"
+-  replace: "_attempts < delays.length;"
+-  tests: [test/chorki_player_widget_test.dart, test/presentation/retry_policy_test.dart]
++  file: lib/src/presentation/chorki_player_state.dart
++  find: "error.isTransient && _autoRetries < _autoRetryDelays.length;"
++  replace: "_autoRetries < _autoRetryDelays.length;"
++  tests: [test/chorki_player_widget_test.dart]
+ - id: ads.lateManagerLeaks
+   why: an ads manager loaded after dispose was never destroyed
+   file: lib/src/ads/chorki_ad_layer.dart
+diff --git a/test/guardrails/baselines.json b/test/guardrails/baselines.json
+--- a/test/guardrails/baselines.json
++++ b/test/guardrails/baselines.json
+@@ -18,7 +18,8 @@
+   },
+   "file_size": {
+     "lib/src/ads/chorki_ad_layer.dart": 1,
+-    "lib/src/analytics/chorki_analytics_session.dart": 5
++    "lib/src/analytics/chorki_analytics_session.dart": 5,
++    "lib/src/presentation/chorki_player_state.dart": 1
+   },
+   "magic_number": {
+     "lib/src/ads/ad_timeline.dart": 1,
+diff --git a/lib/src/presentation/player/retry_policy.dart b/lib/src/presentation/player/retry_policy.dart
+deleted file mode 100644
+--- a/lib/src/presentation/player/retry_policy.dart
++++ /dev/null
+@@ -1,64 +0,0 @@
+-import 'dart:async';
+-
+-/// Silent retries of transient failures (route fetch, video init, playback
+-/// error) before the error view shows.
+-///
+-/// [schedule] arms the next retry while attempts remain; [pending] is true
+-/// until it fires (the player keeps the poster meanwhile). [reset] starts a
+-/// fresh round (manual retry, new source, a preloading byte becoming
+-/// active).
+-class RetryPolicy {
+-  /// Retries after each of [delays], in order.
+-  RetryPolicy({this.delays = defaultDelays});
+-
+-  /// Waits before each silent retry: one entry per retry.
+-  static const List<Duration> defaultDelays = [
+-    Duration(seconds: 1),
+-    Duration(seconds: 3),
+-  ];
+-
+-  /// The waits in use.
+-  final List<Duration> delays;
+-
+-  int _attempts = 0;
+-  Timer? _timer;
+-
+-  /// Silent retries used in this round.
+-  int get attempts => _attempts;
+-
+-  /// A silent retry is armed.
+-  bool get pending => _timer != null;
+-
+-  /// Whether a failure that [transient] would be retried silently.
+-  bool canRetry({required bool transient}) =>
+-      transient && _attempts < delays.length;
+-
+-  /// Arms the next silent retry if [canRetry]; [onRetry] gets the attempt
+-  /// number (from 1). Returns whether one was armed.
+-  bool schedule({
+-    required bool transient,
+-    required void Function(int attempt) onRetry,
+-  }) {
+-    if (!canRetry(transient: transient)) return false;
+-    final delay = delays[_attempts++];
+-    final attempt = _attempts;
+-    _timer?.cancel();
+-    _timer = Timer(delay, () {
+-      _timer = null;
+-      onRetry(attempt);
+-    });
+-    return true;
+-  }
+-
+-  /// Disarms a pending retry, keeping the attempt count.
+-  void cancel() {
+-    _timer?.cancel();
+-    _timer = null;
+-  }
+-
+-  /// Disarms and starts a fresh round of retries.
+-  void reset() {
+-    cancel();
+-    _attempts = 0;
+-  }
+-}
+diff --git a/test/presentation/retry_policy_test.dart b/test/presentation/retry_policy_test.dart
+deleted file mode 100644
+--- a/test/presentation/retry_policy_test.dart
++++ /dev/null
+@@ -1,54 +0,0 @@
+-import 'package:chorki_player/src/presentation/player/retry_policy.dart';
+-import 'package:fake_async/fake_async.dart';
+-import 'package:flutter_test/flutter_test.dart';
+-
+-void main() {
+-  group('RetryPolicy', () {
+-    test('retries transient failures after each delay, then gives up', () {
+-      fakeAsync((async) {
+-        final fired = <int>[];
+-        final policy = RetryPolicy();
+-        expect(policy.schedule(transient: true, onRetry: fired.add), isTrue);
+-        expect(policy.pending, isTrue);
+-        async.elapse(const Duration(milliseconds: 999));
+-        expect(fired, isEmpty, reason: 'the first wait is 1 s');
+-        async.elapse(const Duration(milliseconds: 1));
+-        expect(fired, [1]);
+-        expect(policy.pending, isFalse);
+-
+-        expect(policy.schedule(transient: true, onRetry: fired.add), isTrue);
+-        async.elapse(const Duration(seconds: 3));
+-        expect(fired, [1, 2]);
+-
+-        expect(policy.canRetry(transient: true), isFalse);
+-        expect(policy.schedule(transient: true, onRetry: fired.add), isFalse);
+-        expect(policy.attempts, 2);
+-      });
+-    });
+-
+-    test('never retries a permanent failure', () {
+-      final policy = RetryPolicy();
+-      expect(policy.canRetry(transient: false), isFalse);
+-      expect(policy.schedule(transient: false, onRetry: (_) {}), isFalse);
+-      expect(policy.pending, isFalse);
+-    });
+-
+-    test('cancel keeps the count; reset starts a fresh round', () {
+-      fakeAsync((async) {
+-        final fired = <int>[];
+-        final policy = RetryPolicy(delays: const [Duration(seconds: 1)])
+-          ..schedule(transient: true, onRetry: fired.add)
+-          ..cancel();
+-        async.elapse(const Duration(seconds: 5));
+-        expect(fired, isEmpty);
+-        expect(policy.canRetry(transient: true), isFalse);
+-
+-        policy.reset();
+-        expect(policy.attempts, 0);
+-        expect(policy.schedule(transient: true, onRetry: fired.add), isTrue);
+-        async.elapse(const Duration(seconds: 1));
+-        expect(fired, [1]);
+-      });
+-    });
+-  });
+-}

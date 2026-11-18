@@ -4,13 +4,13 @@ import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('VideoLoadScheduler', () {
-    late VideoLoadScheduler scheduler;
+  group('ChorkiVideoLoadScheduler', () {
+    late ChorkiVideoLoadScheduler scheduler;
     late List<String> started;
     late Map<String, Completer<String>> gates;
 
     setUp(() {
-      scheduler = VideoLoadScheduler(disposalGrace: Duration.zero);
+      scheduler = ChorkiVideoLoadScheduler(disposalGrace: Duration.zero);
       started = [];
       gates = {};
     });
@@ -93,7 +93,7 @@ void main() {
 
     testWidgets('a load waits for a pending disposal, then for no longer '
         'than the grace period', (tester) async {
-      final s = VideoLoadScheduler(
+      final s = ChorkiVideoLoadScheduler(
         disposalGrace: const Duration(milliseconds: 500),
       );
       final disposal = Completer<void>();

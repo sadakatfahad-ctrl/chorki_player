@@ -46,4 +46,12 @@ void main() {
       expect(formatDelta(const Duration(milliseconds: -1900)), '-1s');
     });
   });
+
+  group('formatSpeed', () {
+    test('drops a needless .0 and keeps fractions', () {
+      expect(formatSpeed(2), '2');
+      expect(formatSpeed(1.5), '1.5');
+      expect(formatSpeed(0.75), '0.75');
+    });
+  });
 }

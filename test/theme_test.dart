@@ -2,7 +2,6 @@ import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:video_player/video_player.dart';
 import 'package:video_player_platform_interface/video_player_platform_interface.dart';
 
 import 'fakes/fake_video_player_platform.dart';
@@ -61,7 +60,7 @@ void main() {
   ) async {
     await pump(
       tester,
-      ShortsSeekBar(
+      ChorkiShortsSeekBar(
         controller: controller,
         theme: const ChorkiPlayerTheme(
           seekBarPlayedColor: Colors.red,
@@ -125,7 +124,7 @@ void main() {
   testWidgets('seekBarBuilder replaces the default bar', (tester) async {
     await pump(
       tester,
-      ShortsSeekBar(
+      ChorkiShortsSeekBar(
         controller: controller,
         builders: ChorkiPlayerBuilders(
           seekBarBuilder: (context, state, onSeek) => const Text('custom-bar'),
@@ -155,5 +154,56 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  group('value equality', () {
+    test('equal settings are equal and hash alike', () {
+      expect(const ChorkiPlayerTheme(), const ChorkiPlayerTheme());
+      expect(
+        const ChorkiPlayerTheme().hashCode,
+        const ChorkiPlayerTheme().hashCode,
+      );
+      // Not identical: built at runtime.
+      final a = const ChorkiPlayerTheme().copyWith(spinnerSize: 30);
+      final b = const ChorkiPlayerTheme().copyWith(spinnerSize: 30);
+      expect(identical(a, b), isFalse);
+      expect(a, b);
+      expect(a.hashCode, b.hashCode);
+      expect(
+        const ChorkiPlayerIcons(play: Icons.play_arrow),
+        const ChorkiPlayerIcons(play: Icons.play_arrow),
+      );
+      expect(
+        const ChorkiPlayerIcons(play: Icons.play_arrow).hashCode,
+        const ChorkiPlayerIcons().hashCode,
+      );
+      expect(
+        ChorkiPlayerStrings(retry: 'Retry'.toUpperCase().toLowerCase()),
+        const ChorkiPlayerStrings(retry: 'retry'),
+      );
+      expect(
+        const ChorkiPlayerStrings(retry: 'r').hashCode,
+        const ChorkiPlayerStrings(retry: 'r').hashCode,
+      );
+    });
+
+    test('one changed field makes them differ', () {
+      expect(
+        const ChorkiPlayerTheme(),
+        isNot(const ChorkiPlayerTheme(settingsSelectedColor: Colors.red)),
+      );
+      expect(
+        const ChorkiPlayerTheme().copyWith(spinnerSize: 12),
+        isNot(const ChorkiPlayerTheme()),
+      );
+      expect(
+        const ChorkiPlayerIcons(),
+        isNot(const ChorkiPlayerIcons(back: Icons.close)),
+      );
+      expect(
+        const ChorkiPlayerStrings(),
+        isNot(const ChorkiPlayerStrings(pictureInPicture: 'PiP')),
+      );
+    });
   });
 }

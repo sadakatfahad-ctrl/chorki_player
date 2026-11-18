@@ -1,0 +1,24 @@
+name: ad_time_not_watched
+description: content that still reports playing under an ad does not count as watched; it is not a pause either
+given: {duration: 30s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 6s}
+  - adBreakStart
+  # The content player has not paused yet (the ad layer's pause is async).
+  - play: {to: 9s}
+  - adBreakEnd
+  - play: {to: 10s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - adBreakStart: {breakKind: midRoll}
+    - adBreakEnd: {$watched: 6}
+    # 6 s before the break + 0.5 s after it. The first tick after a break
+    # (here 9 -> 9.5 s) is not counted: it cannot be told from the jump over
+    # the break. Known, bounded inaccuracy of one tick (about 500 ms).
+    - sessionEnd: {$watched: 6.5, pauseCount: 0}
+  never: [pause]

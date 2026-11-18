@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import '../core/diagnostics.dart';
+
 enum ChorkiAdBreakKind { preRoll, midRoll, postRoll }
 
 class VmapBreak {
@@ -121,15 +123,21 @@ List<VmapBreak> parseVmap(String xml) {
 
 typedef VmapFetcher = Future<String> Function(String url);
 
+const Duration _vmapTimeout = Duration(seconds: 8);
+
+/// One client for all VMAP requests. Deliberately not the route client: the
+/// app's headers (auth tokens) must never reach a third-party ad server.
+final Dio _vmapDio = Dio(
+  BaseOptions(
+    responseType: ResponseType.plain,
+    connectTimeout: _vmapTimeout,
+    sendTimeout: _vmapTimeout,
+    receiveTimeout: _vmapTimeout,
+  ),
+);
+
 Future<String> defaultVmapFetcher(String url) async {
-  final response = await Dio().get<String>(
-    url,
-    options: Options(
-      responseType: ResponseType.plain,
-      sendTimeout: const Duration(seconds: 8),
-      receiveTimeout: const Duration(seconds: 8),
-    ),
-  );
+  final response = await _vmapDio.get<String>(url);
   return response.data ?? '';
 }
 
@@ -139,7 +147,9 @@ Future<List<VmapBreak>> loadVmapBreaks(
 }) async {
   try {
     return parseVmap(await fetcher(url));
-  } catch (_) {
+  } catch (e, st) {
+    // No markers; IMA still plays the breaks from the same tag.
+    ChorkiDiagnostics.report(e, st, 'ads.vmap');
     return const [];
   }
 }

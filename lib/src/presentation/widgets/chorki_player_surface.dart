@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 import '../../ads/chorki_ad_state.dart';
 import '../../analytics/chorki_analytics_scope.dart';
 import '../../controllers/chorki_player_controller.dart';
+import '../../core/guard.dart';
 import '../../pip/chorki_pip.dart';
 import '../../theme/chorki_player_theme.dart';
 import 'ad_countdown_pill.dart';
@@ -167,7 +168,7 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
       children: [
         Positioned.fill(
           child: widget.enableGestures
-              ? PlayerGestureOverlay(
+              ? ChorkiGestureOverlay(
                   controller: controller,
                   onTogglePlayPause: widget.onTogglePlayPause,
                   doubleTapSeek: widget.doubleTapSeek,
@@ -218,7 +219,7 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
             left: 0,
             right: 0,
             bottom: widget.seekBarBottomOffset,
-            child: ShortsSeekBar(
+            child: ChorkiShortsSeekBar(
               controller: controller,
               theme: widget.theme,
               builders: widget.builders,
@@ -263,14 +264,17 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
     final chorki = widget.chorkiController;
     if (chorki == null) return;
     ChorkiAnalyticsScope.maybeOf(context)?.recordSettingsOpen();
-    showChorkiSettings(
-      context,
-      chorki,
-      theme: widget.theme,
-      icons: widget.icons,
-      strings: widget.strings,
-      builders: widget.builders,
-      speedOptions: widget.speedOptions,
+    fireAndReport(
+      () => showChorkiSettings(
+        context,
+        chorki,
+        theme: widget.theme,
+        icons: widget.icons,
+        strings: widget.strings,
+        builders: widget.builders,
+        speedOptions: widget.speedOptions,
+      ),
+      'player.openSettings',
     );
   }
 

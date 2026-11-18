@@ -1,0 +1,39 @@
+name: player_ux
+description: settings, speed, boost, quality, audio, fit, PiP and volume changes
+given: {duration: 60s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 1s}
+  - settingsOpen
+  - speedChange: {from: 1.0, to: 1.5}
+  - boostStart: 2.0
+  - advance: 3s
+  - boostEnd
+  - quality: {from: 1080, to: 720, bitrate: 2500000, label: 720p}
+  - quality: {from: 720}
+  - audio: {from: en, to: bn}
+  - fit: fill
+  - pip: enabled
+  - value: {volume: 0.0}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - settingsOpen
+    - speedChange: {from: 1.0, to: 1.5}
+    - speedBoostStart: {speed: 2.0}
+    - speedBoostEnd: {durationMs: 3000}
+    - qualityChange: {fromHeight: 1080, toHeight: 720, auto: false, label: 720p}
+    - qualityChange: {fromHeight: 720, toHeight: absent, auto: true}
+    - audioTrackChange: {fromTrack: en, toTrack: bn}
+    - fitChange: {fit: fill}
+    - pipChange: {status: enabled}
+    - volumeChange: {from: 1.0, to: 0.0, muted: true}
+  matomo:
+    - {e_c: Video Player, e_a: speed 1.5x, e_v: "1.500"}
+    - {e_c: Video QoE, e_a: quality 720p, e_v: "720"}
+    - {e_a: quality auto}
+    - {e_a: audio track, e_n: bn}
+    - {e_a: mute}

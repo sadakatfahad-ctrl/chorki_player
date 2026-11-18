@@ -1,0 +1,2112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Guardrails and Evals Playbook</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  :root {
+    --ink: #16202f; --muted: #5a6476; --line: #d5dae3; --bg: #ffffff; --panel: #f3f5f9;
+    --l0: #6b4fbb; --l0-l: #ece7fa;   /* conventions */
+    --l1: #2f6fde; --l1-l: #e2ebfc;   /* analyzer */
+    --l2: #1f8a8a; --l2-l: #dcf2f2;   /* guardrail tests */
+    --l3: #23936b; --l3-l: #def4ea;   /* scenarios */
+    --l4: #7a9a1e; --l4-l: #eef5d9;   /* conformance */
+    --l5: #d9822b; --l5-l: #fcefe1;   /* proof of proof */
+    --l6: #c2453d; --l6-l: #fae3e1;   /* gates */
+    --l7: #b8418f; --l7-l: #f8e4f1;   /* agents */
+    --l8: #3d4f7a; --l8-l: #e3e8f3;   /* evals */
+    --dark: #1d2738;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 297mm; height: 210mm; padding: 12mm 15mm 12mm; position: relative;
+    page-break-after: always; overflow: hidden; }
+  .page:last-child { page-break-after: auto; }
+  .hdr { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid var(--ink); padding-bottom: 2.2mm; margin-bottom: 4.5mm; }
+  .hdr h2 { margin: 0; font-size: 20px; letter-spacing: -0.2px; }
+  .hdr .sec { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; }
+  .foot { position: absolute; bottom: 5.5mm; left: 15mm; right: 15mm; display: flex;
+    justify-content: space-between; font-size: 8.5px; color: var(--muted); }
+  p, li { font-size: 10.8px; line-height: 1.45; }
+  p { margin: 0 0 2.4mm; }
+  ul, ol { margin: 0 0 2mm; padding-left: 5mm; }
+  li { margin: 0.6mm 0; }
+  .lead { font-size: 12px; color: var(--muted); margin: 0 0 4mm; max-width: 240mm; line-height: 1.45; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5mm; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+  .g64 { display: grid; grid-template-columns: 1.5fr 1fr; gap: 6mm; }
+  .g46 { display: grid; grid-template-columns: 1fr 1.5fr; gap: 6mm; }
+  .card { background: var(--panel); border-radius: 3mm; padding: 3.6mm 4mm; }
+  .card h3 { margin: 0 0 1.6mm; font-size: 12.5px; }
+  .card h4 { margin: 0 0 1mm; font-size: 11px; }
+  .card p, .card li { font-size: 10.2px; }
+  .card p:last-child { margin-bottom: 0; }
+  .bar { border-left: 4px solid var(--c, var(--l1)); background: var(--cl, var(--panel)); }
+  h3.k { font-size: 12.5px; margin: 0 0 2mm; }
+  code, .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.3px; }
+  p code, li code, td code { background: #eceff5; padding: 0 1mm; border-radius: 1mm; }
+  pre { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.6px; line-height: 1.42;
+    background: var(--dark); color: #e8edf5; border-radius: 2.5mm; padding: 3mm 3.6mm; margin: 0;
+    white-space: pre-wrap; }
+  pre .k { color: #8fb8ff; } pre .s { color: #a8e0a0; } pre .c { color: #8a96ab; } pre .n { color: #ffcc80; } pre .r { color: #ff9b94; }
+  table { border-collapse: collapse; width: 100%; font-size: 9.1px; }
+  th { text-align: left; background: var(--ink); color: #fff; padding: 1.5mm 2mm; font-weight: 600; }
+  td { padding: 1.2mm 2mm; border-bottom: 1px solid var(--line); vertical-align: top; line-height: 1.35; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  .pill { display: inline-block; padding: 0.3mm 2mm; border-radius: 10px; font-size: 8.4px; font-weight: 600; white-space: nowrap; }
+  .note { border-left: 3px solid var(--l5); background: var(--l5-l); padding: 2.4mm 3.4mm; font-size: 10.2px; border-radius: 0 2mm 2mm 0; line-height: 1.45; }
+  .ok { border-left-color: var(--l3); background: var(--l3-l); }
+  .bad { border-left-color: var(--l6); background: var(--l6-l); }
+  .info { border-left-color: var(--l1); background: var(--l1-l); }
+  .big { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; }
+  .num { font-size: 24px; font-weight: 700; letter-spacing: -0.4px; }
+  .small { font-size: 9px; color: var(--muted); }
+  svg text { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  svg .mono { font-family: "SF Mono", Menlo, monospace; }
+  .toc { columns: 2; column-gap: 12mm; padding-left: 0; list-style: none; }
+  .toc li { font-size: 11.2px; margin: 0 0 1.6mm; break-inside: avoid; display: flex; gap: 2mm; }
+  .toc .n { color: var(--muted); width: 8mm; flex: none; font-variant-numeric: tabular-nums; }
+  .chip { display:inline-block; width: 3mm; height: 3mm; border-radius: 1mm; vertical-align: -0.3mm; margin-right: 1.4mm; }
+  .tag { font-size: 8.3px; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 600; }
+  .check li { list-style: none; position: relative; padding-left: 4.5mm; }
+  .check li::before { content: ""; position: absolute; left: 0; top: 1.2mm; width: 2.6mm; height: 2.6mm; border: 1.3px solid var(--muted); border-radius: 0.6mm; }
+  .check { padding-left: 0; }
+</style>
+</head>
+<body>
+
+<!-- ======================================================== 1. COVER -->
+<section class="page" style="padding:0; background: linear-gradient(135deg,#141d2c 0%,#22324f 55%,#1f8a8a 140%); color:#fff;">
+  <svg width="297mm" height="210mm" viewBox="0 0 1123 794" style="position:absolute;inset:0">
+    <!-- concentric defence rings -->
+    <g transform="translate(860,400)" fill="none" stroke-width="16" opacity="0.92">
+      <circle r="300" stroke="#3d4f7a" opacity="0.55"/>
+      <circle r="262" stroke="#b8418f" opacity="0.55"/>
+      <circle r="224" stroke="#c2453d" opacity="0.6"/>
+      <circle r="186" stroke="#d9822b" opacity="0.65"/>
+      <circle r="148" stroke="#7a9a1e" opacity="0.7"/>
+      <circle r="110" stroke="#23936b" opacity="0.75"/>
+      <circle r="72" stroke="#1f8a8a" opacity="0.8"/>
+      <circle r="34" stroke="#2f6fde" opacity="0.9"/>
+    </g>
+    <g transform="translate(860,400)">
+      <circle r="14" fill="#fff"/>
+      <text y="5" text-anchor="middle" font-size="12" font-weight="700" fill="#16202f">lib</text>
+    </g>
+    <!-- a bug arrow bouncing off -->
+    <g stroke="#ffcc80" stroke-width="3" fill="none" opacity="0.95">
+      <path d="M 520 120 L 640 210" />
+      <path d="M 640 210 L 600 300" stroke-dasharray="6 6"/>
+    </g>
+    <circle cx="640" cy="210" r="7" fill="#ffcc80"/>
+    <text x="500" y="108" font-size="13" fill="#ffcc80" font-family="SF Mono, Menlo, monospace">catch (_) {}</text>
+  </svg>
+  <div style="position:absolute; left:18mm; top:30mm; width:150mm;">
+    <div style="font-size:11px; letter-spacing:3px; text-transform:uppercase; opacity:0.75;">Engineering playbook</div>
+    <div style="font-size:44px; font-weight:800; line-height:1.05; margin-top:5mm; letter-spacing:-1px;">Guardrails<br>&amp; Evals</div>
+    <div style="font-size:16px; margin-top:6mm; line-height:1.45; opacity:0.92;">How to make a codebase stay consistent, proven and documented
+      when humans <em>and AI agents</em> change it every day: the full cycle, layer by layer.</div>
+    <div style="margin-top:12mm; font-size:11.5px; line-height:1.7; opacity:0.85;">
+      Worked example: <b>chorki_player</b> (Flutter SDK, pub.dev)<br>
+      Applies to any stack: TypeScript, Kotlin, Python, Go, Swift<br>
+      With copy-paste templates, checklists and a port table
+    </div>
+  </div>
+  <div style="position:absolute; left:18mm; bottom:14mm; font-size:9.5px; opacity:0.7;">
+    Nine layers &middot; one gate &middot; every rule is a test &middot; every test is proven
+  </div>
+</section>
+
+<!-- ======================================================== 2. CONTENTS -->
+<section class="page">
+  <div class="hdr"><h2>Contents and how to use this playbook</h2><span class="sec">Start here</span></div>
+  <div class="g64">
+    <div>
+      <ol class="toc">
+        <li><span class="n">3</span>Why: what goes wrong without guardrails</li>
+        <li><span class="n">4</span>The model: nine layers of defence</li>
+        <li><span class="n">5</span>The full cycle of one change</li>
+        <li><span class="n">6</span>Ten principles</li>
+        <li><span class="n">7</span>Adoption roadmap</li>
+        <li><span class="n">8</span>Phase 0: audit the codebase</li>
+        <li><span class="n">9</span>L0 Conventions as code</li>
+        <li><span class="n">10</span>L1 Analyzer and lints, ratcheted</li>
+        <li><span class="n">11</span>L2 Guardrail tests: anatomy</li>
+        <li><span class="n">12</span>L2 The rule catalog</li>
+        <li><span class="n">13</span>Ratchets and escape hatches</li>
+        <li><span class="n">14</span>Proving the guardrails; the API contract</li>
+        <li><span class="n">15</span>Docs as code</li>
+        <li><span class="n">16</span>L3 Behaviour scenarios</li>
+        <li><span class="n">17</span>Writing scenarios; coverage matrix</li>
+        <li><span class="n">18</span>L4 Conformance suites</li>
+        <li><span class="n">19</span>Errors cannot hide: diagnostics</li>
+        <li><span class="n">20</span>L5 Proof of proof: coverage and mutants</li>
+        <li><span class="n">21</span>L6 Gates: where each check runs</li>
+        <li><span class="n">22</span>L7 Agent integration</li>
+        <li><span class="n">23</span>L8 AI implementation evals</li>
+        <li><span class="n">24</span>The eval harness, step by step</li>
+        <li><span class="n">25</span>Designing eval tasks that cannot be gamed</li>
+        <li><span class="n">26</span>Scoring and self-testing the harness</li>
+        <li><span class="n">27</span>Port it to your stack</li>
+        <li><span class="n">28</span>Templates: gate, CI, baselines</li>
+        <li><span class="n">29</span>Templates: CLAUDE.md, PR, eval task</li>
+        <li><span class="n">30</span>Operating it: metrics and failure modes</li>
+        <li><span class="n">31</span>Results in chorki_player</li>
+        <li><span class="n">32</span>Checklists and glossary</li>
+      </ol>
+    </div>
+    <div>
+      <div class="card bar" style="--c:var(--l2); --cl:var(--l2-l); margin-bottom:4mm;">
+        <h3>Who this is for</h3>
+        <p><b>Tech leads</b> setting up a repo; <b>engineers</b> adding a rule or an eval;
+        <b>teams using coding agents</b> (Claude Code or similar) who need the agent to follow
+        the same rules as people, and to be measured.</p>
+      </div>
+      <div class="card" style="margin-bottom:4mm;">
+        <h3>How to read it</h3>
+        <ul>
+          <li>Pages 3&ndash;7: the idea and the plan. Read them all.</li>
+          <li>Pages 8&ndash;26: one layer per spread. Each has <b>what</b>, <b>why</b>,
+            <b>how</b> (real code from chorki_player) and <b>pitfalls</b>.</li>
+          <li>Pages 27&ndash;32: port table, templates, operations, checklists.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>Layer colours used throughout</h3>
+        <table style="font-size:9.4px">
+          <tr><td><span class="chip" style="background:var(--l0)"></span>L0 Conventions</td><td><span class="chip" style="background:var(--l5)"></span>L5 Proof of proof</td></tr>
+          <tr><td><span class="chip" style="background:var(--l1)"></span>L1 Analyzer</td><td><span class="chip" style="background:var(--l6)"></span>L6 Gates</td></tr>
+          <tr><td><span class="chip" style="background:var(--l2)"></span>L2 Guardrail tests</td><td><span class="chip" style="background:var(--l7)"></span>L7 Agent integration</td></tr>
+          <tr><td><span class="chip" style="background:var(--l3)"></span>L3 Scenarios</td><td><span class="chip" style="background:var(--l8)"></span>L8 Evals</td></tr>
+          <tr><td><span class="chip" style="background:var(--l4)"></span>L4 Conformance</td><td></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>2</span></div>
+</section>
+
+<!-- ======================================================== 3. WHY -->
+<section class="page">
+  <div class="hdr"><h2>Why: what goes wrong without guardrails</h2><span class="sec">The problem</span></div>
+  <p class="lead">Code review catches what a reviewer happens to look at. Everything else drifts. With
+    coding agents producing more change per day, the drift is faster, and the agent repeats whatever
+    patterns it finds in the code, good or bad. Guardrails turn &ldquo;we agreed&rdquo; into
+    &ldquo;the build fails&rdquo;.</p>
+  <div class="grid3" style="margin-bottom:5mm;">
+    <div class="card bar" style="--c:var(--l6); --cl:var(--l6-l)">
+      <h3>1. Antipatterns spread</h3>
+      <p>One <code>catch (_) {}</code> becomes forty-five. chorki_player had ~45 silent catches,
+        five copies of the same <code>_safe</code> helper and an SDK that registered itself in the
+        <em>app&rsquo;s</em> DI container.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l5); --cl:var(--l5-l)">
+      <h3>2. &ldquo;Done&rdquo; is not proven</h3>
+      <p>Tests exist but do not check the thing that changed. A bug fix without a test that fails
+        without it can silently come back. Coverage says code <em>ran</em>, not that it was
+        <em>checked</em>.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l1); --cl:var(--l1-l)">
+      <h3>3. Docs and code disagree</h3>
+      <p>The README showed <code>PlayerPage(claude{super.key})</code> (does not compile). The
+        analytics table listed keys the code no longer sent. The CHANGELOG forgot renamed APIs.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l0); --cl:var(--l0-l)">
+      <h3>4. Inconsistent structure</h3>
+      <p>Mixed naming (a preloader class without the <code>Chorki</code> prefix next to <code>ChorkiPlayer</code>),
+        an 848-line widget, magic durations, <code>DateTime.now()</code> scattered, making tests
+        flaky and code hard to read.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l7); --cl:var(--l7-l)">
+      <h3>5. Agents amplify all of it</h3>
+      <p>An agent asked to &ldquo;add an event&rdquo; copies the nearest example. If that example
+        uses a string literal key and no test, so will the next ten. Agents also stop when
+        <em>they</em> think they are done.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l8); --cl:var(--l8-l)">
+      <h3>6. Nobody can measure it</h3>
+      <p>&ldquo;Is the agent getting better? Did our new rule help?&rdquo; Without fixed tasks
+        and objective scoring, it is opinion.</p>
+    </div>
+  </div>
+  <svg width="100%" height="56mm" viewBox="0 0 1000 200">
+    <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5a6476"/></marker></defs>
+    <text x="0" y="16" font-size="13" font-weight="700" fill="#16202f">The trust gap: what a reviewer can see vs. what can break</text>
+    <rect x="0" y="34" width="1000" height="44" rx="8" fill="#fae3e1"/>
+    <rect x="0" y="34" width="210" height="44" rx="8" fill="#c2453d"/>
+    <text x="14" y="61" font-size="12" fill="#fff" font-weight="600">Review sees: the diff</text>
+    <text x="230" y="61" font-size="12" fill="#7d2a24">... callers, docs, analytics consumers, other platforms, timing, error paths, future agents copying it</text>
+    <rect x="0" y="100" width="1000" height="44" rx="8" fill="#dcf2f2"/>
+    <rect x="0" y="100" width="880" height="44" rx="8" fill="#1f8a8a"/>
+    <text x="14" y="127" font-size="12" fill="#fff" font-weight="600">Guardrails see: every file, every commit, every agent run, in seconds</text>
+    <text x="892" y="127" font-size="12" fill="#14595a">judgement</text>
+    <text x="0" y="176" font-size="11" fill="#5a6476">Guardrails do not replace review: they remove the mechanical part, so review time goes to design and intent.</text>
+  </svg>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>3</span></div>
+</section>
+
+<!-- ======================================================== 4. MODEL -->
+<section class="page">
+  <div class="hdr"><h2>The model: nine layers of defence</h2><span class="sec">Overview</span></div>
+  <p class="lead">Each layer catches a different class of problem at a different cost. Cheap,
+    fast layers run on every keystroke; slow, thorough ones run nightly. A problem that slips
+    through one layer is caught by the next.</p>
+  <svg width="100%" height="150mm" viewBox="0 0 1000 560">
+    <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5a6476"/></marker></defs>
+    <!-- axis -->
+    <line x1="20" y1="20" x2="20" y2="540" stroke="#5a6476" stroke-width="1.5" marker-end="url(#ar2)"/>
+    <text x="30" y="16" font-size="11" fill="#5a6476">cheap, fast, every edit</text>
+    <text x="30" y="556" font-size="11" fill="#5a6476">slower, deeper, CI / nightly / on demand</text>
+    <g font-size="12.5">
+      <!-- rows: x=50, width 940 -->
+      <g transform="translate(50,30)">
+        <rect width="940" height="50" rx="8" fill="#ece7fa"/><rect width="10" height="50" rx="3" fill="#6b4fbb"/>
+        <text x="24" y="21" font-weight="700" fill="#16202f">L0 Conventions as code</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">CLAUDE.md / CONTRIBUTING: architecture, rules, Definition of Done; each rule points to the test that enforces it</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#6b4fbb" font-weight="600">humans + agents read</text>
+      </g>
+      <g transform="translate(50,88)">
+        <rect width="940" height="50" rx="8" fill="#e2ebfc"/><rect width="10" height="50" rx="3" fill="#2f6fde"/>
+        <text x="24" y="21" font-weight="700">L1 Analyzer and lints</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">strict types, unawaited futures, unclosed streams, dynamic calls; turned on when their backlog reaches zero</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#2f6fde" font-weight="600">milliseconds, in the IDE</text>
+      </g>
+      <g transform="translate(50,146)">
+        <rect width="940" height="50" rx="8" fill="#dcf2f2"/><rect width="10" height="50" rx="3" fill="#1f8a8a"/>
+        <text x="24" y="21" font-weight="700">L2 Guardrail tests (architecture + consistency)</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">AST rules: swallowed errors, layering, determinism, file size, API snapshot, docs drift, equality; ratcheted baselines</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#1f8a8a" font-weight="600">~2 s</text>
+      </g>
+      <g transform="translate(50,204)">
+        <rect width="940" height="50" rx="8" fill="#def4ea"/><rect width="10" height="50" rx="3" fill="#23936b"/>
+        <text x="24" y="21" font-weight="700">L3 Behaviour scenarios</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">declarative YAML specs of observable behaviour (given / steps / expect), run against the real engine with a fake clock</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#23936b" font-weight="600">seconds</text>
+      </g>
+      <g transform="translate(50,262)">
+        <rect width="940" height="50" rx="8" fill="#eef5d9"/><rect width="10" height="50" rx="3" fill="#7a9a1e"/>
+        <text x="24" y="21" font-weight="700">L4 Conformance suites</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">contract tests for every extension point, shipped to users so their plug-ins are held to the same contract</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#5c7414" font-weight="600">seconds</text>
+      </g>
+      <g transform="translate(50,320)">
+        <rect width="940" height="50" rx="8" fill="#fcefe1"/><rect width="10" height="50" rx="3" fill="#d9822b"/>
+        <text x="24" y="21" font-weight="700">L5 Proof of proof</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">diagnostics collector, per-file coverage floors that only rise, mutation smoke run: re-inserted bugs must be caught</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#a85f14" font-weight="600">minutes</text>
+      </g>
+      <g transform="translate(50,378)">
+        <rect width="940" height="50" rx="8" fill="#fae3e1"/><rect width="10" height="50" rx="3" fill="#c2453d"/>
+        <text x="24" y="21" font-weight="700">L6 Gates</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">one script (check.sh) run by the edit hook, the agent stop hook, pre-commit, CI and the nightly job</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#c2453d" font-weight="600">every boundary</text>
+      </g>
+      <g transform="translate(50,436)">
+        <rect width="940" height="50" rx="8" fill="#f8e4f1"/><rect width="10" height="50" rx="3" fill="#b8418f"/>
+        <text x="24" y="21" font-weight="700">L7 Agent integration</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">hooks that block the agent from finishing red, recipe skills for common changes, a reviewer agent with a rubric</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#b8418f" font-weight="600">per agent turn</text>
+      </g>
+      <g transform="translate(50,494)">
+        <rect width="940" height="50" rx="8" fill="#e3e8f3"/><rect width="10" height="50" rx="3" fill="#3d4f7a"/>
+        <text x="24" y="21" font-weight="700">L8 AI implementation evals</text>
+        <text x="24" y="39" font-size="11" fill="#5a6476">fixed tasks in throwaway worktrees, seeded bugs, hidden tests, objective checks + judge: measures agents and the process</text>
+        <text x="925" y="30" text-anchor="end" font-size="11" fill="#3d4f7a" font-weight="600">on demand / weekly</text>
+      </g>
+    </g>
+  </svg>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>4</span></div>
+</section>
+
+<!-- ======================================================== 5. FULL CYCLE -->
+<section class="page">
+  <div class="hdr"><h2>The full cycle of one change</h2><span class="sec">Lifecycle</span></div>
+  <p class="lead">Follow one change, say &ldquo;add an analytics event&rdquo;, from request to release.
+    The same script runs at every boundary, from fast to full. Nothing reaches main red, and every rule
+    tightens over time through the feedback loop at the bottom.</p>
+  <svg width="100%" height="140mm" viewBox="0 0 1000 520">
+    <defs>
+      <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker>
+      <marker id="a3g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f8a8a"/></marker>
+      <marker id="a3r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c2453d"/></marker>
+    </defs>
+    <!-- stages -->
+    <g font-size="12">
+      <g transform="translate(0,40)">
+        <rect width="150" height="92" rx="10" fill="#ece7fa" stroke="#6b4fbb"/>
+        <text x="75" y="24" text-anchor="middle" font-weight="700">1 Request</text>
+        <text x="75" y="44" text-anchor="middle" font-size="10.5" fill="#5a6476">issue / task.md</text>
+        <text x="75" y="60" text-anchor="middle" font-size="10.5" fill="#5a6476">recipe skill picked</text>
+        <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="#5a6476">(add-analytics-event)</text>
+      </g>
+      <g transform="translate(170,40)">
+        <rect width="150" height="92" rx="10" fill="#dcf2f2" stroke="#1f8a8a"/>
+        <text x="75" y="24" text-anchor="middle" font-weight="700">2 Edit</text>
+        <text x="75" y="44" text-anchor="middle" font-size="10.5" fill="#5a6476">IDE lints live</text>
+        <text x="75" y="60" text-anchor="middle" font-size="10.5" fill="#5a6476">edit hook formats</text>
+        <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="#5a6476">each file</text>
+      </g>
+      <g transform="translate(340,40)">
+        <rect width="150" height="92" rx="10" fill="#f8e4f1" stroke="#b8418f"/>
+        <text x="75" y="24" text-anchor="middle" font-weight="700">3 &ldquo;I&rsquo;m done&rdquo;</text>
+        <text x="75" y="44" text-anchor="middle" font-size="10.5" fill="#5a6476">stop hook runs</text>
+        <text x="75" y="60" text-anchor="middle" font-size="10.5" fill="#5a6476">check.sh --quick</text>
+        <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="#5a6476">red = keep working</text>
+      </g>
+      <g transform="translate(510,40)">
+        <rect width="150" height="92" rx="10" fill="#fae3e1" stroke="#c2453d"/>
+        <text x="75" y="24" text-anchor="middle" font-weight="700">4 Commit</text>
+        <text x="75" y="44" text-anchor="middle" font-size="10.5" fill="#5a6476">pre-commit hook</text>
+        <text x="75" y="60" text-anchor="middle" font-size="10.5" fill="#5a6476">check.sh --quick</text>
+        <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="#5a6476">(opt-in, seconds)</text>
+      </g>
+      <g transform="translate(680,40)">
+        <rect width="150" height="92" rx="10" fill="#fae3e1" stroke="#c2453d"/>
+        <text x="75" y="24" text-anchor="middle" font-weight="700">5 Pull request</text>
+        <text x="75" y="44" text-anchor="middle" font-size="10.5" fill="#5a6476">CI: check.sh (full)</text>
+        <text x="75" y="60" text-anchor="middle" font-size="10.5" fill="#5a6476">PR template: proof</text>
+        <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="#5a6476">reviewer agent + human</text>
+      </g>
+      <g transform="translate(850,40)">
+        <rect width="150" height="92" rx="10" fill="#def4ea" stroke="#23936b"/>
+        <text x="75" y="24" text-anchor="middle" font-weight="700">6 Merge &amp; release</text>
+        <text x="75" y="44" text-anchor="middle" font-size="10.5" fill="#5a6476">publish dry run</text>
+        <text x="75" y="60" text-anchor="middle" font-size="10.5" fill="#5a6476">CHANGELOG = API diff</text>
+        <text x="75" y="76" text-anchor="middle" font-size="10.5" fill="#5a6476">tag</text>
+      </g>
+    </g>
+    <g stroke="#16202f" stroke-width="1.6" marker-end="url(#a3)">
+      <line x1="150" y1="86" x2="168" y2="86"/><line x1="320" y1="86" x2="338" y2="86"/>
+      <line x1="490" y1="86" x2="508" y2="86"/><line x1="660" y1="86" x2="678" y2="86"/>
+      <line x1="830" y1="86" x2="848" y2="86"/>
+    </g>
+    <!-- fail loops -->
+    <g stroke="#c2453d" stroke-width="1.6" fill="none" marker-end="url(#a3r)" stroke-dasharray="5 4">
+      <path d="M 415 134 C 415 175, 245 175, 245 136"/>
+      <path d="M 755 134 C 755 190, 260 200, 245 138"/>
+    </g>
+    <text x="440" y="168" font-size="10.5" fill="#c2453d">blocked: fix and retry</text>
+    <text x="600" y="216" font-size="10.5" fill="#c2453d">CI red: back to edit</text>
+
+    <!-- what runs where -->
+    <text x="0" y="250" font-size="13" font-weight="700">What each stage runs (same script, more of it further right)</text>
+    <g font-size="11">
+      <g transform="translate(0,262)">
+        <rect width="1000" height="26" fill="#f3f5f9"/>
+        <text x="8" y="17" font-weight="600">format + analyze + guardrails</text>
+        <rect x="180" y="6" width="150" height="14" rx="3" fill="#1f8a8a" opacity="0.25"/>
+        <rect x="350" y="6" width="650" height="14" rx="3" fill="#1f8a8a"/>
+        <text x="996" y="17" text-anchor="end" fill="#fff" font-size="10">~15 s</text>
+      </g>
+      <g transform="translate(0,292)">
+        <text x="8" y="17" font-weight="600">all tests + scenarios</text>
+        <rect x="690" y="6" width="310" height="14" rx="3" fill="#23936b"/>
+        <text x="996" y="17" text-anchor="end" fill="#fff" font-size="10">~1 min</text>
+      </g>
+      <g transform="translate(0,322)">
+        <rect width="1000" height="26" fill="#f3f5f9"/>
+        <text x="8" y="17" font-weight="600">coverage floors, example, publish</text>
+        <rect x="690" y="6" width="310" height="14" rx="3" fill="#d9822b"/>
+        <text x="996" y="17" text-anchor="end" fill="#fff" font-size="10">~2 min</text>
+      </g>
+      <g transform="translate(0,352)">
+        <text x="8" y="17" font-weight="600">mutation smoke run</text>
+        <rect x="860" y="6" width="140" height="14" rx="3" fill="#c2453d"/>
+        <text x="996" y="17" text-anchor="end" fill="#fff" font-size="10">nightly</text>
+      </g>
+      <g transform="translate(0,382)">
+        <rect width="1000" height="26" fill="#f3f5f9"/>
+        <text x="8" y="17" font-weight="600">AI evals</text>
+        <rect x="860" y="6" width="140" height="14" rx="3" fill="#3d4f7a"/>
+        <text x="996" y="17" text-anchor="end" fill="#fff" font-size="10">on demand</text>
+      </g>
+    </g>
+    <!-- feedback loop -->
+    <g transform="translate(0,430)">
+      <rect width="1000" height="84" rx="10" fill="#e3e8f3"/>
+      <text x="16" y="24" font-size="13" font-weight="700" fill="#3d4f7a">Feedback loop: the system tightens itself</text>
+      <text x="16" y="46" font-size="11" fill="#16202f">bug escapes &#8594; regression scenario + mutant that re-inserts it &#8594; never again &#160;&#160;|&#160;&#160; backlog count drops &#8594; ratchet locks it in &#8594; lint switched on at zero</text>
+      <text x="16" y="66" font-size="11" fill="#16202f">agent makes the same mistake twice &#8594; new guardrail (fixture first) or a CLAUDE.md line &#8594; eval task to measure it &#160;&#160;|&#160;&#160; doc drift &#8594; generate or compile it</text>
+    </g>
+  </svg>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>5</span></div>
+</section>
+
+<!-- ======================================================== 6. PRINCIPLES -->
+<section class="page">
+  <div class="hdr"><h2>Ten principles</h2><span class="sec">The ideas behind every layer</span></div>
+  <div class="grid2" style="gap:4mm 7mm;">
+    <div class="card bar" style="--c:var(--l2)"><h3>1. Every rule is a test</h3><p>If a convention matters, a test fails when it is broken. A rule that lives only in a wiki is a wish. Put the enforcing test&rsquo;s name next to the rule in the conventions doc.</p></div>
+    <div class="card bar" style="--c:var(--l2)"><h3>2. Prove the guardrail first</h3><p>Each rule is a pure function, run first on a tiny inline fixture with a known violation (and a known non-violation). A guardrail that cannot fail is decoration.</p></div>
+    <div class="card bar" style="--c:var(--l1)"><h3>3. Ratchet, never big-bang</h3><p>Record today&rsquo;s violations per file in a baseline. New violations fail; fewer violations also fail until locked in. The count only goes down, so you can adopt a rule on day one without fixing 300 files first.</p></div>
+    <div class="card bar" style="--c:var(--l0)"><h3>4. Escape hatches carry reasons</h3><p><code>// guardrail:allow &lt;rule&gt; - &lt;reason&gt;</code> on the line. No reason, no effect. Evals and reviewers count new allows, so the escape hatch is visible, not free.</p></div>
+    <div class="card bar" style="--c:var(--l1)"><h3>5. One source of truth, everything else generated or compiled</h3><p>Schemas generate README tables; README snippets are cut from compiled files; the public API snapshot is diffed against the CHANGELOG. Docs cannot drift if they are derived.</p></div>
+    <div class="card bar" style="--c:var(--l3)"><h3>6. Determinism by injection</h3><p>No wall clock, no unseeded randomness, no global singletons outside one file. Inject a clock and an id generator; tests and scenarios become exact.</p></div>
+    <div class="card bar" style="--c:var(--l5)"><h3>7. Proof means &ldquo;fails without the change&rdquo;</h3><p>A behaviour change needs a test that fails on the old code. A bug fix also needs a <em>mutant</em> that re-inserts the bug and must be killed. Coverage only shows code ran.</p></div>
+    <div class="card bar" style="--c:var(--l6)"><h3>8. Fast inner loop, thorough outer loop</h3><p>The quick gate takes seconds, so people and agents run it constantly. The full gate runs in CI, mutation testing nightly. One script, several depths, the same answers.</p></div>
+    <div class="card bar" style="--c:var(--l7)"><h3>9. Agents get the same rules, enforced the same way</h3><p>Agents read CLAUDE.md, but compliance comes from hooks: the agent cannot finish while the gate is red. Recipes (skills) encode the multi-file steps people forget.</p></div>
+    <div class="card bar" style="--c:var(--l8)"><h3>10. Measure with evals, then improve the system</h3><p>Fixed tasks, hidden tests, objective checks. Run them after changing a rule, a prompt or a model. If a score drops, the system regressed, not just the agent.</p></div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>6</span></div>
+</section>
+
+<!-- ======================================================== 7. ROADMAP -->
+<section class="page">
+  <div class="hdr"><h2>Adoption roadmap</h2><span class="sec">From zero to the full system</span></div>
+  <p class="lead">Each phase ends green and is useful on its own. A small team can do phases 0&ndash;4 in two
+    weeks; phases 5&ndash;8 add proof and measurement. Never block the team: everything is ratcheted.</p>
+  <svg width="100%" height="78mm" viewBox="0 0 1000 290">
+    <line x1="10" y1="60" x2="990" y2="60" stroke="#16202f" stroke-width="3"/>
+    <g font-size="11.5">
+      <g transform="translate(10,0)"><circle cx="40" cy="60" r="13" fill="#5a6476"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">0</text><text x="40" y="30" text-anchor="middle" font-weight="700">Audit</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">day 1</text></g>
+      <g transform="translate(115,0)"><circle cx="40" cy="60" r="13" fill="#6b4fbb"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">1</text><text x="40" y="30" text-anchor="middle" font-weight="700">Conventions</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">day 1&ndash;2</text></g>
+      <g transform="translate(220,0)"><circle cx="40" cy="60" r="13" fill="#2f6fde"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">2</text><text x="40" y="30" text-anchor="middle" font-weight="700">Analyzer</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">day 2</text></g>
+      <g transform="translate(325,0)"><circle cx="40" cy="60" r="13" fill="#1f8a8a"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">3</text><text x="40" y="30" text-anchor="middle" font-weight="700">Guardrails</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">days 3&ndash;5</text></g>
+      <g transform="translate(430,0)"><circle cx="40" cy="60" r="13" fill="#c2453d"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">4</text><text x="40" y="30" text-anchor="middle" font-weight="700">Gates + CI</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">day 5</text></g>
+      <g transform="translate(535,0)"><circle cx="40" cy="60" r="13" fill="#23936b"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">5</text><text x="40" y="30" text-anchor="middle" font-weight="700">Scenarios</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">week 2</text></g>
+      <g transform="translate(640,0)"><circle cx="40" cy="60" r="13" fill="#7a9a1e"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">6</text><text x="40" y="30" text-anchor="middle" font-weight="700">Contracts</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">week 2</text></g>
+      <g transform="translate(745,0)"><circle cx="40" cy="60" r="13" fill="#d9822b"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">7</text><text x="40" y="30" text-anchor="middle" font-weight="700">Proof</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">week 3</text></g>
+      <g transform="translate(850,0)"><circle cx="40" cy="60" r="13" fill="#3d4f7a"/><text x="40" y="65" text-anchor="middle" fill="#fff" font-weight="700">8</text><text x="40" y="30" text-anchor="middle" font-weight="700">Agents + evals</text><text x="40" y="96" text-anchor="middle" fill="#5a6476" font-size="10">week 3&ndash;4</text></g>
+    </g>
+    <g font-size="10" fill="#16202f">
+      <foreignObject x="0" y="112" width="1000" height="178">
+        <div xmlns="http://www.w3.org/1999/xhtml" style="display:grid;grid-template-columns:repeat(9,1fr);gap:6px;font-size:9.6px;line-height:1.35;font-family:-apple-system,Helvetica,Arial,sans-serif;">
+          <div><b>Output</b><br/>issue list by severity (bugs, antipatterns, drift)</div>
+          <div><b>Output</b><br/>CLAUDE.md with DoD; each rule names its test</div>
+          <div><b>Output</b><br/>strict settings; rule table with enable milestone</div>
+          <div><b>Output</b><br/>AST rules + fixtures + baselines.json</div>
+          <div><b>Output</b><br/>check.sh quick/full; CI; pre-commit; PR template</div>
+          <div><b>Output</b><br/>YAML spec runner; one spec per behaviour</div>
+          <div><b>Output</b><br/>conformance suites for each extension point</div>
+          <div><b>Output</b><br/>diagnostics collector, coverage floors, mutants</div>
+          <div><b>Output</b><br/>hooks, skills, reviewer agent, eval harness + tasks</div>
+        </div>
+      </foreignObject>
+    </g>
+  </svg>
+  <div class="card" style="margin:-14mm 0 5mm; display:grid; grid-template-columns: 38mm 1fr 1fr 1fr; gap:5mm; align-items:start;">
+    <div><div class="tag">Minimum version</div><div style="font-size:15px;font-weight:700;margin-top:1mm">If you only have one day</div></div>
+    <p style="margin:0"><b>1.</b> A 60-line CLAUDE.md with a Definition of Done and the commands.<br><b>2.</b> One gate script with <code>--quick</code>, wired to pre-commit and CI.</p>
+    <p style="margin:0"><b>3.</b> Three guardrails with baselines: swallowed errors, layering, file size.<br><b>4.</b> A public API snapshot coupled to the CHANGELOG.</p>
+    <p style="margin:0"><b>5.</b> The agent stop hook running the quick gate.<br>Everything else in this playbook builds on these five.</p>
+  </div>
+  <div class="grid3">
+    <div class="note info"><b>Order matters.</b> Conventions before rules (you need to know what to enforce);
+      guardrails before gates (a gate needs something to run); scenarios before mutants (mutants need
+      tests that can kill them); everything before evals (evals score against the gate).</div>
+    <div class="note ok"><b>Fix as you go.</b> The audit list becomes the work queue. Each fix lands with
+      the guardrail or test that would have caught it, so the fix stays fixed. In chorki_player each of
+      ~25 audit findings has a test and most have a mutant.</div>
+    <div class="note"><b>Do not stop the world.</b> Ratchets mean the team keeps shipping while the
+      backlog shrinks. In chorki_player one refactor round took the undocumented exported API from
+      196 to 149 and the file-size backlog from 18 to 6, without a freeze.</div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>7</span></div>
+</section>
+
+<!-- ======================================================== 8. AUDIT -->
+<section class="page">
+  <div class="hdr"><h2>Phase 0: audit the codebase</h2><span class="sec">Know what to guard against</span></div>
+  <div class="g46">
+    <div>
+      <p class="lead" style="margin-bottom:3mm">Read the code with one question per pass. Write every
+        finding as <b>where</b>, <b>what</b>, <b>why it matters</b>, <b>severity</b>, and <b>which
+        guardrail would have caught it</b>. That last column is the start of your rule catalog.</p>
+      <div class="card" style="margin-bottom:3.5mm">
+        <h3>Six audit passes</h3>
+        <ol>
+          <li><b>Errors:</b> every <code>catch</code>, every fire-and-forget future. Is anything swallowed?</li>
+          <li><b>Boundaries:</b> imports between layers; globals; who owns DI; what leaks to the public API.</li>
+          <li><b>Lifecycle:</b> timers, streams, listeners; dispose paths; late callbacks after dispose.</li>
+          <li><b>Determinism:</b> clock, randomness, ordering, network in tests.</li>
+          <li><b>Contracts:</b> public API names, docs vs. code, CHANGELOG vs. API, payload schemas.</li>
+          <li><b>Proof:</b> which files and public methods no test touches; which tests assert nothing specific.</li>
+        </ol>
+      </div>
+      <div class="note info">With an agent: run the passes as parallel read-only reviewers (one per
+        concern), then merge, de-duplicate and verify each finding yourself before it goes on the list.</div>
+    </div>
+    <div>
+      <h3 class="k">Example: findings from chorki_player (abridged)</h3>
+      <table>
+        <tr><th>Finding</th><th>Sev.</th><th>Guardrail / proof added</th></tr>
+        <tr><td>SDK registers in the host app&rsquo;s <code>GetIt.instance</code>; an app reset breaks the player</td><td><span class="pill" style="background:var(--l6-l);color:var(--l6)">High</span></td><td>layering rule: only <code>services.dart</code> owns DI; widget test</td></tr>
+        <tr><td>~45 silent <code>catch</code> blocks</td><td><span class="pill" style="background:var(--l6-l);color:var(--l6)">High</span></td><td><code>swallowed_error</code> rule + diagnostics collector</td></tr>
+        <tr><td>Late IMA ads manager never destroyed after dispose</td><td><span class="pill" style="background:var(--l6-l);color:var(--l6)">High</span></td><td>widget test + mutant <code>ads.lateManagerLeaks</code></td></tr>
+        <tr><td>401/404 retried silently like network blips</td><td><span class="pill" style="background:var(--l5-l);color:#a85f14">Med</span></td><td>typed errors; mutant <code>player.retryPermanentErrors</code></td></tr>
+        <tr><td>Consent granted mid-view lost the impression</td><td><span class="pill" style="background:var(--l5-l);color:#a85f14">Med</span></td><td>scenario + mutant</td></tr>
+        <tr><td><code>watchedPercent</code> inflated (5.1 s of 6 s = 100%)</td><td><span class="pill" style="background:var(--l5-l);color:#a85f14">Med</span></td><td><code>WatchTracker</code> unit tests + mutant</td></tr>
+        <tr><td>Throwing transport stalled the Matomo queue</td><td><span class="pill" style="background:var(--l5-l);color:#a85f14">Med</span></td><td>conformance suite + mutant</td></tr>
+        <tr><td>README snippet did not compile</td><td><span class="pill" style="background:var(--l1-l);color:var(--l1)">Low</span></td><td>README excerpts compiled from <code>example/</code></td></tr>
+        <tr><td>848-line widget; 5 copies of <code>_safe</code></td><td><span class="pill" style="background:var(--l1-l);color:var(--l1)">Low</span></td><td><code>file_size</code> ratchet; shared <code>guard.dart</code></td></tr>
+        <tr><td>Analytics keys as string literals; README table stale</td><td><span class="pill" style="background:var(--l1-l);color:var(--l1)">Low</span></td><td>schema registry; <code>analytics_key</code> rule; generated table</td></tr>
+        <tr><td><code>DateTime.now()</code> in 6 files</td><td><span class="pill" style="background:var(--l1-l);color:var(--l1)">Low</span></td><td><code>determinism</code> rule; injected clock</td></tr>
+        <tr><td>Public types without the <code>Chorki</code> prefix</td><td><span class="pill" style="background:var(--l1-l);color:var(--l1)">Low</span></td><td>deprecated aliases; API snapshot</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>8</span></div>
+</section>
+
+<!-- ======================================================== 9. L0 CONVENTIONS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l0)"></span>L0 Conventions as code</h2><span class="sec">CLAUDE.md / CONTRIBUTING.md</span></div>
+  <div class="g46">
+    <div>
+      <p class="lead" style="margin-bottom:3mm">One short file at the repo root that both people and agents read
+        first. It is not a style guide: it is the <b>working agreement</b>. Every convention in it names the
+        guardrail that enforces it, so the file cannot quietly become fiction.</p>
+      <div class="card" style="margin-bottom:3mm">
+        <h3>Sections that earn their place</h3>
+        <ol>
+          <li><b>What this is</b> (2 lines) and who depends on it.</li>
+          <li><b>Definition of done</b>: numbered, checkable, with commands.</li>
+          <li><b>Commands</b>: a table, so nobody guesses flags.</li>
+          <li><b>Architecture and layering</b>: a tree plus the import rules.</li>
+          <li><b>Conventions</b>: each one sentence + the rule id.</li>
+          <li><b>Ratchets</b>: how baselines work, what never to do.</li>
+          <li><b>Recipes</b>: links to skills for multi-file changes.</li>
+          <li><b>Gotchas</b>: the things that bite new contributors.</li>
+        </ol>
+      </div>
+      <div class="note bad"><b>Keep it under ~150 lines.</b> Agents load it into every session; long files
+        get skimmed by people and diluted for agents. Move detail into skills and CONTRIBUTING.md.</div>
+    </div>
+    <div>
+      <h3 class="k">The Definition of Done (chorki_player, verbatim)</h3>
+<pre><span class="c">## Definition of done (every change)</span>
+1. `tool/check.sh` passes. Paste its tail in your summary or PR.
+2. Behaviour change &#8594; a test or a scenario that <span class="n">fails without
+   the change</span>. Check this; don't assume it.
+3. Bug fix &#8594; a regression scenario/test named after the bug <span class="n">and</span>
+   a mutant in `tool/mutants.yaml` that re-introduces it;
+   `dart run tool/mutation_smoke.dart &lt;id&gt;` must say `killed`.
+4. Public API change &#8594; intended diff in the API golden
+   (`UPDATE_GOLDENS=1 flutter test test/guardrails`), and every
+   changed symbol named in `CHANGELOG.md`.
+5. Docs: `///` on new public members, README snippets edited in
+   `example/lib/readme/` and copied verbatim, CHANGELOG sections.
+6. Report honestly: what was verified, what was not, what failed.</pre>
+      <h3 class="k" style="margin-top:3.5mm">Convention &#8594; enforcing guardrail</h3>
+      <table>
+        <tr><th>Convention (one line in CLAUDE.md)</th><th>Enforced by</th></tr>
+        <tr><td>No silent catches; report to diagnostics</td><td><code>swallowed_error</code> + test-config collector</td></tr>
+        <tr><td>No logging in the library</td><td><code>no_logging_test</code></td></tr>
+        <tr><td>Never call the wall clock / <code>Random()</code> directly</td><td><code>determinism</code></td></tr>
+        <tr><td>No magic durations in method bodies</td><td><code>magic_number</code></td></tr>
+        <tr><td>Analytics keys only via constants</td><td><code>analytics_key</code>, schema tests</td></tr>
+        <tr><td>Every public type starts with <code>Chorki</code></td><td>API snapshot review</td></tr>
+        <tr><td>350 code lines per file</td><td><code>file_size</code> ratchet</td></tr>
+        <tr><td>Every file / command exercised by a test</td><td><code>untested_file</code>, <code>uncalled_method</code></td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>9</span></div>
+</section>
+
+<!-- ======================================================== 10. L1 ANALYZER -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l1)"></span>L1 Analyzer and lints, ratcheted</h2><span class="sec">The cheapest layer</span></div>
+  <p class="lead">Lints run in the IDE as you type, so they are the cheapest feedback there is. The catch: an analyzer rule
+    cannot be allow-listed per file the way a test can, and the gate runs with
+    <code>--fatal-infos</code>. The trick is to <b>measure first</b> and choose a path per rule.</p>
+  <div class="g64">
+    <div>
+      <svg width="100%" height="64mm" viewBox="0 0 640 250">
+        <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <rect x="0" y="95" width="150" height="60" rx="10" fill="#e2ebfc" stroke="#2f6fde"/>
+        <text x="75" y="120" text-anchor="middle" font-size="12" font-weight="700">Candidate rule</text>
+        <text x="75" y="138" text-anchor="middle" font-size="10.5" fill="#5a6476">enable in a scratch run</text>
+        <text x="75" y="150" text-anchor="middle" font-size="10.5" fill="#5a6476">count the hits</text>
+        <line x1="150" y1="125" x2="215" y2="60" stroke="#16202f" stroke-width="1.5" marker-end="url(#a4)"/>
+        <line x1="150" y1="125" x2="215" y2="190" stroke="#16202f" stroke-width="1.5" marker-end="url(#a4)"/>
+        <text x="165" y="80" font-size="10.5" fill="#5a6476">few hits</text>
+        <text x="165" y="182" font-size="10.5" fill="#5a6476">hundreds</text>
+        <rect x="220" y="25" width="190" height="70" rx="10" fill="#def4ea" stroke="#23936b"/>
+        <text x="315" y="50" text-anchor="middle" font-size="12" font-weight="700">Turn it on now</text>
+        <text x="315" y="68" text-anchor="middle" font-size="10.5" fill="#5a6476">fix every hit in the</text>
+        <text x="315" y="82" text-anchor="middle" font-size="10.5" fill="#5a6476">same change</text>
+        <rect x="220" y="155" width="190" height="70" rx="10" fill="#dcf2f2" stroke="#1f8a8a"/>
+        <text x="315" y="180" text-anchor="middle" font-size="12" font-weight="700">Guardrail test first</text>
+        <text x="315" y="198" text-anchor="middle" font-size="10.5" fill="#5a6476">same check as an AST rule</text>
+        <text x="315" y="212" text-anchor="middle" font-size="10.5" fill="#5a6476">with a shrink-only baseline</text>
+        <line x1="410" y1="190" x2="465" y2="190" stroke="#16202f" stroke-width="1.5" marker-end="url(#a4)"/>
+        <rect x="470" y="155" width="165" height="70" rx="10" fill="#e2ebfc" stroke="#2f6fde"/>
+        <text x="552" y="180" text-anchor="middle" font-size="12" font-weight="700">At zero: lint on</text>
+        <text x="552" y="198" text-anchor="middle" font-size="10.5" fill="#5a6476">delete the test, record</text>
+        <text x="552" y="212" text-anchor="middle" font-size="10.5" fill="#5a6476">the milestone</text>
+      </svg>
+      <h3 class="k">Rules that pay off most (any language)</h3>
+      <table>
+        <tr><th>Class</th><th>Dart</th><th>Catches</th></tr>
+        <tr><td>Strict types</td><td><code>strict-casts</code>, <code>strict-inference</code>, <code>strict-raw-types</code></td><td>implicit <code>dynamic</code>, unsafe downcasts</td></tr>
+        <tr><td>Async hygiene</td><td><code>unawaited_futures</code>, <code>discarded_futures</code></td><td>lost errors, races</td></tr>
+        <tr><td>Resource leaks</td><td><code>cancel_subscriptions</code>, <code>close_sinks</code></td><td>listeners after dispose</td></tr>
+        <tr><td>Dynamic dispatch</td><td><code>avoid_dynamic_calls</code></td><td>runtime NoSuchMethod</td></tr>
+        <tr><td>Throwing</td><td><code>only_throw_errors</code></td><td><code>throw 'string'</code></td></tr>
+        <tr><td>Docs</td><td><code>public_member_api_docs</code></td><td>undocumented API</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 class="k">Keep the ratchet visible in the config</h3>
+<pre><span class="c"># analysis_options.yaml (header)</span>
+<span class="c"># Rule                      enabled   how</span>
+<span class="c"># strict-casts / raw-types  M1        fixed all hits</span>
+<span class="c"># unawaited_futures         M1        fixed all hits</span>
+<span class="c"># cancel_subscriptions      M1        fixed all hits</span>
+<span class="c"># comment_references        pending   43 hits</span>
+<span class="c"># public_member_api_docs    pending   283 hits (all public);</span>
+<span class="c">#                                     ratchet covers exported</span>
+<span class="c"># discarded_futures         M5        13 hits fixed</span>
+<span class="k">analyzer:</span>
+  <span class="k">language:</span>
+    strict-casts: <span class="n">true</span>
+    strict-inference: <span class="n">true</span>
+    strict-raw-types: <span class="n">true</span>
+  <span class="k">errors:</span>
+    unawaited_futures: <span class="r">error</span>
+    cancel_subscriptions: <span class="r">error</span>
+    close_sinks: <span class="r">error</span>
+    avoid_dynamic_calls: <span class="r">error</span>
+  <span class="k">exclude:</span>
+    - test/guardrails/fixtures/**
+    - eval/**            <span class="c"># task patches, not code</span></pre>
+      <div class="note" style="margin-top:3mm"><b>Promote, don&rsquo;t just enable.</b> Raising a lint
+        from <i>info</i> to <i>error</i> stops <code>// ignore</code> creep in reviews. Exclude eval
+        fixtures and hidden tests from analysis, or a seeded bug fails the build.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>10</span></div>
+</section>
+
+<!-- ======================================================== 11. L2 ANATOMY -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l2)"></span>L2 Guardrail tests: anatomy</h2><span class="sec">Architecture rules as unit tests</span></div>
+  <p class="lead">A guardrail is an ordinary test that reads the <i>source code</i> instead of running it.
+    Parse each file into an AST, walk it with a small visitor, collect violations, compare with the baseline.
+    Use the language&rsquo;s real parser, not regex: regex misses multi-line code and flags comments.</p>
+  <svg width="100%" height="44mm" viewBox="0 0 1000 170">
+    <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+    <g font-size="11.5">
+      <rect x="0" y="40" width="140" height="70" rx="10" fill="#f3f5f9" stroke="#5a6476"/>
+      <text x="70" y="70" text-anchor="middle" font-weight="700">lib/**.dart</text><text x="70" y="88" text-anchor="middle" font-size="10" fill="#5a6476">every source file</text>
+      <rect x="175" y="40" width="140" height="70" rx="10" fill="#dcf2f2" stroke="#1f8a8a"/>
+      <text x="245" y="70" text-anchor="middle" font-weight="700">parse once</text><text x="245" y="88" text-anchor="middle" font-size="10" fill="#5a6476">SourceFile (AST + lines)</text>
+      <rect x="350" y="40" width="150" height="70" rx="10" fill="#dcf2f2" stroke="#1f8a8a"/>
+      <text x="425" y="65" text-anchor="middle" font-weight="700">rule(file)</text><text x="425" y="83" text-anchor="middle" font-size="10" fill="#5a6476">pure function</text><text x="425" y="97" text-anchor="middle" font-size="10" fill="#5a6476">&#8594; List&lt;Violation&gt;</text>
+      <rect x="535" y="40" width="150" height="70" rx="10" fill="#fcefe1" stroke="#d9822b"/>
+      <text x="610" y="65" text-anchor="middle" font-weight="700">allow comments</text><text x="610" y="83" text-anchor="middle" font-size="10" fill="#5a6476">// guardrail:allow</text><text x="610" y="97" text-anchor="middle" font-size="10" fill="#5a6476">rule - reason</text>
+      <rect x="720" y="40" width="130" height="70" rx="10" fill="#e2ebfc" stroke="#2f6fde"/>
+      <text x="785" y="65" text-anchor="middle" font-weight="700">ratchet</text><text x="785" y="83" text-anchor="middle" font-size="10" fill="#5a6476">count per file vs</text><text x="785" y="97" text-anchor="middle" font-size="10" fill="#5a6476">baselines.json</text>
+      <rect x="885" y="10" width="115" height="55" rx="10" fill="#def4ea" stroke="#23936b"/><text x="942" y="42" text-anchor="middle" font-weight="700" fill="#17724f">pass</text>
+      <rect x="885" y="85" width="115" height="55" rx="10" fill="#fae3e1" stroke="#c2453d"/><text x="942" y="110" text-anchor="middle" font-weight="700" fill="#c2453d">fail</text><text x="942" y="126" text-anchor="middle" font-size="9.5" fill="#c2453d">lists file:line</text>
+    </g>
+    <g stroke="#16202f" stroke-width="1.5" marker-end="url(#a5)">
+      <line x1="140" y1="75" x2="173" y2="75"/><line x1="315" y1="75" x2="348" y2="75"/><line x1="500" y1="75" x2="533" y2="75"/><line x1="685" y1="75" x2="718" y2="75"/>
+      <line x1="850" y1="65" x2="883" y2="40"/><line x1="850" y1="85" x2="883" y2="110"/>
+    </g>
+    <rect x="350" y="128" width="150" height="34" rx="8" fill="#fff" stroke="#1f8a8a" stroke-dasharray="4 3"/>
+    <text x="425" y="149" text-anchor="middle" font-size="10.5" fill="#14595a">proven on a fixture first</text>
+    <line x1="425" y1="128" x2="425" y2="112" stroke="#1f8a8a" stroke-width="1.5"/>
+  </svg>
+  <div class="grid2" style="margin-top:2mm">
+    <div>
+      <h3 class="k">A complete rule (swallowed errors, simplified)</h3>
+<pre><span class="c">/// A catch must rethrow, convert, catch a narrow type,</span>
+<span class="c">/// or report to ChorkiDiagnostics.</span>
+List&lt;Violation&gt; swallowedErrors(SourceFile f) {
+  <span class="k">final</span> out = &lt;Violation&gt;[];
+  f.unit.accept(_CatchVisitor((CatchClause c) {
+    <span class="k">final</span> body = c.body.toSource();
+    <span class="k">final</span> handled = body.contains(<span class="s">'rethrow'</span>) ||
+        body.contains(<span class="s">'throw '</span>) ||
+        body.contains(<span class="s">'ChorkiDiagnostics.report'</span>) ||
+        c.exceptionType != <span class="k">null</span>;   <span class="c">// on FormatException</span>
+    <span class="k">final</span> line = f.lineOf(c.offset);
+    <span class="k">if</span> (!handled &amp;&amp; !f.allows(<span class="s">'swallowed_error'</span>, line)) {
+      out.add(Violation(f.path, line, <span class="s">'error swallowed'</span>));
+    }
+  }));
+  <span class="k">return</span> out;
+}</pre>
+    </div>
+    <div>
+      <h3 class="k">Its two tests: proof, then enforcement (abridged)</h3>
+<pre>group(<span class="s">'swallowed_error'</span>, () {
+  test(<span class="s">'catches empty catches and silent handlers'</span>, () {
+    <span class="k">final</span> f = fixture(<span class="s">'''
+void a() { try { x(); } catch (_) {} }          // 1: bad
+void b() { try { x(); } on FormatException {} } // ok
+void c() { try { x(); } catch (e, st) {
+  ChorkiDiagnostics.report(e, st, 'c'); } }     // ok
+void d() { try { x(); } catch (_) {} } // guardrail:allow
+  swallowed_error - probe only                  // ok
+'''</span>);
+    expect(swallowedErrors(f).map((v) =&gt; v.line), [<span class="n">1</span>]);
+  });
+
+  test(<span class="s">'lib/ is within the baseline'</span>, () {
+    expectRatchet(<span class="s">'swallowed_error'</span>,
+        onLib(swallowedErrors));
+  });
+});</pre>
+      <div class="note ok" style="margin-top:2.5mm">The failure message is the documentation: it lists every
+        <code>file:line</code>, says why, and gives the exact allow-comment syntax.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>11</span></div>
+</section>
+
+<!-- ======================================================== 12. CATALOG -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l2)"></span>L2 The rule catalog</h2><span class="sec">36 guardrail tests in chorki_player</span></div>
+  <p class="lead" style="margin-bottom:3mm">Start with the rows marked <b>&#9733;</b>: they apply to almost any codebase and catch the most.
+    Every rule has a fixture test, and most have a ratchet baseline.</p>
+  <table>
+    <tr><th style="width:16%">Rule id</th><th style="width:30%">Catches</th><th style="width:30%">How (AST / source)</th><th>Escape hatch</th></tr>
+    <tr><td>&#9733; <code>swallowed_error</code></td><td>empty or silent <code>catch</code>, <code>catchError((_){})</code></td><td>catch body must rethrow/throw/report, or be a narrow <code>on T</code></td><td>allow comment + reason</td></tr>
+    <tr><td>&#9733; <code>layering</code></td><td>forbidden imports (domain &#8594; UI, core &#8594; vendor sink, src &#8594; barrel)</td><td>import graph vs. a rule table of path prefixes</td><td>none: move the code</td></tr>
+    <tr><td>&#9733; <code>determinism</code></td><td><code>DateTime.now()</code>, <code>Random()</code> outside clock/ids files</td><td>method/constructor invocation names</td><td>allow comment</td></tr>
+    <tr><td>&#9733; <code>file_size</code></td><td>files over 350 <i>code</i> lines</td><td>non-comment, non-blank lines; 1 violation per 50 over</td><td>baseline (shrink-only)</td></tr>
+    <tr><td>&#9733; <code>public API snapshot</code></td><td>any change to exported names or signatures</td><td>line-based golden of every exported declaration, following re-exports</td><td><code>UPDATE_GOLDENS=1</code> only if CHANGELOG names it</td></tr>
+    <tr><td>&#9733; <code>untested_file</code></td><td>a source file no test imports or names</td><td>test sources searched for path or public types; <code>part</code> files inherit</td><td>allow comment</td></tr>
+    <tr><td>&#9733; <code>no_logging</code></td><td><code>print</code>, <code>debugPrint</code>, <code>dart:developer</code> in the library</td><td>invocations + imports</td><td>none</td></tr>
+    <tr><td><code>magic_number</code></td><td><code>Duration(milliseconds: 300)</code> inline in a body</td><td>numeric literal in a Duration inside a function body</td><td>name it <code>static const</code></td></tr>
+    <tr><td><code>dartdoc</code></td><td>exported declarations/members without <code>///</code></td><td>exported API walk + doc comments</td><td>baseline</td></tr>
+    <tr><td><code>deprecation policy</code></td><td><code>@Deprecated</code> without replacement + removal version, or missing from CHANGELOG</td><td>annotation arguments; CHANGELOG <code>### Deprecated</code></td><td>none</td></tr>
+    <tr><td><code>uncalled_method</code></td><td>controller commands / recorders no test calls</td><td>public methods vs. <code>.name(</code> in tests</td><td>baseline</td></tr>
+    <tr><td><code>equality</code></td><td>a field missing from <code>==</code> or <code>hashCode</code></td><td>each instance field must appear in both (own helpers followed)</td><td>allow comment</td></tr>
+    <tr><td><code>analytics_key</code></td><td>payload keys written as string literals</td><td>map-literal keys matching a schema key value</td><td>use the constant</td></tr>
+    <tr><td><code>analytics schema</code> (6 tests)</td><td>enum doc, schema, vendor mapping, README table and scenarios disagree</td><td>parse <code>Data:</code> doc lines; compare sets</td><td>none</td></tr>
+    <tr><td><code>CHANGELOG format</code></td><td>top version &ne; pubspec; unknown section names</td><td>heading parser</td><td>none</td></tr>
+    <tr><td><code>README excerpts</code></td><td>a README code block that is not a compiled excerpt, or differs from it</td><td><code>&lt;!-- excerpt: name --&gt;</code> &#8596; <code>// #region name</code></td><td>baseline for untagged</td></tr>
+    <tr><td><code>stale docs</code></td><td>docs recommending a deprecated name</td><td>deprecated top-level names searched in .md</td><td>none</td></tr>
+  </table>
+  <div class="grid3" style="margin-top:3mm">
+    <div class="note info"><b>Name rules after the problem</b>, not the mechanism: <code>swallowed_error</code>, not <code>catch_check</code>. The id appears in failures, allow comments and baselines.</div>
+    <div class="note ok"><b>One rule, one concern.</b> Small rules give precise messages and can be ratcheted separately.</div>
+    <div class="note"><b>Cheap to run:</b> parse every file once and share it between rules. 36 tests, about 2 s.</div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>12</span></div>
+</section>
+
+<!-- ======================================================== 13. RATCHETS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l1)"></span>Ratchets and escape hatches</h2><span class="sec">Adopt rules without stopping the world</span></div>
+  <div class="g64">
+    <div>
+      <svg width="100%" height="70mm" viewBox="0 0 620 270">
+        <text x="0" y="16" font-size="12.5" font-weight="700">A baseline only moves down</text>
+        <line x1="40" y1="240" x2="610" y2="240" stroke="#5a6476"/>
+        <line x1="40" y1="30" x2="40" y2="240" stroke="#5a6476"/>
+        <text x="34" y="44" text-anchor="end" font-size="10" fill="#5a6476">300</text>
+        <text x="34" y="140" text-anchor="end" font-size="10" fill="#5a6476">150</text>
+        <text x="34" y="240" text-anchor="end" font-size="10" fill="#5a6476">0</text>
+        <!-- steps -->
+        <path d="M40 46 H120 V80 H200 V96 H260 V120 H340 V146 H420 V146 H480 V172 H560 V208 H610" fill="none" stroke="#1f8a8a" stroke-width="3"/>
+        <g fill="#1f8a8a"><circle cx="120" cy="80" r="4"/><circle cx="200" cy="96" r="4"/><circle cx="260" cy="120" r="4"/><circle cx="340" cy="146" r="4"/><circle cx="480" cy="172" r="4"/><circle cx="560" cy="208" r="4"/></g>
+        <!-- attempted increase -->
+        <path d="M420 146 L450 118" stroke="#c2453d" stroke-width="2.5" stroke-dasharray="4 3"/>
+        <text x="455" y="112" font-size="10.5" fill="#c2453d">new violation: build fails</text>
+        <text x="130" y="72" font-size="10" fill="#5a6476">fix &#8594; locked in</text>
+        <text x="50" y="262" font-size="10" fill="#5a6476">recorded once</text>
+        <text x="520" y="262" font-size="10" fill="#5a6476">at 0: turn the lint on</text>
+      </svg>
+      <h3 class="k">Three outcomes per rule, per file</h3>
+      <table>
+        <tr><th>Actual vs. baseline</th><th>Result</th><th>What to do</th></tr>
+        <tr><td>more</td><td style="color:var(--l6)"><b>fail</b></td><td>fix it, or add an allow comment with a reason</td></tr>
+        <tr><td>equal</td><td style="color:var(--l3)"><b>pass</b></td><td>nothing</td></tr>
+        <tr><td>fewer</td><td style="color:var(--l5)"><b>fail</b></td><td>lock it in: <code>UPDATE_GOLDENS=1</code> (rewrites downward only)</td></tr>
+      </table>
+    </div>
+    <div>
+      <h3 class="k">baselines.json</h3>
+<pre>{
+  <span class="s">"dartdoc"</span>: {
+    <span class="s">"lib/src/analytics/chorki_media_metadata.dart"</span>: <span class="n">5</span>,
+    <span class="s">"lib/src/theme/chorki_player_theme.dart"</span>: <span class="n">32</span>
+  },
+  <span class="s">"file_size"</span>: {
+    <span class="s">"lib/src/analytics/chorki_analytics_session.dart"</span>: <span class="n">5</span>
+  }
+}</pre>
+      <p style="margin-top:2.5mm"><b>Per file, not a total.</b> With a single total, fixing one file &ldquo;pays&rdquo;
+        for a new violation in another. Per-file counts stop that trade.</p>
+      <h3 class="k">Two switches, two different meanings</h3>
+      <table>
+        <tr><th>Switch</th><th>Allowed to</th></tr>
+        <tr><td><code>UPDATE_GOLDENS=1</code></td><td>lower counts; rewrite the API golden <i>if the CHANGELOG names every changed symbol</i></td></tr>
+        <tr><td><code>GUARDRAIL_RECORD=1</code></td><td>record a <b>brand-new rule&rsquo;s</b> first baseline. Never to hide new violations.</td></tr>
+      </table>
+      <h3 class="k" style="margin-top:3mm">Allow comments</h3>
+<pre><span class="c">// guardrail:allow swallowed_error - a throwing</span>
+<span class="c">// onError handler must not break the player</span>
+} catch (_) {}</pre>
+      <p style="margin-top:2mm" class="small">Matched on the line, the line above or the line below. An empty reason does not count.
+        Evals score &ldquo;no new allow comments&rdquo;, so agents cannot use them as an exit.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>13</span></div>
+</section>
+
+<!-- ======================================================== 14. PROVE + API -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l2)"></span>Proving the guardrails; the API contract</h2><span class="sec">Trust, but verify the checker</span></div>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Fixture first, always</h3>
+      <p>A rule that never fires looks exactly like a codebase with no problems. Every rule therefore has a fixture test
+        with at least one violation and one deliberate non-violation. When the rule is changed, the fixture tells you if it
+        still works, before it is run on the real code.</p>
+      <div class="card" style="margin-bottom:3mm">
+        <h4>Real example: a gap a fixture exposed</h4>
+        <p>Splitting the theme file into three files with a re-export made 6 public classes vanish from the API snapshot, because
+          the snapshot builder did not follow <code>export</code> inside <code>src/</code>. The guardrail reported them as
+          <i>removed</i>. Fix: follow re-exports, keeping every <code>show</code>/<code>hide</code> on the way, and add a fixture:</p>
+<pre>test(<span class="s">'re-exports from src files are followed'</span>, () {
+  <span class="c">// lib: export 'src/theme.dart' hide Hidden;</span>
+  <span class="c">// theme: export 'parts.dart' show Shown, Hidden;</span>
+  expect(names, unorderedEquals([<span class="s">'Theme'</span>, <span class="s">'Shown'</span>]));
+});</pre>
+      </div>
+      <div class="note"><b>Also test the rule on the real tree in a known-bad state.</b> The mutation smoke run
+        (page 20) does this for behaviour; the eval self-tests (page 26) do it for the eval checks.</div>
+    </div>
+    <div>
+      <h3 class="k">Public API snapshot &#8596; CHANGELOG</h3>
+      <svg width="100%" height="50mm" viewBox="0 0 500 190">
+        <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <g font-size="11">
+          <rect x="0" y="10" width="140" height="50" rx="8" fill="#f3f5f9" stroke="#5a6476"/><text x="70" y="32" text-anchor="middle" font-weight="700">exported API</text><text x="70" y="48" text-anchor="middle" font-size="9.5" fill="#5a6476">walked from the barrel</text>
+          <rect x="180" y="10" width="140" height="50" rx="8" fill="#dcf2f2" stroke="#1f8a8a"/><text x="250" y="32" text-anchor="middle" font-weight="700">snapshot text</text><text x="250" y="48" text-anchor="middle" font-size="9.5" fill="#5a6476"># Name / signatures</text>
+          <rect x="360" y="10" width="140" height="50" rx="8" fill="#f3f5f9" stroke="#5a6476"/><text x="430" y="32" text-anchor="middle" font-weight="700">golden file</text><text x="430" y="48" text-anchor="middle" font-size="9.5" fill="#5a6476">committed</text>
+          <rect x="180" y="100" width="140" height="50" rx="8" fill="#fcefe1" stroke="#d9822b"/><text x="250" y="122" text-anchor="middle" font-weight="700">changed names</text><text x="250" y="138" text-anchor="middle" font-size="9.5" fill="#5a6476">per # block</text>
+          <rect x="360" y="100" width="140" height="50" rx="8" fill="#e2ebfc" stroke="#2f6fde"/><text x="430" y="122" text-anchor="middle" font-weight="700">CHANGELOG top</text><text x="430" y="138" text-anchor="middle" font-size="9.5" fill="#5a6476">names each one?</text>
+        </g>
+        <g stroke="#16202f" stroke-width="1.4" marker-end="url(#a6)">
+          <line x1="140" y1="35" x2="178" y2="35"/><line x1="320" y1="35" x2="358" y2="35" stroke-dasharray="3 3"/>
+          <line x1="250" y1="60" x2="250" y2="98"/><line x1="320" y1="125" x2="358" y2="125"/>
+        </g>
+        <text x="330" y="28" font-size="9" fill="#5a6476">diff</text>
+        <text x="250" y="178" text-anchor="middle" font-size="10.5" fill="#16202f">unlogged change &#8594; fail, even with UPDATE_GOLDENS</text>
+      </svg>
+<pre><span class="c"># golden: test/guardrails/goldens/public_api.txt</span>
+# ChorkiSeekBarState
+class ChorkiSeekBarState
+  const ChorkiSeekBarState({required this.position,
+    ..., this.adMarkers = const []})
+  final List&lt;ChorkiAdMarker&gt; adMarkers
+  final Duration buffered</pre>
+      <ul style="margin-top:2.5mm">
+        <li>Reviewers see API changes as a small text diff in the PR.</li>
+        <li>Pairs with a <b>deprecation policy</b> rule: renames keep a deprecated alias that names its replacement and removal version.</li>
+        <li>It caught an accidental export: a new helper in an exported file. Fix: <code>export ... show</code>.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>14</span></div>
+</section>
+
+<!-- ======================================================== 15. DOCS AS CODE -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l1)"></span>Docs as code</h2><span class="sec">Documentation that cannot drift</span></div>
+  <p class="lead">Docs drift because they are copies. Remove the copies: give each fact one owner and make
+    every other place either <b>generated</b> from it or <b>checked</b> against it.</p>
+  <svg width="100%" height="58mm" viewBox="0 0 1000 220">
+    <defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+    <g font-size="11.5">
+      <rect x="370" y="70" width="260" height="80" rx="12" fill="#1f8a8a"/>
+      <text x="500" y="102" text-anchor="middle" fill="#fff" font-weight="700" font-size="13">Schema registry (one owner)</text>
+      <text x="500" y="122" text-anchor="middle" fill="#dcf2f2" font-size="10.5">ChorkiAnalyticsSchema.of(type): keys, types,</text>
+      <text x="500" y="137" text-anchor="middle" fill="#dcf2f2" font-size="10.5">required/optional; ChorkiAnalyticsKeys constants</text>
+      <g>
+        <rect x="0" y="0" width="230" height="56" rx="9" fill="#e2ebfc" stroke="#2f6fde"/><text x="115" y="24" text-anchor="middle" font-weight="700">Producer (session)</text><text x="115" y="42" text-anchor="middle" font-size="10" fill="#5a6476">asserts each payload in debug</text>
+        <rect x="0" y="164" width="230" height="56" rx="9" fill="#e2ebfc" stroke="#2f6fde"/><text x="115" y="188" text-anchor="middle" font-weight="700">Consumer (Matomo builder)</text><text x="115" y="206" text-anchor="middle" font-size="10" fill="#5a6476">reads only constants; test: every type mapped</text>
+        <rect x="770" y="0" width="230" height="56" rx="9" fill="#def4ea" stroke="#23936b"/><text x="885" y="24" text-anchor="middle" font-weight="700">Enum docs</text><text x="885" y="42" text-anchor="middle" font-size="10" fill="#5a6476">"Data:" line = exactly the keys</text>
+        <rect x="770" y="164" width="230" height="56" rx="9" fill="#def4ea" stroke="#23936b"/><text x="885" y="188" text-anchor="middle" font-weight="700">README table</text><text x="885" y="206" text-anchor="middle" font-size="10" fill="#5a6476">generated; test fails if stale</text>
+      </g>
+    </g>
+    <g stroke="#16202f" stroke-width="1.5" marker-end="url(#a7)">
+      <line x1="370" y1="95" x2="232" y2="40"/><line x1="370" y1="125" x2="232" y2="185"/>
+      <line x1="630" y1="95" x2="768" y2="40"/><line x1="630" y1="125" x2="768" y2="185"/>
+    </g>
+  </svg>
+  <div class="grid3" style="margin-top:3mm">
+    <div class="card bar" style="--c:var(--l1)">
+      <h3>Compiled README snippets</h3>
+      <p>Every code block in the README is cut from a file the build compiles:</p>
+<pre><span class="c">// example/lib/readme/snippets.dart</span>
+<span class="c">// #region ads-markers</span>
+ChorkiPlayer(route: byteRoute, ...)
+<span class="c">// #endregion</span></pre>
+      <p style="margin-top:2mm">The README marks the block with <code>&lt;!-- excerpt: ads-markers --&gt;</code>; a test compares them after
+        dedenting. Edit the source, copy verbatim.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l1)">
+      <h3>Generated tables</h3>
+      <p>The README&rsquo;s event &times; keys table is rendered from the schema. The test regenerates it and compares; the failure
+        message prints the new table to paste. No hand-maintained reference tables.</p>
+      <p>Same idea for config defaults, error codes, CLI flags: render from the code.</p>
+    </div>
+    <div class="card bar" style="--c:var(--l1)">
+      <h3>Changelog as a contract</h3>
+      <ul>
+        <li>top version = package version</li>
+        <li>only <i>Added / Changed / Deprecated / Removed / Fixed / Security</i></li>
+        <li>every changed API symbol named</li>
+        <li>every <code>@Deprecated</code> listed</li>
+        <li>docs never recommend deprecated names</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>15</span></div>
+</section>
+
+<!-- ======================================================== 16. SCENARIOS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l3)"></span>L3 Behaviour scenarios</h2><span class="sec">Executable specs anyone can read</span></div>
+  <p class="lead">A scenario describes observable behaviour as data: a starting state, a script of inputs, and the exact
+    outputs expected. A runner drives the <i>real</i> engine with a fake clock. Product people can review them, agents can
+    write them, and they double as regression tests.</p>
+  <div class="grid2">
+    <div>
+<pre><span class="k">name:</span> loop_new_view
+<span class="k">description:</span> a looping byte counts every loop as a
+  new view with its own ma_id
+<span class="k">given:</span> {duration: <span class="n">10s</span>}             <span class="c"># initial state</span>
+<span class="k">steps:</span>                                <span class="c"># inputs, in order</span>
+  - bind
+  - value: {initialized: <span class="n">true</span>}
+  - activate
+  - play: {to: <span class="n">9.8s</span>}                  <span class="c"># advances fake clock</span>
+  - wrap                               <span class="c"># loop back to 0</span>
+  - play: {to: <span class="n">3s</span>}
+  - deactivate: swipedAway
+<span class="k">expect:</span>
+  <span class="k">events:</span>                              <span class="c"># exact output</span>
+    - impression: {<span class="n">$session</span>: <span class="n">$a</span>}       <span class="c"># bind alias</span>
+    - play
+    - firstFrame
+    - quartile: {percent: <span class="n">25</span>}
+    - quartile: {percent: <span class="n">50</span>}
+    - quartile: {percent: <span class="n">75</span>}
+    - heartbeat: {trigger: complete, newSegments: [<span class="n">5</span>, <span class="n">10</span>]}
+    - quartile: {percent: <span class="n">100</span>}
+    - complete
+    - loop: {loopCount: <span class="n">1</span>}
+    - heartbeat: {trigger: end, newSegments: []}
+    - sessionEnd: {reason: looped, watchedPercent: <span class="n">100</span>,
+                   <span class="n">$session</span>: <span class="n">$a</span>}
+    - impression: {loopCount: <span class="n">1</span>, <span class="n">$session</span>: <span class="n">$b</span>}
+    - ...
+  <span class="k">mode:</span> exact                          <span class="c"># or subsequence</span></pre>
+    </div>
+    <div>
+      <svg width="100%" height="40mm" viewBox="0 0 500 150">
+        <defs><marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <g font-size="11">
+          <rect x="0" y="45" width="100" height="56" rx="8" fill="#def4ea" stroke="#23936b"/><text x="50" y="70" text-anchor="middle" font-weight="700">*.yaml</text><text x="50" y="86" text-anchor="middle" font-size="9.5" fill="#5a6476">spec</text>
+          <rect x="130" y="45" width="110" height="56" rx="8" fill="#f3f5f9" stroke="#5a6476"/><text x="185" y="70" text-anchor="middle" font-weight="700">runner</text><text x="185" y="86" text-anchor="middle" font-size="9.5" fill="#5a6476">steps &#8594; calls</text>
+          <rect x="270" y="10" width="110" height="56" rx="8" fill="#e2ebfc" stroke="#2f6fde"/><text x="325" y="35" text-anchor="middle" font-weight="700">real engine</text><text x="325" y="51" text-anchor="middle" font-size="9.5" fill="#5a6476">session</text>
+          <rect x="270" y="84" width="110" height="56" rx="8" fill="#fcefe1" stroke="#d9822b"/><text x="325" y="109" text-anchor="middle" font-weight="700">fake clock</text><text x="325" y="125" text-anchor="middle" font-size="9.5" fill="#5a6476">+ fake video</text>
+          <rect x="410" y="45" width="90" height="56" rx="8" fill="#dcf2f2" stroke="#1f8a8a"/><text x="455" y="70" text-anchor="middle" font-weight="700">matcher</text><text x="455" y="86" text-anchor="middle" font-size="9.5" fill="#5a6476">readable diff</text>
+        </g>
+        <g stroke="#16202f" stroke-width="1.4" marker-end="url(#a8)">
+          <line x1="100" y1="73" x2="128" y2="73"/><line x1="240" y1="65" x2="268" y2="45"/><line x1="240" y1="80" x2="268" y2="105"/><line x1="380" y1="40" x2="408" y2="65"/>
+        </g>
+      </svg>
+      <h3 class="k">Matchers that keep specs precise but robust</h3>
+      <table>
+        <tr><th>Syntax</th><th>Meaning</th></tr>
+        <tr><td><code>3</code>, <code>"pause"</code></td><td>exact value (3 == 3.0)</td></tr>
+        <tr><td><code>"&gt;=0"</code>, <code>"&lt;500"</code></td><td>numeric bound</td></tr>
+        <tr><td><code>"~13"</code></td><td>approximately (tolerance)</td></tr>
+        <tr><td><code>absent</code> / <code>$any</code></td><td>key must be missing / anything</td></tr>
+        <tr><td><code>$session: $a</code></td><td>bind an alias; later events must match it</td></tr>
+        <tr><td><code>never: [adStart]</code></td><td>must not occur at all</td></tr>
+        <tr><td><code>matomo: [...]</code></td><td>also check the encoded wire format</td></tr>
+        <tr><td><code>diagnostics: [ctx]</code></td><td>expected internal errors, by context</td></tr>
+      </table>
+      <div class="note info" style="margin-top:2.5mm"><b>exact</b> mode for narrow specs (a full event stream),
+        <b>subsequence</b> for wide ones (only the events that matter, in order).</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>16</span></div>
+</section>
+
+<!-- ======================================================== 17. WRITING SCENARIOS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l3)"></span>Writing scenarios; the coverage matrix</h2><span class="sec">Specs as a living catalogue</span></div>
+  <div class="g46">
+    <div>
+      <h3 class="k">Recipe: one scenario</h3>
+      <ol>
+        <li>Name it after the behaviour, or the bug: <code>009_consent_granted_later</code>.</li>
+        <li>Write <code>expect</code> first, from the spec or the bug report, <i>before</i> running it.</li>
+        <li>Run it. If it passes on the old code and it is a bug fix, it does not prove anything: sharpen it.</li>
+        <li>If the actual output differs from your expectation, decide which one is wrong. Do not just paste the actual output in.</li>
+        <li>Keep one concern per file; wide end-to-end flows use <code>subsequence</code>.</li>
+      </ol>
+      <div class="note bad"><b>Antipattern: snapshot-and-forget.</b> Copying the current output into
+        <code>expect</code> turns a spec into a recording of whatever the code does today, bugs included.</div>
+      <h3 class="k" style="margin-top:3.5mm">A guardrail keeps the catalogue complete</h3>
+      <p>Each event type must appear in at least one scenario&rsquo;s expectations. Adding an event without a scenario fails
+        the build, the same way a missing schema entry does.</p>
+<pre>$ dart run tool/scenarios_report.dart
+32 scenarios, 36 event types
+
+impression    playback  20  feed_swipe_away, pause_resume, ...
+seek          playback   4  seek_not_watched, rebuffer_after_seek, ...
+loop          playback   3  loop_new_view, loop_same_view, ...
+abandon       qoe        2  abandon_loading, abandon_ready
+adBreakStart  ad         3  midroll_ad, preroll_interrupted, ...
+settingsOpen  ux         1  player_ux</pre>
+    </div>
+    <div>
+      <h3 class="k">Coverage matrix: event &times; scenario (generated)</h3>
+      <svg width="100%" height="114mm" viewBox="0 0 600 436"><g font-size="9" fill="#5a6476">
+<text transform="translate(162,76) rotate(-55)">feed_swipe_away</text>
+<text transform="translate(202,76) rotate(-55)">loop_new_view</text>
+<text transform="translate(242,76) rotate(-55)">consent_granted_later</text>
+<text transform="translate(282,76) rotate(-55)">preload_reports_nothing</text>
+<text transform="translate(322,76) rotate(-55)">rebuffer</text>
+<text transform="translate(362,76) rotate(-55)">error_and_retry</text>
+<text transform="translate(402,76) rotate(-55)">preroll_interrupted</text>
+<text transform="translate(442,76) rotate(-55)">midroll_ad</text>
+<text transform="translate(482,76) rotate(-55)">player_ux</text>
+<text transform="translate(522,76) rotate(-55)">abandon_loading</text>
+<text transform="translate(562,76) rotate(-55)">app_background</text>
+</g><text x="0" y="74" font-weight="700" font-size="11">event</text><g font-size="10.5">
+<g transform="translate(0,84)"><text y="14">impression</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+</g>
+<g transform="translate(0,108)"><text y="14">play / pause / resume</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+</g>
+<g transform="translate(0,132)"><text y="14">quartile / complete</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,156)"><text y="14">loop</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,180)"><text y="14">heartbeat</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+</g>
+<g transform="translate(0,204)"><text y="14">sessionEnd</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#23936b"/>
+</g>
+<g transform="translate(0,228)"><text y="14">bufferStart / End</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,252)"><text y="14">error / retry</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,276)"><text y="14">abandon</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,300)"><text y="14">firstFrame / loadStart</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#d9822b"/>
+</g>
+<g transform="translate(0,324)"><text y="14">adBreakStart / End</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#b8418f"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#b8418f"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,348)"><text y="14">adStart / adComplete</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#b8418f"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#b8418f"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+<g transform="translate(0,372)"><text y="14">speed / fit / pip / volume</text>
+<rect x="152" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="192" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="232" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="272" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="312" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="352" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="392" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="432" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="472" y="2" width="34" height="16" rx="3" fill="#2f6fde"/>
+<rect x="512" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+<rect x="552" y="2" width="34" height="16" rx="3" fill="#eef0f4"/>
+</g>
+</g><text x="0" y="418" font-size="9.5" fill="#5a6476">Generated from 11 of the 32 YAML files (events under expect). Every event type must be covered somewhere.</text></svg>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>17</span></div>
+</section>
+
+<!-- ======================================================== 18. CONFORMANCE -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l4)"></span>L4 Conformance suites</h2><span class="sec">Contracts for every extension point</span></div>
+  <p class="lead">Wherever users plug in their own code (a sink, a storage, a transport, a platform delegate), the
+    library depends on a contract it cannot see. Write that contract once as a test suite, run every built-in
+    implementation through it, and <b>ship the suite</b> so users can run their implementations through it too.</p>
+  <div class="g46">
+    <div>
+      <svg width="100%" height="78mm" viewBox="0 0 420 300">
+        <defs><marker id="a9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <rect x="120" y="110" width="180" height="80" rx="12" fill="#7a9a1e"/>
+        <text x="210" y="142" text-anchor="middle" fill="#fff" font-weight="700" font-size="13">analyticsSink</text>
+        <text x="210" y="160" text-anchor="middle" fill="#fff" font-weight="700" font-size="13">Conformance()</text>
+        <text x="210" y="178" text-anchor="middle" fill="#eef5d9" font-size="10">5 cases, no test framework</text>
+        <g font-size="11">
+          <rect x="0" y="10" width="120" height="44" rx="8" fill="#eef5d9" stroke="#7a9a1e"/><text x="60" y="37" text-anchor="middle">MemorySink</text>
+          <rect x="150" y="0" width="120" height="44" rx="8" fill="#eef5d9" stroke="#7a9a1e"/><text x="210" y="27" text-anchor="middle">CallbackSink</text>
+          <rect x="300" y="10" width="120" height="44" rx="8" fill="#eef5d9" stroke="#7a9a1e"/><text x="360" y="37" text-anchor="middle">MatomoSink</text>
+          <rect x="0" y="245" width="130" height="44" rx="8" fill="#fff" stroke="#7a9a1e" stroke-dasharray="4 3"/><text x="65" y="266" text-anchor="middle">host&rsquo;s FirebaseSink</text><text x="65" y="280" text-anchor="middle" font-size="9" fill="#5a6476">in their repo</text>
+          <rect x="290" y="245" width="130" height="44" rx="8" fill="#fff" stroke="#7a9a1e" stroke-dasharray="4 3"/><text x="355" y="266" text-anchor="middle">host&rsquo;s ServerSink</text><text x="355" y="280" text-anchor="middle" font-size="9" fill="#5a6476">in their repo</text>
+        </g>
+        <g stroke="#16202f" stroke-width="1.4" marker-end="url(#a9)">
+          <line x1="60" y1="54" x2="150" y2="108"/><line x1="210" y1="44" x2="210" y2="108"/><line x1="360" y1="54" x2="270" y2="108"/>
+          <line x1="65" y1="245" x2="150" y2="192"/><line x1="355" y1="245" x2="270" y2="192"/>
+        </g>
+      </svg>
+      <div class="note ok">Framework-agnostic: a suite returns a list of <code>(name, body)</code> cases whose body throws on a broken contract.
+        Hosts wire it to whatever test runner they use. No test-only dependency leaks into the shipped library.</div>
+    </div>
+    <div>
+<pre><span class="c">// lib/chorki_player_testing.dart (shipped)</span>
+List&lt;ChorkiConformanceCase&gt; analyticsSinkConformance(
+  ChorkiAnalyticsSink Function() create,
+) =&gt; [
+  ChorkiConformanceCase(<span class="s">'sink: never throws for any event type'</span>,
+      () <span class="k">async</span> {
+    <span class="k">final</span> sink = create();
+    <span class="k">for</span> (<span class="k">final</span> type <span class="k">in</span> ChorkiAnalyticsEventType.values) {
+      <span class="k">try</span> { sink.onEvent(sampleAnalyticsEvent(type)); }
+      <span class="k">catch</span> (e) { <span class="k">throw</span> ConformanceFailure(<span class="s">'threw for $type: $e'</span>); }
+    }
+    <span class="k">await</span> sink.dispose();
+  }),
+  <span class="c">// tolerates unknown keys; flush/dispose idempotent;</span>
+  <span class="c">// events after dispose ignored; consent revoke works</span>
+];
+
+<span class="c">// in the host app's tests</span>
+<span class="k">for</span> (<span class="k">final</span> c <span class="k">in</span> analyticsSinkConformance(() =&gt; FirebaseSink())) {
+  test(c.name, c.body);
+}</pre>
+      <table style="margin-top:3mm">
+        <tr><th>Suite</th><th>Contract (abridged)</th></tr>
+        <tr><td><code>analyticsSinkConformance</code></td><td>never throws; newer payloads tolerated; idempotent flush/dispose; use-after-dispose safe</td></tr>
+        <tr><td><code>analyticsStorageConformance</code></td><td>missing key is null; overwrite; null removes; 200 kB values; concurrent writes</td></tr>
+        <tr><td><code>matomoTransportConformance</code></td><td>undeliverable batch returns false, never throws</td></tr>
+        <tr><td><code>pipDelegateConformance</code></td><td>status/enter/setAuto never throw; report &ldquo;unavailable&rdquo; instead</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>18</span></div>
+</section>
+
+<!-- ======================================================== 19. DIAGNOSTICS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l5)"></span>Errors cannot hide: diagnostics</h2><span class="sec">No silent catches, and tests notice</span></div>
+  <div class="grid2">
+    <div>
+      <p class="lead" style="margin-bottom:3mm">A library should not log, and must not crash the host for a recoverable problem.
+        So errors it recovers from go to <b>one callback</b> the host can route to Crashlytics or Sentry.
+        The guardrail forbids catches that do neither, and the <b>test config fails any test in which an unexpected
+        error is reported</b>.</p>
+      <svg width="100%" height="56mm" viewBox="0 0 500 210">
+        <defs><marker id="a10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <g font-size="11">
+          <rect x="0" y="10" width="150" height="50" rx="8" fill="#fae3e1" stroke="#c2453d"/><text x="75" y="32" text-anchor="middle" font-weight="700">catch (e, st)</text><text x="75" y="48" text-anchor="middle" font-size="9.5" fill="#5a6476">quality switch rejected</text>
+          <rect x="0" y="80" width="150" height="50" rx="8" fill="#fae3e1" stroke="#c2453d"/><text x="75" y="102" text-anchor="middle" font-weight="700">fireAndReport(f)</text><text x="75" y="118" text-anchor="middle" font-size="9.5" fill="#5a6476">fire-and-forget future</text>
+          <rect x="190" y="45" width="140" height="50" rx="8" fill="#fcefe1" stroke="#d9822b"/><text x="260" y="67" text-anchor="middle" font-weight="700">Diagnostics.report</text><text x="260" y="83" text-anchor="middle" font-size="9.5" fill="#5a6476">(error, stack, 'area.action')</text>
+          <rect x="370" y="0" width="130" height="50" rx="8" fill="#def4ea" stroke="#23936b"/><text x="435" y="22" text-anchor="middle" font-weight="700">production</text><text x="435" y="38" text-anchor="middle" font-size="9.5" fill="#5a6476">host's onError</text>
+          <rect x="370" y="90" width="130" height="50" rx="8" fill="#e2ebfc" stroke="#2f6fde"/><text x="435" y="112" text-anchor="middle" font-weight="700">tests</text><text x="435" y="128" text-anchor="middle" font-size="9.5" fill="#5a6476">collector</text>
+          <rect x="300" y="160" width="200" height="44" rx="8" fill="#fff" stroke="#c2453d"/><text x="400" y="180" text-anchor="middle" font-weight="700" fill="#c2453d">unexpected? test fails</text><text x="400" y="195" text-anchor="middle" font-size="9.5" fill="#5a6476">unless declared with captureDiagnostics()</text>
+        </g>
+        <g stroke="#16202f" stroke-width="1.4" marker-end="url(#a10)">
+          <line x1="150" y1="35" x2="188" y2="62"/><line x1="150" y1="105" x2="188" y2="80"/>
+          <line x1="330" y1="62" x2="368" y2="28"/><line x1="330" y1="78" x2="368" y2="112"/><line x1="435" y1="140" x2="420" y2="158"/>
+        </g>
+      </svg>
+      <div class="note"><b>What it found on day one:</b> ad widget tests were silently getting HTTP 400 from the test HTTP
+        client for VMAP fetches, and two &ldquo;intentional throw&rdquo; tests never asserted the error was reported. Both
+        now declare what they expect.</div>
+    </div>
+    <div>
+<pre><span class="c">// test/flutter_test_config.dart: runs around every test</span>
+Future&lt;<span class="k">void</span>&gt; testExecutable(FutureOr&lt;<span class="k">void</span>&gt; Function() testMain) <span class="k">async</span> {
+  <span class="k">final</span> unexpected = &lt;String&gt;[];
+  setUp(() {
+    unexpected.clear();
+    ChorkiDiagnostics.onError = (error, stack, context) =&gt;
+        unexpected.add(<span class="s">'$context: $error'</span>);
+  });
+  tearDown(() {
+    <span class="k">final</span> reports = List.of(unexpected);
+    ChorkiDiagnostics.onError = <span class="k">null</span>;
+    <span class="k">if</span> (reports.isNotEmpty) {
+      fail(<span class="s">'Unexpected ChorkiDiagnostics reports: $reports'</span>);
+    }
+  });
+  <span class="k">await</span> testMain();
+}
+
+<span class="c">// test/support/diagnostics.dart: a test that expects reports</span>
+<span class="c">// swaps the failing collector for a recording one</span>
+List&lt;String&gt; captureDiagnostics() {
+  <span class="k">final</span> contexts = &lt;String&gt;[];
+  ChorkiDiagnostics.onError = (e, st, context) =&gt; contexts.add(context);
+  <span class="k">return</span> contexts;
+}
+<span class="c">// ... expect(reports, ['analytics.sink']);</span>
+
+<span class="c">// in the library: the only accepted shapes of catch</span>
+<span class="k">try</span> { ... } <span class="k">on</span> TimeoutException { ... }          <span class="c">// narrow</span>
+<span class="k">try</span> { ... } <span class="k">catch</span> (e, st) {
+  ChorkiDiagnostics.report(e, st, <span class="s">'controller.selectQuality'</span>);
+}
+fireAndReport(controller.play, <span class="s">'player.play'</span>);   <span class="c">// futures</span></pre>
+      <div class="note info" style="margin-top:2.5mm"><b>Context strings are an API:</b> <code>area.action</code>, stable, so hosts can filter
+        and tests can assert on them.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>19</span></div>
+</section>
+
+<!-- ======================================================== 20. PROOF OF PROOF -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l5)"></span>L5 Proof of proof: coverage floors and mutants</h2><span class="sec">Do the tests actually check anything?</span></div>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Mutation smoke run: re-insert known bugs, expect red</h3>
+      <svg width="100%" height="54mm" viewBox="0 0 500 205">
+        <defs><marker id="a11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <g font-size="11">
+          <rect x="0" y="70" width="120" height="60" rx="8" fill="#fcefe1" stroke="#d9822b"/><text x="60" y="95" text-anchor="middle" font-weight="700">mutants.yaml</text><text x="60" y="112" text-anchor="middle" font-size="9.5" fill="#5a6476">find / replace / tests</text>
+          <rect x="150" y="70" width="110" height="60" rx="8" fill="#f3f5f9" stroke="#5a6476"/><text x="205" y="95" text-anchor="middle" font-weight="700">apply one</text><text x="205" y="112" text-anchor="middle" font-size="9.5" fill="#5a6476">backup + restore</text>
+          <rect x="290" y="70" width="90" height="60" rx="8" fill="#e2ebfc" stroke="#2f6fde"/><text x="335" y="95" text-anchor="middle" font-weight="700">run its</text><text x="335" y="112" text-anchor="middle" font-weight="700">tests</text>
+          <rect x="410" y="20" width="90" height="56" rx="8" fill="#def4ea" stroke="#23936b"/><text x="455" y="45" text-anchor="middle" font-weight="700" fill="#17724f">red</text><text x="455" y="62" text-anchor="middle" font-size="9.5" fill="#17724f">killed &#10003;</text>
+          <rect x="410" y="124" width="90" height="56" rx="8" fill="#fae3e1" stroke="#c2453d"/><text x="455" y="149" text-anchor="middle" font-weight="700" fill="#c2453d">green</text><text x="455" y="166" text-anchor="middle" font-size="9.5" fill="#c2453d">survived &#10007;</text>
+        </g>
+        <g stroke="#16202f" stroke-width="1.4" marker-end="url(#a11)">
+          <line x1="120" y1="100" x2="148" y2="100"/><line x1="260" y1="100" x2="288" y2="100"/><line x1="380" y1="90" x2="408" y2="55"/><line x1="380" y1="110" x2="408" y2="145"/>
+        </g>
+        <text x="0" y="200" font-size="10" fill="#5a6476">A survivor means a test is missing or too loose: add or sharpen one, not the mutant.</text>
+      </svg>
+<pre><span class="c"># tool/mutants.yaml: each entry re-inserts a real, fixed bug</span>
+- <span class="k">id:</span> player.retryPermanentErrors
+  <span class="k">why:</span> 401/404 route errors were silently retried
+  <span class="k">file:</span> lib/src/presentation/player/retry_policy.dart
+  <span class="k">find:</span> <span class="s">"transient &amp;&amp; _attempts &lt; delays.length;"</span>
+  <span class="k">replace:</span> <span class="s">"_attempts &lt; delays.length;"</span>
+  <span class="k">tests:</span> [test/chorki_player_widget_test.dart,
+          test/presentation/retry_policy_test.dart]</pre>
+      <p style="margin-top:2mm" class="small">Curated, not random: 21 mutants in chorki_player, one per fixed bug or
+        critical branch. Runs in minutes instead of hours, nightly in CI. Tools such as Stryker, PIT or mutmut give full
+        random mutation if you want more.</p>
+    </div>
+    <div>
+      <h3 class="k">A survivor that taught us something</h3>
+      <div class="card" style="margin-bottom:3mm">
+        <p><b>Mutant:</b> drop the clamp when a custom seek bar seeks. <b>Expected:</b> killed by a test that seeks past the end.
+          <b>Actual: survived.</b></p>
+        <p>Why: <code>VideoPlayerController.seekTo</code> clamps anyway, so the <i>video</i> was never wrong. What was wrong was the
+          <b>analytics event</b>, which reported the unclamped target. The test was rewritten to assert the reported
+          <code>toMs</code>, and the mutant moved to the line that matters. Now killed.</p>
+      </div>
+      <h3 class="k">Coverage floors, per file, only up</h3>
+<pre>$ dart run tool/coverage_gate.dart
+coverage: lib 95.8% (floor 90.0), analytics 96.2%
+Coverage dropped:
+  lib/src/theme/chorki_player_theme.dart 33.6% &lt; floor 97.6%</pre>
+      <p style="margin-top:2mm">Per-file floors catch the case a global percentage hides: a new file with no tests (here, a new
+        <code>==</code>/<code>hashCode</code>), averaged away by well-tested files. Raise floors with
+        <code>--update</code> after improvements; never lower them.</p>
+      <div class="note ok"><b>The rule for bug fixes:</b> a regression test named after the bug, <i>and</i> a mutant that
+        re-inserts it, <i>and</i> <code>mutation_smoke &lt;id&gt;</code> says killed. The bug can never come back silently.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>20</span></div>
+</section>
+
+<!-- ======================================================== 21. GATES -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l6)"></span>L6 Gates: where each check runs</h2><span class="sec">One script, five triggers</span></div>
+  <p class="lead">Do not maintain separate CI steps, hook scripts and README instructions. Write <b>one</b> gate script with
+    depth flags; every trigger calls it. Then &ldquo;works on my machine&rdquo; and &ldquo;passes CI&rdquo; mean the same thing.</p>
+  <table style="margin-bottom:4mm">
+    <tr><th>Check</th><th>Edit hook<br><span style="font-weight:400">per file</span></th><th>Agent stop hook<br><span style="font-weight:400">--quick</span></th><th>Pre-commit<br><span style="font-weight:400">--quick, opt-in</span></th><th>CI on PR<br><span style="font-weight:400">full</span></th><th>Nightly<br><span style="font-weight:400">--mutation</span></th><th>Time</th></tr>
+    <tr><td>format</td><td>&#10003; (fixes)</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>&lt;1 s</td></tr>
+    <tr><td>analyze --fatal-infos</td><td></td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>~4 s</td></tr>
+    <tr><td>guardrail tests</td><td></td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>&#10003;</td><td>~3 s</td></tr>
+    <tr><td>all tests + scenarios + coverage floors</td><td></td><td></td><td></td><td>&#10003;</td><td>&#10003;</td><td>~60 s</td></tr>
+    <tr><td>example app analyze, publish dry run</td><td></td><td></td><td></td><td>&#10003;</td><td>&#10003;</td><td>~20 s</td></tr>
+    <tr><td>Android build of the example</td><td></td><td></td><td></td><td>&#10003; (job)</td><td></td><td>minutes</td></tr>
+    <tr><td>mutation smoke</td><td></td><td></td><td></td><td></td><td>&#10003;</td><td>~10 min</td></tr>
+  </table>
+  <div class="grid2">
+<pre><span class="c">#!/usr/bin/env bash  tool/check.sh (abridged)</span>
+set -euo pipefail
+mode="${1:-full}"
+step() { printf '\n== %s\n' "$*"; }
+
+step format;     dart format --set-exit-if-changed lib test tool
+step analyze;    flutter analyze --fatal-infos
+step guardrails; flutter test test/guardrails
+[[ $mode == --quick ]] &amp;&amp; exit 0
+
+step tests;      flutter test --coverage
+                 dart run tool/coverage_gate.dart
+step scenarios;  dart run tool/scenarios_report.dart
+step example;    (cd example &amp;&amp; flutter analyze --fatal-infos)
+step publish;    dart pub publish --dry-run  <span class="c"># 65 = warnings ok</span>
+[[ $mode == --mutation ]] &amp;&amp; dart run tool/mutation_smoke.dart</pre>
+<pre><span class="c"># .github/workflows/ci.yml (abridged)</span>
+on:
+  push: {branches: [main]}
+  pull_request:
+  schedule: [{cron: "0 2 * * *"}]     <span class="c"># nightly mutation</span>
+  workflow_dispatch: {inputs: {mutation: {type: boolean}}}
+env: {FLUTTER_VERSION: "3.47.7"}      <span class="c"># pinned</span>
+jobs:
+  check:
+    steps:
+      - uses: subosito/flutter-action@v2
+        with: {flutter-version: ${{ env.FLUTTER_VERSION }}}
+      - run: tool/check.sh
+      - uses: actions/upload-artifact@v4  <span class="c"># lcov + scenario report</span>
+  mutation:
+    if: github.event_name == 'schedule' || inputs.mutation
+    steps: [ ..., run: dart run tool/mutation_smoke.dart ]
+  example-android:
+    steps: [ ..., run: flutter build apk --debug ]</pre>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>21</span></div>
+</section>
+
+<!-- ======================================================== 22. AGENTS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l7)"></span>L7 Agent integration</h2><span class="sec">Same rules, enforced in the loop</span></div>
+  <div class="g46">
+    <div>
+      <svg width="100%" height="84mm" viewBox="0 0 420 320">
+        <defs><marker id="a12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+        <circle cx="210" cy="160" r="118" fill="none" stroke="#b8418f" stroke-width="2" stroke-dasharray="6 5"/>
+        <g font-size="11.5">
+          <rect x="140" y="20" width="140" height="46" rx="10" fill="#ece7fa" stroke="#6b4fbb"/><text x="210" y="40" text-anchor="middle" font-weight="700">reads CLAUDE.md</text><text x="210" y="56" text-anchor="middle" font-size="9.5" fill="#5a6476">+ skill for the recipe</text>
+          <rect x="300" y="125" width="120" height="46" rx="10" fill="#dcf2f2" stroke="#1f8a8a"/><text x="360" y="145" text-anchor="middle" font-weight="700">edits</text><text x="360" y="161" text-anchor="middle" font-size="9.5" fill="#5a6476">hook: format file</text>
+          <rect x="140" y="255" width="140" height="46" rx="10" fill="#f8e4f1" stroke="#b8418f"/><text x="210" y="275" text-anchor="middle" font-weight="700">tries to stop</text><text x="210" y="291" text-anchor="middle" font-size="9.5" fill="#5a6476">hook: check.sh --quick</text>
+          <rect x="0" y="125" width="130" height="46" rx="10" fill="#fae3e1" stroke="#c2453d"/><text x="65" y="145" text-anchor="middle" font-weight="700">blocked</text><text x="65" y="161" text-anchor="middle" font-size="9.5" fill="#5a6476">reason = gate output</text>
+        </g>
+        <g stroke="#16202f" stroke-width="1.4" marker-end="url(#a12)" fill="none">
+          <path d="M 280 50 Q 350 70 358 122"/><path d="M 358 172 Q 350 250 282 272"/><path d="M 140 272 Q 70 250 66 174"/><path d="M 66 124 Q 70 70 138 48"/>
+        </g>
+        <rect x="150" y="135" width="120" height="50" rx="10" fill="#def4ea" stroke="#23936b"/>
+        <text x="210" y="157" text-anchor="middle" font-size="11.5" font-weight="700" fill="#17724f">green: done</text>
+        <text x="210" y="173" text-anchor="middle" font-size="9.5" fill="#5a6476">reviewer agent grades</text>
+        <line x1="210" y1="253" x2="210" y2="188" stroke="#23936b" stroke-width="1.6" marker-end="url(#a12)"/>
+      </svg>
+      <div class="note"><b>Loop guard:</b> a stop hook that blocks must not block forever. Claude Code sets
+        <code>stop_hook_active</code> on the retry; the hook exits 0 then, and only runs when source files changed.</div>
+    </div>
+    <div>
+      <h3 class="k">.claude/settings.json</h3>
+<pre>{ <span class="s">"hooks"</span>: {
+  <span class="s">"PostToolUse"</span>: [{ <span class="s">"matcher"</span>: <span class="s">"Edit|Write|MultiEdit"</span>,
+    <span class="s">"hooks"</span>: [{ <span class="s">"type"</span>: <span class="s">"command"</span>,
+      <span class="s">"command"</span>: <span class="s">"$CLAUDE_PROJECT_DIR/tool/hooks/format_dart.sh"</span> }] }],
+  <span class="s">"Stop"</span>: [{ <span class="s">"hooks"</span>: [{ <span class="s">"type"</span>: <span class="s">"command"</span>,
+      <span class="s">"command"</span>: <span class="s">"$CLAUDE_PROJECT_DIR/tool/hooks/stop_gate.sh"</span>,
+      <span class="s">"timeout"</span>: <span class="n">300</span> }] }]
+} }</pre>
+      <h3 class="k" style="margin-top:3mm">tool/hooks/stop_gate.sh (core)</h3>
+<pre>input="$(cat)"
+[ "$(jq -r '.stop_hook_active // false' &lt;&lt;&lt;"$input")" = true ] &amp;&amp; exit 0
+[ -z "$(git status --porcelain -- '*.dart' '*.yaml')" ] &amp;&amp; exit 0
+out="$(tool/check.sh --quick 2&gt;&amp;1)" &amp;&amp; exit 0
+jq -n --arg r "Gate failed (see CLAUDE.md):\n$(tail -n 40 &lt;&lt;&lt;"$out")" \
+  '{decision: "block", reason: $r}'</pre>
+      <div class="grid2" style="margin-top:3mm; gap:3mm">
+        <div class="card bar" style="--c:var(--l7)"><h4>Skills = recipes</h4><p><code>add-analytics-event</code>: enum value &#8594; schema &#8594; session &#8594; Matomo mapping &#8594; README table &#8594; scenario &#8594; CHANGELOG. Seven files nobody remembers.</p></div>
+        <div class="card bar" style="--c:var(--l7)"><h4>Reviewer agent</h4><p>Read-only subagent that grades a diff against <code>eval/rubric/common.yaml</code> and CLAUDE.md; also the judge in evals.</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>22</span></div>
+</section>
+
+<!-- ======================================================== 23. EVALS INTRO -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l8)"></span>L8 AI implementation evals</h2><span class="sec">Measure the agent and the system</span></div>
+  <p class="lead">Guardrails stop bad changes; evals tell you how good the changes are, and whether a new rule, a new
+    CLAUDE.md line, a new model or a new skill made things better or worse. An eval is a <b>fixed task</b> with
+    <b>objective checks</b>, run in a throwaway copy of the repo.</p>
+  <div class="g46">
+    <div>
+      <h3 class="k">Anatomy of a task</h3>
+<pre>eval/
+  run.sh                 <span class="c"># the harness</span>
+  lib/checks.sh          <span class="c"># shared check helpers</span>
+  lib/seed_patch.py      <span class="c"># builds baseline.patch</span>
+  rubric/common.yaml     <span class="c"># criteria every task inherits</span>
+  selftest/              <span class="c"># reference "agents"</span>
+  tasks/
+    004-loopcount-regression/
+      task.md            <span class="c"># the prompt, written as a real issue</span>
+      rubric.yaml        <span class="c"># task criteria + weights</span>
+      checks.sh          <span class="c"># objective checks: pass/fail lines</span>
+      baseline.patch     <span class="c"># seeds the starting state (a bug)</span>
+      baseline.txt       <span class="c"># optional: commit to start from</span>
+      hidden/            <span class="c"># held-out tests, copied in after</span>
+        hidden_005_loop_count_resets.yaml
+  results/               <span class="c"># gitignored JSON scores</span></pre>
+      <div class="note info" style="margin-top:3mm"><b>task.md is a real request.</b> Write it the way a product manager or a
+        bug reporter would, not as a hint list. The agent should have to read CLAUDE.md to know about scenarios,
+        mutants and the CHANGELOG.</div>
+    </div>
+    <div>
+      <h3 class="k">The eight seed tasks in chorki_player</h3>
+      <table>
+        <tr><th>Task</th><th>Type</th><th>What it exercises</th></tr>
+        <tr><td>001 replay event</td><td><span class="pill" style="background:var(--l3-l);color:#17724f">feature</span></td><td>schema &#8594; session &#8594; Matomo &#8594; README &#8594; scenario chain</td></tr>
+        <tr><td>002 buffered sink</td><td><span class="pill" style="background:var(--l3-l);color:#17724f">feature</span></td><td>new sink passes the conformance suite</td></tr>
+        <tr><td>003 start muted</td><td><span class="pill" style="background:var(--l3-l);color:#17724f">feature</span></td><td>player option end to end (skill recipe)</td></tr>
+        <tr><td>004 loop count regression</td><td><span class="pill" style="background:var(--l6-l);color:var(--l6)">bug, seeded</span></td><td>regression scenario + mutant; hidden scenario</td></tr>
+        <tr><td>005 extract retry policy</td><td><span class="pill" style="background:var(--l1-l);color:var(--l1)">refactor, seeded</span></td><td>no behaviour or API change; tests untouched</td></tr>
+        <tr><td>006 unauthorized refresh</td><td><span class="pill" style="background:var(--l3-l);color:#17724f">feature</span></td><td>typed errors + network config, no global DI</td></tr>
+        <tr><td>007 document ad config</td><td><span class="pill" style="background:var(--l0-l);color:var(--l0)">docs, seeded</span></td><td>dartdoc ratchet to 0, compiled README excerpt, no logic lines</td></tr>
+        <tr><td>008 review planted antipatterns</td><td><span class="pill" style="background:var(--l8-l);color:var(--l8)">review</span></td><td>find 3 planted defects; precision and recall</td></tr>
+      </table>
+      <div class="grid2" style="margin-top:3mm; gap:3mm">
+        <div class="card bar" style="--c:var(--l8)"><h4>When to run</h4><p>After changing CLAUDE.md, a skill, a hook, a guardrail, the model or the agent version. Weekly as a trend.</p></div>
+        <div class="card bar" style="--c:var(--l8)"><h4>What it answers</h4><p>Does the agent follow the Definition of Done unprompted? Where does it cut corners? Did our change help?</p></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>23</span></div>
+</section>
+
+<!-- ======================================================== 24. HARNESS FLOW -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l8)"></span>The eval harness, step by step</h2><span class="sec">eval/run.sh</span></div>
+  <svg width="100%" height="70mm" viewBox="0 0 1000 260">
+    <defs><marker id="a13" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#16202f"/></marker></defs>
+    <g font-size="11.5">
+      <g transform="translate(0,20)"><rect width="130" height="86" rx="10" fill="#e3e8f3" stroke="#3d4f7a"/><text x="65" y="26" text-anchor="middle" font-weight="700">1 worktree</text><text x="65" y="46" text-anchor="middle" font-size="10" fill="#5a6476">git worktree add</text><text x="65" y="60" text-anchor="middle" font-size="10" fill="#5a6476">--detach at the</text><text x="65" y="74" text-anchor="middle" font-size="10" fill="#5a6476">baseline commit</text></g>
+      <g transform="translate(150,20)"><rect width="130" height="86" rx="10" fill="#fae3e1" stroke="#c2453d"/><text x="65" y="26" text-anchor="middle" font-weight="700">2 seed</text><text x="65" y="46" text-anchor="middle" font-size="10" fill="#5a6476">git apply</text><text x="65" y="60" text-anchor="middle" font-size="10" fill="#5a6476">baseline.patch;</text><text x="65" y="74" text-anchor="middle" font-size="10" fill="#5a6476">commit = BASE_REF</text></g>
+      <g transform="translate(300,20)"><rect width="130" height="86" rx="10" fill="#f8e4f1" stroke="#b8418f"/><text x="65" y="26" text-anchor="middle" font-weight="700">3 agent</text><text x="65" y="46" text-anchor="middle" font-size="10" fill="#5a6476">claude -p task.md</text><text x="65" y="60" text-anchor="middle" font-size="10" fill="#5a6476">or manual / none /</text><text x="65" y="74" text-anchor="middle" font-size="10" fill="#5a6476">script:reference</text></g>
+      <g transform="translate(450,20)"><rect width="130" height="86" rx="10" fill="#fcefe1" stroke="#d9822b"/><text x="65" y="26" text-anchor="middle" font-weight="700">4 hidden tests</text><text x="65" y="46" text-anchor="middle" font-size="10" fill="#5a6476">copied in only</text><text x="65" y="60" text-anchor="middle" font-size="10" fill="#5a6476">after the agent</text><text x="65" y="74" text-anchor="middle" font-size="10" fill="#5a6476">finished</text></g>
+      <g transform="translate(600,20)"><rect width="130" height="86" rx="10" fill="#dcf2f2" stroke="#1f8a8a"/><text x="65" y="26" text-anchor="middle" font-weight="700">5 checks.sh</text><text x="65" y="46" text-anchor="middle" font-size="10" fill="#5a6476">objective: gate,</text><text x="65" y="60" text-anchor="middle" font-size="10" fill="#5a6476">tests, diff greps,</text><text x="65" y="74" text-anchor="middle" font-size="10" fill="#5a6476">mutants</text></g>
+      <g transform="translate(750,20)"><rect width="110" height="86" rx="10" fill="#ece7fa" stroke="#6b4fbb"/><text x="55" y="26" text-anchor="middle" font-weight="700">6 judge</text><text x="55" y="46" text-anchor="middle" font-size="10" fill="#5a6476">reviewer agent</text><text x="55" y="60" text-anchor="middle" font-size="10" fill="#5a6476">subjective items</text><text x="55" y="74" text-anchor="middle" font-size="10" fill="#5a6476">(--judge)</text></g>
+      <g transform="translate(880,20)"><rect width="120" height="86" rx="10" fill="#def4ea" stroke="#23936b"/><text x="60" y="26" text-anchor="middle" font-weight="700">7 score</text><text x="60" y="46" text-anchor="middle" font-size="10" fill="#5a6476">weighted 0..1</text><text x="60" y="60" text-anchor="middle" font-size="10" fill="#5a6476">results/*.json;</text><text x="60" y="74" text-anchor="middle" font-size="10" fill="#5a6476">worktree removed</text></g>
+    </g>
+    <g stroke="#16202f" stroke-width="1.5" marker-end="url(#a13)">
+      <line x1="130" y1="63" x2="148" y2="63"/><line x1="280" y1="63" x2="298" y2="63"/><line x1="430" y1="63" x2="448" y2="63"/><line x1="580" y1="63" x2="598" y2="63"/><line x1="730" y1="63" x2="748" y2="63"/><line x1="860" y1="63" x2="878" y2="63"/>
+    </g>
+    <g font-size="10.5">
+      <rect x="0" y="140" width="1000" height="110" rx="10" fill="#f3f5f9"/>
+      <text x="16" y="164" font-weight="700" font-size="12">checks.sh output: one line per criterion, parsed into the score</text>
+      <text x="16" y="188" class="mono" font-size="10.5" fill="#17724f" xml:space="preserve" style="white-space:pre">PASS made_changes        PASS gate_quick        PASS tests              PASS hidden_tests</text>
+      <text x="16" y="208" class="mono" font-size="10.5" fill="#17724f" xml:space="preserve" style="white-space:pre">PASS no_new_allow        PASS no_wall_clock     PASS changelog          PASS regression_scenario</text>
+      <text x="16" y="228" class="mono" font-size="10.5" fill="#c2453d" xml:space="preserve" style="white-space:pre">FAIL mutant_added  see /tmp/eval_mut.log</text>
+      <text x="600" y="228" font-size="10.5" fill="#5a6476">&#8594; score = &#931; weight(pass) / &#931; weight</text>
+    </g>
+  </svg>
+  <div class="grid3" style="margin-top:3mm">
+    <div class="card"><h3>Isolation</h3><p>A detached worktree per run: the main checkout, its index and stashes are never touched. Even unrelated untracked files stay out. Cleanup on exit unless <code>--keep</code>.</p></div>
+    <div class="card"><h3>Seeding without git history</h3><p>A seeded state (bug put back, docs removed, refactor undone) is a patch on top of the baseline, committed inside the worktree. The diff the agent is graded on starts at that commit.</p></div>
+    <div class="card"><h3>Hidden tests</h3><p>Held-out tests arrive only after the agent finishes, so it cannot tailor the code to them, and are excluded from analysis so the seeded baseline stays green.</p></div>
+  </div>
+  <div class="grid2" style="margin-top:4mm">
+<pre><span class="c"># eval/results/004-loopcount-regression-20261118-1302.json</span>
+{
+  <span class="s">"task"</span>: <span class="s">"004-loopcount-regression"</span>,
+  <span class="s">"objective_score"</span>: <span class="n">1.0</span>,
+  <span class="s">"checks"</span>: {
+    <span class="s">"hidden_tests"</span>: {<span class="s">"pass"</span>: <span class="k">true</span>, <span class="s">"detail"</span>: <span class="s">""</span>},
+    <span class="s">"regression_scenario"</span>: {<span class="s">"pass"</span>: <span class="k">true</span>, ...},
+    <span class="s">"mutant_added"</span>: {<span class="s">"pass"</span>: <span class="k">true</span>, ...}, ...
+  },
+  <span class="s">"judge"</span>: <span class="k">null</span>          <span class="c"># or the reviewer's JSON with --judge</span>
+}</pre>
+<pre><span class="c"># run one task against a given commit, with a real agent</span>
+eval/run.sh 001-replay-event --agent claude --judge
+
+<span class="c"># let a person do it (compare humans and agents)</span>
+eval/run.sh 003-start-muted --agent manual --keep
+
+<span class="c"># self-test the harness (no agent, then the known answer)</span>
+eval/run.sh 007-document-ad-config --agent none
+eval/run.sh 007-document-ad-config \
+  --agent script:eval/selftest/reverse_seed.sh
+
+<span class="c"># against an uncommitted tree: snapshot with a temp index</span>
+EVAL_BASE=&lt;commit&gt; eval/run.sh 005-extract-retry-policy</pre>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>24</span></div>
+</section>
+
+<!-- ======================================================== 25. DESIGNING TASKS -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l8)"></span>Designing eval tasks that cannot be gamed</h2><span class="sec">Five archetypes</span></div>
+  <table style="margin-bottom:4mm">
+    <tr><th style="width:13%">Archetype</th><th style="width:25%">Starting state</th><th style="width:30%">Objective checks</th><th>Gaming it would look like &#8594; blocked by</th></tr>
+    <tr><td><b>Feature</b></td><td>today&rsquo;s tree</td><td>gate, all tests, hidden tests, CHANGELOG, API golden changed in the right place</td><td>skip docs &#8594; docs guardrails; skip test &#8594; hidden tests + judge &ldquo;proof&rdquo;</td></tr>
+    <tr><td><b>Bug fix</b> (seeded)</td><td>patch re-inserts a real fixed bug</td><td>hidden regression test, new scenario mentioning the symptom, new mutant that is killed</td><td>fix symptom only &#8594; hidden test on root cause; fake mutant &#8594; harness runs it</td></tr>
+    <tr><td><b>Refactor</b> (seeded)</td><td>patch undoes a refactor</td><td>file shrank, API golden unchanged, <b>no existing test modified</b>, new unit test</td><td>edit tests to pass &#8594; <code>tests_untouched</code>; API drift &#8594; golden diff</td></tr>
+    <tr><td><b>Docs</b> (seeded)</td><td>patch removes docs</td><td>dartdoc ratchet for those files at 0, excerpt present and compiled, <b>only comment lines added in lib/</b></td><td>&ldquo;fix&rdquo; code instead &#8594; <code>lib_logic_unchanged</code></td></tr>
+    <tr><td><b>Review</b></td><td>patch plants N defects</td><td>agent writes findings; matched against <code>planted.json</code> by file and keyword: precision and recall</td><td>list everything &#8594; precision falls; vague findings &#8594; keyword match</td></tr>
+  </table>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Anti-gaming checks every task inherits</h3>
+      <ul>
+        <li><b>made_changes:</b> if the run changed nothing, the whole score is 0. Without this, an idle agent scores the baseline&rsquo;s passing checks.</li>
+        <li><b>no_new_allow:</b> adding <code>guardrail:allow</code> comments is visible and costs points.</li>
+        <li><b>baseline untouched:</b> a baseline that grows is a fail unless the task says otherwise.</li>
+        <li><b>hidden tests:</b> held-out, arrive after the agent.</li>
+        <li><b>judge with a rubric:</b> &ldquo;does each behaviour change have a test that fails without it&rdquo; cannot be grepped.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="k">A seeded task, start to finish</h3>
+<pre><span class="c"># 1. build the seeded state in a scratch dir</span>
+cp lib/src/presentation/chorki_player_state.dart /tmp/seed/...
+<span class="c">#    (inline the retry policy back, as it was)</span>
+<span class="c"># 2. generate the patch (diff: today &#8594; seeded)</span>
+python3 eval/lib/seed_patch.py \
+  eval/tasks/005-extract-retry-policy/baseline.patch \
+  --seed /tmp/seed lib/src/presentation/chorki_player_state.dart \
+    tool/mutants.yaml test/guardrails/baselines.json \
+  --delete lib/src/presentation/player/retry_policy.dart \
+    test/presentation/retry_policy_test.dart
+<span class="c"># 3. prove the task: idle agent 0, reference 1.0</span>
+eval/run.sh 005-extract-retry-policy --agent none
+eval/run.sh 005-extract-retry-policy \
+  --agent script:eval/selftest/reverse_seed.sh</pre>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>25</span></div>
+</section>
+
+<!-- ======================================================== 26. SCORING + SELFTEST -->
+<section class="page">
+  <div class="hdr"><h2><span class="chip" style="background:var(--l8)"></span>Scoring and self-testing the harness</h2><span class="sec">An eval must be able to fail</span></div>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Scoring</h3>
+<pre><span class="c"># eval/rubric/common.yaml (inherited by every task)</span>
+- id: made_changes   weight: 1  <span class="c"># fail &#8658; whole score = 0</span>
+- id: gate_quick     weight: 3  <span class="c"># format, analyze, guardrails</span>
+- id: tests          weight: 3  <span class="c"># full suite</span>
+- id: hidden_tests   weight: 4  <span class="c"># held out</span>
+- id: no_new_allow   weight: 1
+- id: no_wall_clock  weight: 1
+- id: changelog      weight: 1
+- id: proof          weight: 2  judge: fails-without-change test?
+- id: scope          weight: 1  judge: stays within the task?
+- id: conventions    weight: 1  judge: CLAUDE.md followed?</pre>
+      <p style="margin-top:2.5mm"><b>objective score</b> = &Sigma; weights of passing checks / &Sigma; weights of all checks
+        reported (task weights override common ones). The judge&rsquo;s criteria are reported separately so a
+        model&rsquo;s opinion never hides a failing test.</p>
+      <div class="note bad"><b>Lesson learned:</b> before the <code>made_changes</code> rule, an agent that did
+        <i>nothing</i> scored 0.53 on the bug task: the untouched tree passes the gate, the tests, no-allow and no-clock.
+        An eval must score an idle run at 0.</div>
+    </div>
+    <div>
+      <h3 class="k">Self-test every task: idle &#8594; 0, reference &#8594; 1.0</h3>
+      <p>Before trusting a task, run it twice with scripted &ldquo;agents&rdquo;: one that does nothing and one that applies
+        the known answer. If idle scores above 0 or the reference below 1.0, the <b>checks</b> are wrong, not the agent.</p>
+      <table>
+        <tr><th>Task</th><th>--agent none</th><th>--agent script:reference</th><th>Reference</th></tr>
+        <tr><td>001 replay event</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>reference_patch.sh</code></td></tr>
+        <tr><td>002 buffered sink</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>reference_patch.sh</code></td></tr>
+        <tr><td>003 start muted</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>reference_patch.sh</code></td></tr>
+        <tr><td>004 loop count regression</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>004_reference_fix.sh</code></td></tr>
+        <tr><td>005 extract retry policy</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>reverse_seed.sh</code></td></tr>
+        <tr><td>006 unauthorized refresh</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>reference_patch.sh</code></td></tr>
+        <tr><td>007 document ad config</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>reverse_seed.sh</code></td></tr>
+        <tr><td>008 review planted antipatterns</td><td style="color:var(--l3)"><b>0.0</b></td><td style="color:var(--l3)"><b>1.0</b></td><td><code>008_perfect_review.sh</code></td></tr>
+      </table>
+      <p class="small" style="margin-top:1.5mm">Measured on chorki_player with the harness in this repo.</p>
+      <h3 class="k" style="margin-top:3mm">What the self-tests caught</h3>
+      <ul>
+        <li><b>Idle runs scored 0.53</b> on the bug task: added <code>made_changes</code>, which zeroes the score.</li>
+        <li><b>Idle feature tasks scored 0.37&ndash;0.47:</b> the harness copies the hidden tests into <code>test/</code>, and that counted as &ldquo;made changes&rdquo;. The check now ignores the harness&rsquo;s own copy.</li>
+        <li><b>The review task scored 0.14 idle</b> (&ldquo;no edits&rdquo; passed): a missing review now counts as no change.</li>
+        <li><b>The refactor reference scored 0.955:</b> the common CHANGELOG check does not fit a behaviour-preserving
+          internal refactor, so that task leaves it out on purpose.</li>
+        <li><b>The docs task&rsquo;s reference added an import</b> and so failed &ldquo;only comments in lib/&rdquo;: the seed was
+          rebuilt so only doc lines differ.</li>
+      </ul>
+      <p>Seeded tasks use <code>git apply -R baseline.patch</code> (today&rsquo;s tree is the answer). Feature tasks use <code>reference_patch.sh</code>, which applies a known-good implementation built in a worktree and saved as <code>eval/selftest/reference/&lt;task&gt;.patch</code>.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>26</span></div>
+</section>
+
+<!-- ======================================================== 27. PORT TABLE -->
+<section class="page">
+  <div class="hdr"><h2>Port it to your stack</h2><span class="sec">Same layers, different tools</span></div>
+  <p class="lead" style="margin-bottom:3mm">The concepts are language-agnostic. Use the native parser for source rules and an existing tool where one exists; write the small
+    custom pieces (ratchet, snapshot, scenario runner) yourself. Each is 100&ndash;300 lines.</p>
+  <table style="font-size:8.7px">
+    <tr><th style="width:13%">Layer / piece</th><th>Dart / Flutter (this repo)</th><th>TypeScript / JS</th><th>Kotlin / Android</th><th>Python</th><th>Go</th><th>Swift / iOS</th></tr>
+    <tr><td><b>Strict analyzer</b></td><td>analysis_options: strict-*, lints as errors</td><td><code>tsc --strict</code>, typescript-eslint strict-type-checked</td><td>detekt, ktlint, <code>allWarningsAsErrors</code></td><td>ruff, mypy <code>--strict</code> / pyright</td><td>staticcheck, golangci-lint</td><td>SwiftLint, strict concurrency</td></tr>
+    <tr><td><b>AST source rules</b></td><td><code>package:analyzer</code> visitors in tests</td><td>ts-morph or custom ESLint rules</td><td>Konsist, ArchUnit, detekt rules</td><td><code>ast</code> module in pytest</td><td><code>go/ast</code>, go/analysis</td><td>SwiftSyntax in XCTest</td></tr>
+    <tr><td><b>Layering</b></td><td>import-prefix table</td><td>dependency-cruiser, eslint-plugin-boundaries</td><td>Konsist / ArchUnit, Gradle modules</td><td>import-linter</td><td>go-arch-lint, internal/ packages</td><td>SPM targets, Tuist</td></tr>
+    <tr><td><b>Ratchet baseline</b></td><td>baselines.json + expectRatchet</td><td>same JSON + a test helper; eslint <code>--max-warnings</code> per file</td><td>detekt baseline.xml (make it shrink-only)</td><td>same JSON in conftest</td><td>same JSON in a _test.go</td><td>same JSON in XCTest</td></tr>
+    <tr><td><b>Public API snapshot</b></td><td>golden text from the exported AST</td><td>@microsoft/api-extractor</td><td>binary-compatibility-validator (apiDump)</td><td>griffe check</td><td>apidiff, gorelease</td><td>swift-api-digester</td></tr>
+    <tr><td><b>Compiled doc snippets</b></td><td>#region excerpts in example/</td><td>embedme, docs from tested files</td><td>knit (kotlinx), samples</td><td>doctest, pytest-codeblocks</td><td><code>Example*</code> functions</td><td>DocC snippets</td></tr>
+    <tr><td><b>Determinism</b></td><td>injected <code>ChorkiClock</code></td><td>injected clock; fake timers</td><td><code>java.time.Clock</code>, TestDispatcher</td><td>freezegun, injected clock</td><td><code>func() time.Time</code> param</td><td>injected <code>Clock</code> (swift-clocks)</td></tr>
+    <tr><td><b>Scenarios</b></td><td>YAML + runner + fake_async</td><td>YAML/JSON + vitest runner</td><td>YAML + JUnit dynamic tests</td><td>YAML + pytest parametrize</td><td>YAML + table-driven tests</td><td>JSON + XCTest</td></tr>
+    <tr><td><b>Conformance</b></td><td><code>chorki_player_testing.dart</code></td><td>exported <code>describeSinkContract()</code></td><td><code>testFixtures</code> artifact</td><td>pytest plugin / base TestCase</td><td>exported <code>TestSink(t, impl)</code></td><td>test-support library target</td></tr>
+    <tr><td><b>Coverage floors</b></td><td>lcov + per-file JSON</td><td>c8 / istanbul per-file thresholds</td><td>Kover / JaCoCo rules</td><td>coverage.py + per-file JSON</td><td><code>go test -coverprofile</code> + JSON</td><td>xccov + JSON</td></tr>
+    <tr><td><b>Mutation</b></td><td>curated mutants.yaml</td><td>Stryker (or curated)</td><td>PIT (pitest)</td><td>mutmut / cosmic-ray</td><td>gremlins, go-mutesting</td><td>Muter</td></tr>
+    <tr><td><b>Error reporting</b></td><td>ChorkiDiagnostics + test collector</td><td>onError hook + afterEach assert</td><td>error handler + JUnit extension</td><td>logging handler + fixture</td><td>error callback + t.Cleanup</td><td>delegate + XCTest observer</td></tr>
+    <tr><td><b>Gate script</b></td><td>tool/check.sh</td><td>npm run check</td><td>./gradlew check (custom task)</td><td>make check / nox</td><td>make check</td><td>make check / fastlane lane</td></tr>
+    <tr><td><b>Agent hooks</b></td><td colspan="6">Same everywhere: CLAUDE.md, <code>.claude/settings.json</code> (PostToolUse formatter, Stop hook running the quick gate), skills for recipes, a reviewer agent.</td></tr>
+    <tr><td><b>Eval harness</b></td><td colspan="6">Same everywhere: <code>git worktree</code>, <code>baseline.patch</code>, hidden tests, <code>checks.sh</code> printing PASS/FAIL lines, weighted rubric, JSON results. Only the test command in checks.sh changes.</td></tr>
+  </table>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>27</span></div>
+</section>
+
+<!-- ======================================================== 28. TEMPLATES 1 -->
+<section class="page">
+  <div class="hdr"><h2>Templates: guardrail helper, gate, hooks</h2><span class="sec">Copy, then adapt</span></div>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Ratchet helper (pseudo-code, any test framework)</h3>
+<pre><span class="k">function</span> expectRatchet(rule, violations):
+  actual   = countBy(violations, v =&gt; v.path)
+  baseline = readJson(<span class="s">"baselines.json"</span>)[rule] ?? {}
+  grew   = [p <span class="k">for</span> p <span class="k">in</span> keys(actual, baseline) <span class="k">if</span> actual[p] &gt; baseline[p]]
+  shrank = [p <span class="k">for</span> p ... <span class="k">if</span> actual[p] &lt; baseline[p]]
+
+  <span class="k">if</span> env.UPDATE_GOLDENS <span class="k">and</span> (empty(grew) <span class="k">or</span> env.RECORD_NEW_RULE):
+    writeJson(<span class="s">"baselines.json"</span>, rule, actual); <span class="k">return</span>
+  <span class="k">if</span> grew:
+    fail(<span class="s">"[rule] new violations: "</span> + list(file:line + why)
+         + <span class="s">" Fix, or // guardrail:allow rule - reason"</span>)
+  <span class="k">if</span> shrank:
+    fail(<span class="s">"[rule] fewer than baseline: lock in with UPDATE_GOLDENS=1"</span>)
+
+<span class="k">function</span> allows(file, rule, line):       <span class="c"># line, above, below</span>
+  <span class="k">for</span> l <span class="k">in</span> [line, line-1, line+1]:
+    m = match(<span class="s">/guardrail:allow\s+(\w+)\s*[-:]\s*(.+)/</span>, file.lines[l])
+    <span class="k">if</span> m <span class="k">and</span> m.rule == rule <span class="k">and</span> trim(m.reason) != <span class="s">""</span>: <span class="k">return true</span>
+  <span class="k">return false</span></pre>
+      <h3 class="k" style="margin-top:3mm">Rule test skeleton</h3>
+<pre>test(<span class="s">"&lt;rule&gt;: fixture"</span>)  { expect(rule(fixture(BAD_AND_OK)).lines).toEqual([..]) }
+test(<span class="s">"&lt;rule&gt;: source"</span>)   { expectRatchet(<span class="s">"&lt;rule&gt;"</span>, allSources.flatMap(rule)) }</pre>
+    </div>
+    <div>
+      <h3 class="k">Gate script skeleton</h3>
+<pre><span class="c">#!/usr/bin/env bash   tool/check.sh [--quick|--mutation]</span>
+set -euo pipefail; cd "$(dirname "$0")/.."
+mode="${1:-full}"
+run() { printf '\n== %s\n' "$1"; shift; "$@"; }
+run format     &lt;formatter --check&gt;
+run analyze    &lt;analyzer, warnings as errors&gt;
+run guardrails &lt;test runner&gt; tests/guardrails
+[[ $mode == --quick ]] &amp;&amp; { echo "quick gate passed"; exit 0; }
+run tests      &lt;test runner with coverage&gt;
+run coverage   &lt;per-file floor check&gt;
+run docs       &lt;doc build / snippet check&gt;
+run package    &lt;publish or build dry run&gt;
+[[ $mode == --mutation ]] &amp;&amp; run mutation &lt;mutation tool&gt;
+echo "full gate passed"</pre>
+      <h3 class="k" style="margin-top:3mm">Pre-commit (opt-in) and agent stop hook</h3>
+<pre><span class="c"># tool/install_hooks.sh</span>
+cat &gt; .git/hooks/pre-commit &lt;&lt;'SH'
+#!/usr/bin/env bash
+exec tool/check.sh --quick
+SH
+chmod +x .git/hooks/pre-commit
+
+<span class="c"># tool/hooks/stop_gate.sh  (Claude Code "Stop" hook)</span>
+in="$(cat)"
+[ "$(jq -r '.stop_hook_active//false' &lt;&lt;&lt;"$in")" = true ] &amp;&amp; exit 0
+[ -z "$(git status --porcelain -- &lt;source globs&gt;)" ] &amp;&amp; exit 0
+out="$(tool/check.sh --quick 2&gt;&amp;1)" &amp;&amp; exit 0
+jq -n --arg r "$(tail -40 &lt;&lt;&lt;"$out")" '{decision:"block",reason:$r}'</pre>
+      <div class="note info" style="margin-top:2.5mm"><b>Pin the toolchain</b> in CI (exact version) and print it in the gate,
+        so a toolchain upgrade is a deliberate change with its own PR.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>28</span></div>
+</section>
+
+<!-- ======================================================== 29. TEMPLATES 2 -->
+<section class="page">
+  <div class="hdr"><h2>Templates: CLAUDE.md, PR, eval task</h2><span class="sec">Copy, then adapt</span></div>
+  <div class="grid3">
+<pre><span class="c"># CLAUDE.md</span>
+<span class="k"># &lt;project&gt;: working agreement</span>
+&lt;2 lines: what it is, who depends on it&gt;
+
+<span class="k">## Definition of done</span>
+1. `make check` passes; paste its tail.
+2. Behaviour change &#8594; a test/scenario
+   that fails without it.
+3. Bug fix &#8594; regression test + mutant
+   that re-inserts it, killed.
+4. API change &#8594; snapshot diff +
+   CHANGELOG names every symbol.
+5. Docs updated (generated parts
+   regenerated, snippets compiled).
+6. Report what was and was not
+   verified.
+
+<span class="k">## Commands</span>
+| quick gate | `make check-quick` |
+| full gate  | `make check` |
+| ...
+
+<span class="k">## Architecture and layering</span>
+&lt;tree&gt;  &lt;import rules&gt;
+<span class="c">(enforced by tests/guardrails/layering)</span>
+
+<span class="k">## Conventions</span>  <span class="c">(each: one line + rule id)</span>
+<span class="k">## Ratchets</span>     <span class="c">(baselines only shrink)</span>
+<span class="k">## Recipes</span>      <span class="c">(skills for multi-file work)</span>
+<span class="k">## Gotchas</span></pre>
+<pre><span class="c">&lt;!-- .github/pull_request_template.md --&gt;</span>
+<span class="k">## What and why</span>
+
+<span class="k">## Proof</span>
+- [ ] Tests / scenarios added that
+      fail without this change:
+      &lt;names&gt;
+- [ ] Bug fix: mutant id
+      &lt;id&gt; is killed
+- [ ] `tool/check.sh` output:
+```
+&lt;paste the tail&gt;
+```
+- [ ] API snapshot diff is
+      intended (or none)
+- [ ] CHANGELOG entry
+
+<span class="k">## Not verified</span>
+&lt;device testing, platforms, ...&gt;
+
+<span class="k">## Guardrail changes</span>
+- [ ] No new allow comments
+      (or each has a reason)
+- [ ] Baselines only went down</pre>
+<pre><span class="c"># eval/tasks/NNN-slug/</span>
+<span class="k">task.md</span>      a real issue, in the
+             user's words; no hints
+             beyond what a teammate
+             would get
+<span class="k">rubric.yaml</span>  criteria:
+  - id: regression_scenario
+    weight: 2
+    check: a new scenario covers
+           the symptom
+<span class="k">checks.sh</span>
+  source "$EVAL_ROOT/eval/lib/checks.sh"
+  run_common_checks
+  if &lt;task check&gt;; then
+    pass my_check
+  else fail my_check "why"; fi
+<span class="k">baseline.patch</span>  (seeded tasks)
+  python3 eval/lib/seed_patch.py ...
+<span class="k">hidden/</span>      held-out tests
+<span class="k">planted.json</span> (review tasks)
+  [{"file": "...", "line": 42,
+    "kind": "swallowed_error"}]
+
+<span class="c"># prove it</span>
+eval/run.sh NNN --agent none
+eval/run.sh NNN --agent script:ref.sh</pre>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>29</span></div>
+</section>
+
+<!-- ======================================================== 30. OPERATING -->
+<section class="page">
+  <div class="hdr"><h2>Operating it: metrics and failure modes</h2><span class="sec">Keep the system healthy</span></div>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Metrics worth a weekly look</h3>
+      <table>
+        <tr><th>Metric</th><th>Source</th><th>Healthy trend</th></tr>
+        <tr><td>Ratchet totals per rule</td><td>baselines.json</td><td>monotonically down</td></tr>
+        <tr><td>Allow comments (count, newest)</td><td><code>grep guardrail:allow</code></td><td>flat; each reason still true</td></tr>
+        <tr><td>Mutants killed / total</td><td>nightly job</td><td>100%; count rises with each bug fix</td></tr>
+        <tr><td>Coverage floor (lib, critical dirs)</td><td>coverage_baseline.json</td><td>up</td></tr>
+        <tr><td>Quick gate duration</td><td>CI step timing</td><td>&lt; 30 s, or people skip it</td></tr>
+        <tr><td>Eval scores per task</td><td>eval/results/*.json</td><td>stable or up after each change to rules, prompts or model</td></tr>
+        <tr><td>Flaky test reruns</td><td>CI history</td><td>zero; a flaky test is a broken guardrail</td></tr>
+      </table>
+      <h3 class="k" style="margin-top:3.5mm">Ownership</h3>
+      <ul>
+        <li>Each rule has an owner and a one-line rationale in its doc comment.</li>
+        <li>Adding a rule: fixture first, record its baseline once, announce it.</li>
+        <li>Retiring a rule: when it never fires and a lint covers it, delete it.</li>
+        <li>Quarterly: review allow comments; delete those whose reason expired.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="k">How guardrail systems fail (and the fix)</h3>
+      <div class="card bar" style="--c:var(--l6); margin-bottom:2.5mm"><h4>Slow gate &#8594; people bypass it</h4><p>Keep the quick gate to seconds: parse once, share ASTs, push heavy work to CI and nightly.</p></div>
+      <div class="card bar" style="--c:var(--l6); margin-bottom:2.5mm"><h4>Regex rules &#8594; false positives &#8594; allow-comment spam</h4><p>Use the real parser. A rule with frequent false positives is worse than no rule.</p></div>
+      <div class="card bar" style="--c:var(--l6); margin-bottom:2.5mm"><h4>Baselines that grow</h4><p>Only a brand-new rule may record growth. Review baselines.json diffs like code.</p></div>
+      <div class="card bar" style="--c:var(--l6); margin-bottom:2.5mm"><h4>Tests that assert the current output</h4><p>Snapshot-and-forget scenarios lock bugs in. Write expectations first; mutants keep them honest.</p></div>
+      <div class="card bar" style="--c:var(--l6); margin-bottom:2.5mm"><h4>Evals that agents can pass by doing nothing or by gaming</h4><p>Self-test every task (idle 0, reference 1); hidden tests; diff-based checks; precision for review tasks.</p></div>
+      <div class="card bar" style="--c:var(--l6)"><h4>Rules nobody understands</h4><p>Every failure message says what, where, why and how to fix or allow it. If people ask in chat, improve the message.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>30</span></div>
+</section>
+
+<!-- ======================================================== 31. RESULTS -->
+<section class="page">
+  <div class="hdr"><h2>Results in chorki_player</h2><span class="sec">Before and after</span></div>
+  <div class="grid4" style="margin-bottom:5mm">
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l3)">455</div><div class="small">tests (from 277)</div></div>
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l5)">95.8%</div><div class="small">lib line coverage, per-file floors</div></div>
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l6)">21 / 21</div><div class="small">curated mutants killed</div></div>
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l8)">8</div><div class="small">eval tasks, each self-tested (idle 0, reference 1.0)</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <h3 class="k">Backlogs (count of violations)</h3>
+      <svg width="100%" height="64mm" viewBox="0 0 480 250">
+        <g font-size="11">
+          <text x="0" y="14" font-size="10" fill="#5a6476">before</text><rect x="44" y="5" width="12" height="10" fill="#c8ced9"/><text x="62" y="14" font-size="10" fill="#5a6476">after</text><rect x="94" y="5" width="12" height="10" fill="#1f8a8a"/>
+          <!-- rows: label, before, after; scale 300 -> 300px -->
+          <g transform="translate(0,34)"><text y="12">silent catches</text><rect x="130" y="0" width="135" height="12" fill="#c8ced9"/><rect x="130" y="15" width="1" height="12" fill="#1f8a8a"/><text x="270" y="11" font-size="10">~45</text><text x="136" y="26" font-size="10" fill="#1f8a8a">0</text></g>
+          <g transform="translate(0,78)"><text y="12">undocumented API **</text><rect x="130" y="0" width="196" height="12" fill="#c8ced9"/><rect x="130" y="15" width="149" height="12" fill="#1f8a8a"/><text x="330" y="11" font-size="10">196</text><text x="284" y="26" font-size="10" fill="#1f8a8a">149</text></g>
+          <g transform="translate(0,122)"><text y="12">oversized files *</text><rect x="130" y="0" width="54" height="12" fill="#c8ced9"/><rect x="130" y="15" width="18" height="12" fill="#1f8a8a"/><text x="190" y="11" font-size="10">18</text><text x="154" y="26" font-size="10" fill="#1f8a8a">6</text></g>
+          <g transform="translate(0,166)"><text y="12">wall-clock calls</text><rect x="130" y="0" width="18" height="12" fill="#c8ced9"/><rect x="130" y="15" width="1" height="12" fill="#1f8a8a"/><text x="154" y="11" font-size="10">6 files</text><text x="136" y="26" font-size="10" fill="#1f8a8a">0</text></g>
+          <g transform="translate(0,210)"><text y="12">largest file (lines)</text><rect x="130" y="0" width="254" height="12" fill="#c8ced9"/><rect x="130" y="15" width="172" height="12" fill="#1f8a8a"/><text x="390" y="11" font-size="10">848</text><text x="308" y="26" font-size="10" fill="#1f8a8a">574 (code)</text></g>
+        </g>
+      </svg>
+      <p class="small">* file_size counts one violation per 50 code lines over 350; the 848-line widget alone counted 6.<br>** exported API members without <code>///</code> (the dartdoc ratchet). <i>Before</i> for the two ratchet rows is the start of the last refactor round; for catches, clock calls and file length it is the original audit.</p>
+    </div>
+    <div>
+      <h3 class="k">What the system has caught since it went in</h3>
+      <ul>
+        <li><b>A real double-send bug</b> in the analytics queue (backgrounding before the saved queue was restored): found by a new test, fixed, mutant added.</li>
+        <li><b>A gap in proof</b>: ad time counted as watched time had no test; the first mutation run reported a survivor.</li>
+        <li><b>An accidental public export</b>: a helper added to an exported file; the API snapshot flagged it.</li>
+        <li><b>A blind spot in the snapshot itself</b>: re-exports from split files; fixed with a fixture.</li>
+        <li><b>A missing API</b>: custom seek bars could not see ad markers; writing the docs eval exposed it.</li>
+        <li><b>Hidden HTTP failures in tests</b>: the diagnostics collector surfaced VMAP 400s the tests ignored.</li>
+        <li><b>A refactor regression</b>: extracting a view captured a value at build time instead of call time; an existing widget test failed immediately.</li>
+      </ul>
+      <div class="note ok" style="margin-top:3mm">The 848-line player widget is now a 127-line widget, a 344-line state (code lines), and five
+        small tested parts (retry policy, source, loading view, video view, analytics binding), with no behaviour change: every
+        test, scenario and mutant stayed green.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>31</span></div>
+</section>
+
+<!-- ======================================================== 32. CHECKLISTS -->
+<section class="page">
+  <div class="hdr"><h2>Checklists and glossary</h2><span class="sec">Print this page</span></div>
+  <div class="grid4" style="gap:4mm">
+    <div class="card">
+      <h3>Every change</h3>
+      <ul class="check">
+        <li>Quick gate green while working</li>
+        <li>Test/scenario fails without the change (checked)</li>
+        <li>Bug fix: regression test + killed mutant</li>
+        <li>API snapshot diff intended; CHANGELOG names symbols</li>
+        <li>Docs: generated parts regenerated, snippets compiled</li>
+        <li>No new allow comment without a reason</li>
+        <li>Baselines only went down</li>
+        <li>Full gate green; tail pasted in the PR</li>
+        <li>Summary says what was not verified</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>New guardrail rule</h3>
+      <ul class="check">
+        <li>Named after the problem</li>
+        <li>Pure function over parsed source</li>
+        <li>Fixture with a violation and a non-violation</li>
+        <li>Failure message: what, where, why, how to fix or allow</li>
+        <li>Baseline recorded once (record mode, this rule only)</li>
+        <li>Line in CLAUDE.md naming the rule</li>
+        <li>Quick gate still fast</li>
+        <li>Announced; owner noted</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>New eval task</h3>
+      <ul class="check">
+        <li>task.md reads like a real request</li>
+        <li>Archetype chosen; starting state seeded if needed</li>
+        <li>Objective checks print PASS/FAIL lines</li>
+        <li>Hidden tests for the core behaviour</li>
+        <li>Anti-gaming: made_changes, diff-scope checks</li>
+        <li>Idle run scores 0</li>
+        <li>Reference run scores 1.0</li>
+        <li>Patch re-generated when touched files change</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Release</h3>
+      <ul class="check">
+        <li>CHANGELOG top = version; sections valid</li>
+        <li>Deprecations name replacement + removal version</li>
+        <li>Full gate + mutation run green</li>
+        <li>Coverage floors raised</li>
+        <li>Publish / build dry run clean</li>
+        <li>Eval scores not lower than last release</li>
+        <li>Tag the release</li>
+      </ul>
+    </div>
+  </div>
+  <h3 class="k" style="margin-top:5mm">Glossary</h3>
+  <div class="grid2" style="gap:1mm 8mm">
+    <p><b>Guardrail test</b>: a test that checks source code (structure, conventions, docs) instead of behaviour.</p>
+    <p><b>Ratchet / baseline</b>: per-file count of accepted violations that may only go down.</p>
+    <p><b>Allow comment</b>: <code>// guardrail:allow &lt;rule&gt; - &lt;reason&gt;</code>, a visible, reasoned exception.</p>
+    <p><b>Fixture</b>: a tiny inline source sample proving a rule fires (and does not misfire).</p>
+    <p><b>Golden</b>: a committed expected output (API snapshot, generated table) compared on every run.</p>
+    <p><b>Scenario</b>: a declarative given/steps/expect spec run against the real engine.</p>
+    <p><b>Conformance suite</b>: a shipped contract test for an extension point.</p>
+    <p><b>Mutant</b>: a deliberate, known bug inserted to prove tests catch it (&ldquo;killed&rdquo;).</p>
+    <p><b>Quick / full gate</b>: the same script at two depths: seconds for every edit, minutes for CI.</p>
+    <p><b>Eval task</b>: a fixed request with objective checks, run in a throwaway worktree.</p>
+    <p><b>Seeded task</b>: an eval whose starting state is a patch (a bug re-inserted, docs removed).</p>
+    <p><b>Self-test</b>: idle and reference runs that prove an eval can tell good from nothing.</p>
+  </div>
+  <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>32</span></div>
+</section>
+
+<script>
+  // Layout check for the PDF build: marks pages whose content overflows.
+  window.addEventListener('load', () => {
+    const bad = [];
+    document.querySelectorAll('.page').forEach((p, i) => {
+      if (p.scrollHeight > p.clientHeight + 1 || p.scrollWidth > p.clientWidth + 1) bad.push(i + 1);
+    });
+    document.body.setAttribute('data-overflow', bad.join(','));
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+name: scrub_cancel
+description: a drag that does not move ends the scrub; the next pause is a real pause
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 2s}
+  - scrubStart
+  - scrubCancel
+  - value: {playing: false}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - pause: {$position: 2}
+    - sessionEnd: {pauseCount: 1, seekCount: 0}

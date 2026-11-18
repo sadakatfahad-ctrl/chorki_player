@@ -7,6 +7,8 @@ import 'package:video_player/video_player.dart';
 import '../analytics/chorki_analytics_config.dart';
 import '../analytics/chorki_analytics_event.dart';
 import '../analytics/chorki_analytics_session.dart';
+import '../core/diagnostics.dart';
+import '../core/guard.dart';
 import '../pip/chorki_pip.dart';
 
 /// How the video fills the player box.
@@ -32,7 +34,7 @@ class ChorkiPlayerController {
     this.analytics,
   }) : _speed = ValueNotifier(initialSpeed),
        _fit = ValueNotifier(initialFit),
-       _pip = pipDelegate ?? FloatingPipDelegate();
+       _pip = pipDelegate ?? ChorkiFloatingPipDelegate();
 
   /// Step used by [seekForward] / [seekBack].
   final Duration seekStep;
@@ -158,7 +160,8 @@ class ChorkiPlayerController {
     _isAdPlaying.value = false;
   }
 
-  /// Reported by the ad layer.
+  /// Reported by the ad layer. Internal: only the player calls it.
+  @internal
   void setAdPlaying(bool playing) {
     if (!_disposed) _isAdPlaying.value = playing;
   }
@@ -175,10 +178,18 @@ class ChorkiPlayerController {
     if (v.isInitialized && !_tracksLoadedFor) {
       _tracksLoadedFor = true;
       if (_speed.value != 1.0) {
-        unawaited(_safe(() => c.setPlaybackSpeed(_speed.value)));
+        fireAndReport(
+          () => c.setPlaybackSpeed(_speed.value),
+          'controller.restoreSpeed',
+        );
       }
       unawaited(refreshTracks());
-      if (_autoPip) unawaited(_safe(() => _pip.setAuto(true, _aspectRatio)));
+      if (_autoPip) {
+        fireAndReport(
+          () => _pip.setAuto(true, _aspectRatio),
+          'controller.setAutoPip',
+        );
+      }
     }
   }
 
@@ -257,7 +268,9 @@ class ChorkiPlayerController {
       try {
         final tracks = await c.getVideoTracks();
         if (gen == _attachGen && !_disposed) _videoTracks.value = tracks;
-      } catch (_) {}
+      } catch (e, st) {
+        ChorkiDiagnostics.report(e, st, 'controller.getVideoTracks');
+      }
     }
     if (c.isAudioTrackSupportAvailable()) {
       try {
@@ -268,7 +281,9 @@ class ChorkiPlayerController {
             .where((t) => t.isSelected)
             .firstOrNull
             ?.id;
-      } catch (_) {}
+      } catch (e, st) {
+        ChorkiDiagnostics.report(e, st, 'controller.getAudioTracks');
+      }
     }
   }
 
@@ -288,9 +303,12 @@ class ChorkiPlayerController {
           label: track?.label,
         );
       }
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'controller.selectQuality');
+    }
   }
 
+  /// Switches the audio to the track with [trackId] (from [audioTracks]).
   Future<void> selectAudioTrack(String trackId) async {
     final c = _video.value;
     if (c == null || !c.value.isInitialized || _disposed) return;
@@ -300,7 +318,9 @@ class ChorkiPlayerController {
         _session?.recordAudioTrackChange(_selectedAudioTrackId.value, trackId);
         _selectedAudioTrackId.value = trackId;
       }
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'controller.selectAudioTrack');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -317,7 +337,9 @@ class ChorkiPlayerController {
     try {
       final status = await _pip.enter(_aspectRatio);
       _setPipStatus(status);
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'controller.enterPip');
+    }
     _schedulePipProbes();
   }
 
@@ -326,16 +348,22 @@ class ChorkiPlayerController {
     if (_disposed) return;
     _autoPip = enabled;
     _ensureLifecycle();
-    await _safe(() => _pip.setAuto(enabled, _aspectRatio));
+    await guardAsync(
+      () => _pip.setAuto(enabled, _aspectRatio),
+      'controller.setAutoPip',
+    );
     await refreshPipStatus();
   }
 
+  /// Re-reads the PiP status from the platform.
   Future<void> refreshPipStatus() async {
     if (_disposed) return;
     try {
       final status = await _pip.status();
       _setPipStatus(status);
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'controller.pipStatus');
+    }
   }
 
   void _setPipStatus(ChorkiPipStatus status) {
@@ -354,7 +382,7 @@ class ChorkiPlayerController {
       _lifecycle = AppLifecycleListener(
         onStateChange: (_) => _schedulePipProbes(),
       );
-    } catch (_) {
+    } on FlutterError {
       // No binding yet; retried on the next attach.
     }
   }
@@ -362,10 +390,22 @@ class ChorkiPlayerController {
   /// PiP transitions surface as lifecycle changes, but the platform reports
   /// the new mode a little later — probe a few times instead of polling.
   void _schedulePipProbes() {
-    for (final ms in const [0, 150, 500, 1200]) {
-      Timer(Duration(milliseconds: ms), () => unawaited(refreshPipStatus()));
+    for (final t in _pipProbes) {
+      t.cancel();
     }
+    _pipProbes = [
+      for (final delay in _pipProbeDelays)
+        Timer(delay, () => unawaited(refreshPipStatus())),
+    ];
   }
+
+  static const List<Duration> _pipProbeDelays = [
+    Duration.zero,
+    Duration(milliseconds: 150),
+    Duration(milliseconds: 500),
+    Duration(milliseconds: 1200),
+  ];
+  List<Timer> _pipProbes = const [];
 
   // ---------------------------------------------------------------------------
 
@@ -374,13 +414,7 @@ class ChorkiPlayerController {
   ) async {
     final c = _video.value;
     if (c == null || !c.value.isInitialized || _disposed) return;
-    await _safe(() => action(c));
-  }
-
-  Future<void> _safe(Future<void> Function() action) async {
-    try {
-      await action();
-    } catch (_) {}
+    await guardAsync(() => action(c), 'controller.video');
   }
 
   void dispose() {
@@ -390,7 +424,13 @@ class ChorkiPlayerController {
     _detachListener();
     _lifecycle?.dispose();
     _lifecycle = null;
-    if (_autoPip) unawaited(_safe(() => _pip.setAuto(false, 1)));
+    for (final t in _pipProbes) {
+      t.cancel();
+    }
+    _pipProbes = const [];
+    if (_autoPip) {
+      fireAndReport(() => _pip.setAuto(false, 1), 'controller.disableAutoPip');
+    }
     for (final n in <ChangeNotifier>[
       _video,
       _value,

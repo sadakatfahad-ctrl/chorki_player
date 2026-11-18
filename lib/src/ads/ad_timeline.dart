@@ -1,14 +1,26 @@
+import 'package:flutter/foundation.dart';
+
 import 'vmap.dart';
 
+/// A mid-roll ad break on the seek bar: where it sits and whether it has
+/// played. The built-in seek bar draws these; a custom one gets them as
+/// `ChorkiSeekBarState.adMarkers`.
+@immutable
 class ChorkiAdMarker {
+  /// A marker for break [id] at [fraction] of the video.
   const ChorkiAdMarker({
     required this.id,
     required this.fraction,
     required this.played,
   });
 
+  /// The break's id from the VMAP; stable while the video plays.
   final String id;
+
+  /// Where the break sits, from 0 (start) to 1 (end) of the content.
   final double fraction;
+
+  /// Its break has started, or IMA reported every ad of the video done.
   final bool played;
 
   @override

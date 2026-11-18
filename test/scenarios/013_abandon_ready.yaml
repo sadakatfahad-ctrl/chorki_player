@@ -1,0 +1,15 @@
+name: abandon_ready
+description: loaded but never played (autoPlay off) is an abandon at the ready stage
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - advance: 2s
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - abandon: {abandonStage: ready, waitedMs: 2000, errorCount: 0}
+    - heartbeat: {trigger: end, newSegments: []}
+    - sessionEnd: {$watched: 0, watchedPercent: 0}

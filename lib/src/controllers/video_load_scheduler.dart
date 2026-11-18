@@ -10,14 +10,35 @@ import 'package:flutter/foundation.dart';
 /// players. On Android this uses up the hardware decoders and the bandwidth,
 /// and loads fail. With this limit a dropped page whose load is still queued
 /// never creates a player at all.
-class VideoLoadScheduler {
-  VideoLoadScheduler({
+class ChorkiVideoLoadScheduler {
+  /// Creates a scheduler running at most [maxConcurrent] loads at once.
+  ChorkiVideoLoadScheduler({
     this.maxConcurrent = 2,
     this.disposalGrace = const Duration(milliseconds: 500),
   }) : assert(maxConcurrent > 0);
 
+  static ChorkiVideoLoadScheduler _instance = ChorkiVideoLoadScheduler();
+
   /// Shared by every `ChorkiPlayer` in the app.
-  static VideoLoadScheduler instance = VideoLoadScheduler();
+  static ChorkiVideoLoadScheduler get instance => _instance;
+
+  /// Replacing the shared scheduler while loads are queued strands them.
+  @Deprecated(
+    'Use ChorkiVideoLoadScheduler.configure at startup. Removed in 2.0.0.',
+  )
+  static set instance(ChorkiVideoLoadScheduler value) => _instance = value;
+
+  /// Changes the app-wide limits. Call it once at startup, before the first
+  /// player loads: loads already queued keep the old scheduler.
+  static void configure({
+    int maxConcurrent = 2,
+    Duration disposalGrace = const Duration(milliseconds: 500),
+  }) {
+    _instance = ChorkiVideoLoadScheduler(
+      maxConcurrent: maxConcurrent,
+      disposalGrace: disposalGrace,
+    );
+  }
 
   /// Replaces [instance], e.g. between tests so a job stuck in one test
   /// cannot hold a slot in the next. No disposal grace by default: under
@@ -27,7 +48,7 @@ class VideoLoadScheduler {
     int maxConcurrent = 2,
     Duration disposalGrace = Duration.zero,
   }) {
-    instance = VideoLoadScheduler(
+    _instance = ChorkiVideoLoadScheduler(
       maxConcurrent: maxConcurrent,
       disposalGrace: disposalGrace,
     );
@@ -68,7 +89,9 @@ class VideoLoadScheduler {
   /// Registers a player disposal in progress. Loads that start while it is
   /// pending wait for it, up to [disposalGrace].
   void trackDisposal(Future<void> disposal) {
-    final tracked = disposal.catchError((Object _) {});
+    // Its failure is reported by whoever disposes; here only completion
+    // matters.
+    final tracked = disposal.then<void>((_) {}, onError: _ignore);
     _disposals.add(tracked);
     unawaited(tracked.whenComplete(() => _disposals.remove(tracked)));
   }
@@ -102,7 +125,7 @@ class VideoLoadScheduler {
         final pending = _disposals.toList();
         try {
           await Future.wait(pending).timeout(disposalGrace);
-        } catch (_) {
+        } on TimeoutException {
           // Still not done: probably stuck (e.g. a player the platform never
           // finished creating). Stop waiting for it, or every later load
           // would pay the grace period too.
@@ -117,6 +140,10 @@ class VideoLoadScheduler {
     } catch (error, stack) {
       job.completer.completeError(error, stack);
     }
+  }
+
+  static void _ignore(Object _) {
+    // guardrail:allow swallowed_error - the disposer reports its own failures.
   }
 
   static bool _always() => true;

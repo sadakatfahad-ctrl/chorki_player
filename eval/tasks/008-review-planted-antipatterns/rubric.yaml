@@ -1,0 +1,10 @@
+criteria:
+  - id: recall
+    weight: 4
+    check: share of planted antipatterns found (file and line within 3)
+  - id: precision
+    weight: 2
+    check: share of reported findings that are planted antipatterns
+  - id: no_edits
+    weight: 1
+    check: the agent changed no files besides eval_out/

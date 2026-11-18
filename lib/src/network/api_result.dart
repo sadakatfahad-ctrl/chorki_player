@@ -1,6 +1,8 @@
 import 'dart:convert';
-import 'package:chorki_player/src/errors/server_exception.dart';
+
 import 'package:dio/dio.dart';
+
+import '../errors/server_exception.dart';
 
 class ApiResult {
   const ApiResult({
@@ -16,16 +18,13 @@ class ApiResult {
   factory ApiResult.fromResponse(Response<dynamic> response) {
     final statusCode = response.statusCode ?? 0;
 
-    if (statusCode == 200 || statusCode == 201) {
+    // Any 2xx is a success (202 Accepted and 206 Partial Content included).
+    if (statusCode >= 200 && statusCode < 300) {
       return ApiResult(
-        data: _decodeBody(response.data),
+        data: statusCode == 204 ? null : _decodeBody(response.data),
         statusCode: statusCode,
         message: 'Success',
       );
-    }
-
-    if (statusCode == 204) {
-      return ApiResult(data: null, statusCode: statusCode, message: 'Success');
     }
 
     throw ServerException(

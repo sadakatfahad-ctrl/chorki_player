@@ -5,8 +5,11 @@ import 'package:interactive_media_ads/interactive_media_ads.dart';
 import 'package:video_player/video_player.dart';
 
 import '../analytics/chorki_analytics_event.dart';
+import '../analytics/chorki_analytics_schema.dart';
 import '../analytics/chorki_analytics_scope.dart';
 import '../analytics/chorki_analytics_session.dart';
+import '../core/diagnostics.dart';
+import '../core/guard.dart';
 import 'ad_timeline.dart';
 import 'chorki_ad_config.dart';
 import 'chorki_ad_state.dart';
@@ -88,7 +91,9 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       if (_disposed || raw.isEmpty || duration <= Duration.zero) return;
       _timeline = AdTimeline(raw.map((b) => b.resolve(duration)).nonNulls);
       _publish(widget.controller.value.position);
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'ads.timeline');
+    }
   }
 
   ChorkiAnalyticsSession? get _analytics =>
@@ -96,7 +101,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
 
   void _reportError(String message) {
     _analytics?.recordAd(ChorkiAnalyticsEventType.adError, {
-      'message': message,
+      ChorkiAnalyticsKeys.message: message,
     });
     widget.config.onAdError?.call(message);
   }
@@ -111,16 +116,20 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       try {
         final pod = ad.adPodInfo;
         return {
-          'adId': ad.adId,
-          if (ad.title case final t? when t.isNotEmpty) 'adTitle': t,
-          'adSystem': ad.adSystem,
-          if (ad.advertiserName.isNotEmpty) 'advertiser': ad.advertiserName,
-          if (ad.duration case final d?) 'adDurationMs': d.inMilliseconds,
-          'skippable': ad.isSkippable,
-          'podPosition': pod.adPosition,
-          'podTotal': pod.totalAds,
+          ChorkiAnalyticsKeys.adId: ad.adId,
+          if (ad.title case final t? when t.isNotEmpty)
+            ChorkiAnalyticsKeys.adTitle: t,
+          ChorkiAnalyticsKeys.adSystem: ad.adSystem,
+          if (ad.advertiserName.isNotEmpty)
+            ChorkiAnalyticsKeys.advertiser: ad.advertiserName,
+          if (ad.duration case final d?)
+            ChorkiAnalyticsKeys.adDurationMs: d.inMilliseconds,
+          ChorkiAnalyticsKeys.skippable: ad.isSkippable,
+          ChorkiAnalyticsKeys.podPosition: pod.adPosition,
+          ChorkiAnalyticsKeys.podTotal: pod.totalAds,
         };
-      } catch (_) {
+      } catch (e, st) {
+        ChorkiDiagnostics.report(e, st, 'ads.adInfo');
         return const {};
       }
     }
@@ -131,17 +140,17 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       case AdEventType.firstQuartile:
         analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
           ...adData(),
-          'percent': 25,
+          ChorkiAnalyticsKeys.percent: 25,
         });
       case AdEventType.midpoint:
         analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
           ...adData(),
-          'percent': 50,
+          ChorkiAnalyticsKeys.percent: 50,
         });
       case AdEventType.thirdQuartile:
         analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
           ...adData(),
-          'percent': 75,
+          ChorkiAnalyticsKeys.percent: 75,
         });
       case AdEventType.complete:
         analytics.recordAd(ChorkiAnalyticsEventType.adComplete, adData());
@@ -202,11 +211,11 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       onAdsLoaded: _onAdsLoaded,
       onAdsLoadError: (data) {
         _reportError(data.error.message ?? 'Ad load error');
-        _resumeContent();
+        unawaited(_resumeContent());
       },
     );
 
-    _requestAds();
+    unawaited(_safe(_requestAds));
   }
 
   Future<void> _requestAds() async {
@@ -222,45 +231,49 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       );
     } catch (e) {
       _reportError(e.toString());
-      _resumeContent();
+      unawaited(_resumeContent());
     }
   }
 
   void _onAdsLoaded(OnAdsLoadedData data) {
     final manager = data.manager;
+    if (_disposed) {
+      // Loaded after the layer went away: nothing will ever destroy it.
+      _destroy(manager);
+      return;
+    }
     // From here the no-pre-roll fallback owns the wait.
     _loadTimeout?.cancel();
     _destroy(_manager);
     _manager = manager;
 
-    manager.setAdsManagerDelegate(
-      AdsManagerDelegate(
-        onAdEvent: (event) {
-          if (_disposed) return;
-          widget.config.onAdEvent?.call(event);
-          _reportAdEvent(event);
-          switch (event.type) {
-            case AdEventType.loaded:
-              unawaited(_safe(manager.start));
-            case AdEventType.contentPauseRequested:
-              unawaited(_pauseContent());
-            case AdEventType.contentResumeRequested:
-              unawaited(_resumeContent());
-            case AdEventType.allAdsCompleted:
-              _destroy(manager);
-              _timeline.markAllPlayed();
-              _publish(widget.controller.value.position, countdown: false);
-              if (identical(_manager, manager)) _manager = null;
-              _resumeContent();
-            case _:
-          }
-        },
-        onAdErrorEvent: (event) {
-          _reportError(event.error.message ?? 'Ad error');
-          _resumeContent();
-        },
-      ),
+    final delegate = AdsManagerDelegate(
+      onAdEvent: (event) {
+        if (_disposed) return;
+        widget.config.onAdEvent?.call(event);
+        _reportAdEvent(event);
+        switch (event.type) {
+          case AdEventType.loaded:
+            unawaited(_safe(manager.start));
+          case AdEventType.contentPauseRequested:
+            unawaited(_pauseContent());
+          case AdEventType.contentResumeRequested:
+            unawaited(_resumeContent());
+          case AdEventType.allAdsCompleted:
+            _destroy(manager);
+            _timeline.markAllPlayed();
+            _publish(widget.controller.value.position, countdown: false);
+            if (identical(_manager, manager)) _manager = null;
+            unawaited(_resumeContent());
+          case _:
+        }
+      },
+      onAdErrorEvent: (event) {
+        _reportError(event.error.message ?? 'Ad error');
+        unawaited(_resumeContent());
+      },
     );
+    unawaited(_safe(() => manager.setAdsManagerDelegate(delegate)));
 
     _pauseSeen = false;
     _noPreRollFallback?.cancel();
@@ -270,7 +283,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       // manager, or a late campaign's mid-rolls would never play.
       if (_showContent && !_timedOut) return;
       unawaited(_safe(manager.start));
-      if (!_showContent) _resumeContent();
+      if (!_showContent) unawaited(_resumeContent());
     });
     unawaited(
       _safe(
@@ -332,7 +345,9 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
           _contentCompleteSent = true;
           await _loader?.contentComplete();
         }
-      } catch (_) {}
+      } catch (e, st) {
+        ChorkiDiagnostics.report(e, st, 'ads.progress');
+      }
     });
   }
 
@@ -351,11 +366,8 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     _timer = null;
   }
 
-  Future<void> _safe(Future<void> Function() action) async {
-    try {
-      await action();
-    } catch (_) {}
-  }
+  Future<void> _safe(Future<void> Function() action) =>
+      guardAsync(action, 'ads');
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

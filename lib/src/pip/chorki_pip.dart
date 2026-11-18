@@ -1,5 +1,6 @@
 import 'package:floating/floating.dart';
 import 'package:flutter/foundation.dart';
+import '../core/diagnostics.dart';
 
 /// Picture-in-picture state of the app.
 enum ChorkiPipStatus {
@@ -30,8 +31,8 @@ abstract class ChorkiPipDelegate {
 /// Android whole-app PiP backed by the `floating` package.
 ///
 /// Requires `android:supportsPictureInPicture="true"` on the host activity.
-class FloatingPipDelegate implements ChorkiPipDelegate {
-  FloatingPipDelegate([Floating? floating]) : _floating = floating;
+class ChorkiFloatingPipDelegate implements ChorkiPipDelegate {
+  ChorkiFloatingPipDelegate([Floating? floating]) : _floating = floating;
 
   Floating? _floating;
   Floating get _f => _floating ??= Floating();
@@ -44,7 +45,8 @@ class FloatingPipDelegate implements ChorkiPipDelegate {
     if (!_supported) return ChorkiPipStatus.unavailable;
     try {
       return _map(await _f.pipStatus);
-    } catch (_) {
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'pip.status');
       return ChorkiPipStatus.unavailable;
     }
   }
@@ -56,7 +58,9 @@ class FloatingPipDelegate implements ChorkiPipDelegate {
       return _map(
         await _f.enable(ImmediatePiP(aspectRatio: _rational(aspectRatio))),
       );
-    } catch (_) {
+    } catch (e, st) {
+      // Often a missing `android:supportsPictureInPicture` in the manifest.
+      ChorkiDiagnostics.report(e, st, 'pip.enter');
       return ChorkiPipStatus.unavailable;
     }
   }
@@ -70,7 +74,9 @@ class FloatingPipDelegate implements ChorkiPipDelegate {
       } else {
         await _f.cancelOnLeavePiP();
       }
-    } catch (_) {}
+    } catch (e, st) {
+      ChorkiDiagnostics.report(e, st, 'pip.setAuto');
+    }
   }
 
   static ChorkiPipStatus _map(PiPStatus s) => switch (s) {

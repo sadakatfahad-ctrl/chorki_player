@@ -1,0 +1,22 @@
+name: replay_after_end
+description: "regression: replaying from the start after the end never reported quartiles again"
+given: {duration: 10s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 10s}
+  - value: {playing: false, completed: true}
+  - seek: {to: 0s, source: api}
+  - value: {completed: false}
+  - play: {to: 6s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - quartile: {percent: 75}
+    - complete
+    - seek: {fromMs: 10000, toMs: 0}
+    - quartile: {percent: 25}
+    - quartile: {percent: 50}
+    - sessionEnd: {seekCount: 1, pauseCount: 0}

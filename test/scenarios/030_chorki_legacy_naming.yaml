@@ -1,0 +1,26 @@
+name: chorki_legacy_naming
+description: the Chorki app's legacy Matomo names (MediaVideo / play / finished, e_v = position)
+given:
+  duration: 10s
+  matomo: {naming: chorkiLegacy}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 3s}
+  - value: {playing: false}
+  - play: {to: 10s}
+  - value: {playing: false, completed: true}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - play
+    - pause
+    - resume
+    - complete
+  matomo:
+    - {e_c: MediaVideo, e_a: play, e_v: "0"}
+    - {e_c: MediaVideo, e_a: pause, e_v: "3"}
+    - {e_c: MediaVideo, e_a: play, e_v: "3"}
+    - {e_c: MediaVideo, e_a: finished, e_v: "10"}

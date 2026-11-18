@@ -1,5 +1,7 @@
 ## 1.6.0
 
+### Added
+
 - New analytics: `ChorkiPlayer(metadata:, analytics:)` and
   `ChorkiPlayerController(analytics:)` report detailed viewing events to
   one or more `ChorkiAnalyticsSink`s:
@@ -30,8 +32,113 @@
   `play` / `pause` / `finished`), `MatomoConfig.chorkiAppDimensions`,
   `MatomoMediaSize.viewport`, and `ChorkiMediaMetadata.pageUrl` /
   `referrerUrl` (`url` / `urlref`).
-- `VideoPreloader.load` takes `onStarted`. `ChorkiPlayerController.attach`
+- Typed errors: `ChorkiPlayerError` with `ChorkiErrorCode` (`noInternet`,
+  `timeout`, `unauthorized`, `forbidden`, `notFound`, `badRequest`,
+  `server`, `malformedResponse`, `noVideoUrl`, `videoLoad`, `playback`,
+  `unknown`), `ChorkiErrorStage` and `isTransient`.
+  `ChorkiPlayerBuilders.errorViewBuilder` receives it.
+- `ChorkiDiagnostics.onError` (a `ChorkiErrorHandler`): every error the
+  player recovers from internally (a rejected quality switch, a failed IMA
+  call, a throwing analytics sink, ...) is reported there instead of being
+  silently dropped. The SDK still never logs.
+- `ChorkiNetworkConfig` and `ChorkiPlayer.configure(network:)`: headers, an
+  async `headersProvider` (auth tokens), timeouts and HTTP/2 for route
+  lookups. VMAP requests never get these headers.
+- `ChorkiVideoPreloader.loadResult` returns a `ChorkiVideoLoadResult` with
+  the reason a load failed (`timeout` vs `videoLoad`).
+- `package:chorki_player/chorki_player_testing.dart`: conformance suites for
+  your own `ChorkiAnalyticsSink`, `ChorkiAnalyticsStorage`, `MatomoTransport`
+  and `ChorkiPipDelegate` (`analyticsSinkConformance`, ...), plus
+  `ChorkiFakeClock`, `sequentialIds` and `sampleAnalyticsEvent`. No
+  `flutter_test` dependency. `ChorkiClock` and `ChorkiIdGenerator` are
+  exported.
+- `ChorkiVideoLoadScheduler.configure` sets the app-wide load limits.
+- `VideoPlayerController` and `VideoPlayerValue` are exported, so builders
+  and `ChorkiPlayerSurface` work without depending on `video_player`.
+- `ChorkiAnalyticsSchema`, `ChorkiAnalyticsKeys`, `ChorkiAnalyticsField` and
+  `ChorkiAnalyticsValueType`: the typed description of every event's `data`
+  (also generated into the README). The player checks each payload against
+  it in debug builds.
+- `ChorkiAnalyticsConfig.clock` / `idGenerator` (deterministic tests) and
+  `ChorkiAnalyticsSink.onConsentRevoked` (`MatomoAnalyticsSink` and
+  `MemoryAnalyticsSink` drop what they buffered).
+- A `heartbeat` with `trigger: background` when the app goes to the
+  background, followed by a flush of every sink.
+- `ChorkiSeekBarState.adMarkers`: a custom `seekBarBuilder` can draw the
+  mid-roll `ChorkiAdMarker`s like the built-in seek bar does.
+- `==` and `hashCode` on `ChorkiPlayerTheme`, `ChorkiPlayerIcons` and
+  `ChorkiPlayerStrings` (rebuilding with an equal theme is a no-op compare).
+- Dartdoc for `ChorkiAdConfig`, `ChorkiAdMarker`, `ChorkiPlayerIcons`,
+  `ChorkiPlayerStrings`, `ChorkiSeekBarState`, `ChorkiGestureKind`,
+  `ChorkiGestureFeedback` and `defaultAdCountdown`.
+
+### Changed
+
+- `ChorkiPlayerController.setAdPlaying` is `@internal` (only the player's ad
+  layer calls it).
+- The player keeps its own services (`ChorkiServices`) instead of
+  registering in the app's `GetIt.instance`, so an app resetting or scoping
+  GetIt no longer breaks it.
+- Route failures are typed. Permanent ones (401/403/404/4xx, a malformed
+  response, no video URL) are no longer retried silently; the error view
+  still offers Retry. The error view shows the localized
+  `ChorkiPlayerStrings.noInternet` / `serverError` / `genericError` instead
+  of the server's raw message.
+- `ChorkiAnalyticsSession.recordError` takes the `ChorkiPlayerError`; the
+  `error` event carries `code`, `stage`, `transient`, `statusCode` and
+  `detail`.
+- Analytics payload keys are unambiguous: `heartbeat.trigger` (was
+  `reason`), `abandon.abandonStage` (was `stage`), `audioTrackChange`
+  `fromTrack` / `toTrack` (were `from` / `to`). Event `data` is unmodifiable.
+- Analytics consent and `enabled` are view boundaries: turning them on starts
+  a fresh view (with its impression); turning them off ends the view without
+  counting anything in between.
+- `watchedPercent` counts the time actually covered (not touched 5 s
+  buckets); segments end exactly at the video's end; `firstFrame` and the
+  loop count are per view; replaying after the end reports quartiles again.
+- `MatomoAnalyticsSink` treats a throwing transport as a failed send (backoff,
+  reported), restores a damaged saved queue entry by entry within
+  `maxQueueLength`, never sends a request twice when the app goes to the
+  background before the saved queue was restored, and reports recovered
+  errors to `ChorkiDiagnostics`.
+- `ChorkiVideoPreloader.load` takes `onStarted`. `ChorkiPlayerController.attach`
   takes `analytics`.
+- Stricter analyzer settings (strict casts / inference / raw types and more
+  lints) and guardrail tests in `test/guardrails/` that check the source for
+  swallowed errors, layering, wall-clock use, file size, magic durations, the
+  public API snapshot, dartdoc coverage, the deprecation policy, test
+  coverage of every file, and CHANGELOG / README consistency.
+
+### Fixed
+
+- An IMA ads manager that loaded after its player was disposed was never
+  destroyed.
+- `ChorkiPlayerController` cancels its PiP status probes on dispose.
+- VMAP schedules reuse one HTTP client instead of creating one per request.
+- `ChorkiShortsSeekBar` ends a drag cut off by a controller swap or disposal
+  (analytics no longer treat the next pause as part of a scrub).
+- A custom `seekBarBuilder`'s seeks are clamped to the video before they are
+  reported (a seek past the end was reported as such).
+- Route responses with any 2xx status (202, 206, ...) are successes; only
+  200, 201 and 204 were.
+
+### Deprecated
+
+- `PlayerGestureOverlay`, `ShortsSeekBar`, `VideoPreloader`,
+  `VideoLoadScheduler` and `FloatingPipDelegate`: renamed to
+  `ChorkiGestureOverlay`, `ChorkiShortsSeekBar`, `ChorkiVideoPreloader`,
+  `ChorkiVideoLoadScheduler` and `ChorkiFloatingPipDelegate` (every public
+  type now has the `Chorki` prefix). The old names are aliases.
+- `ByteDataEntity` and `AdCampaignEntity`: internal types that appear in no
+  public API.
+- `getIt` and `initChorkiPlayer`: the player no longer uses GetIt.
+- `ChorkiPlayerBuilders.errorBuilder`: use `errorViewBuilder`.
+- Assigning `ChorkiVideoLoadScheduler.instance` (setter `instance`): use
+  `ChorkiVideoLoadScheduler.configure(maxConcurrent:)` at startup.
+
+### Removed
+
+- The `dartz` dependency.
 
 ## 1.5.0
 

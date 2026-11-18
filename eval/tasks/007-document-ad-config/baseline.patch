@@ -1,0 +1,187 @@
+diff --git a/lib/src/ads/chorki_ad_config.dart b/lib/src/ads/chorki_ad_config.dart
+--- a/lib/src/ads/chorki_ad_config.dart
++++ b/lib/src/ads/chorki_ad_config.dart
+@@ -1,16 +1,8 @@
+ import 'package:flutter/foundation.dart';
+ import 'package:interactive_media_ads/interactive_media_ads.dart';
+ 
+-/// IMA ad settings for a [ChorkiPlayer]-style player (`ChorkiPlayer.ads`).
+-///
+-/// Ads play only when this is set, [enabled] is true and the byte has an ad
+-/// tag (a campaign, or `adTagUrl` with `ChorkiPlayer.url`). Break timing
+-/// comes from the campaign's VMAP; there are no roll settings here. A
+-/// preloading player (`ChorkiPlayer.preload`) requests no ads: the request,
+-/// the pre-roll and [loadTimeout] all start when the byte becomes active.
+ @immutable
+ class ChorkiAdConfig {
+-  /// Ads on, IMA preloading on, an 8 s load timeout.
+   const ChorkiAdConfig({
+     this.enabled = true,
+     this.progressInterval = const Duration(milliseconds: 200),
+@@ -20,33 +12,18 @@
+     this.onAdError,
+   });
+ 
+-  /// Turns ads on or off for this player without removing the config.
+-  /// Default `true`.
+   final bool enabled;
+ 
+-  /// How often content progress is reported to IMA while the content plays;
+-  /// mid-rolls start on the first report at or past their offset, and the
+-  /// seek bar's ad markers update at this rate. Default 200 ms.
+   final Duration progressInterval;
+ 
+-  /// Lets IMA buffer an ad's media before its break starts, for smoother
+-  /// breaks (IMA `AdsRenderingSettings.enablePreloading`). Unrelated to
+-  /// `ChorkiPlayer.preload`. Default `true`.
+   final bool enablePreloading;
+ 
+   /// Content is shown and played if no ad has started (or been ruled out)
+   /// within this time, e.g. when the IMA SDK hangs. Reported through
+   /// [onAdError]. Ads that arrive later still play. Null disables it.
+-  /// Default 8 s, counted from when the byte becomes active (never while it
+-  /// preloads).
+   final Duration? loadTimeout;
+ 
+-  /// Called with every raw IMA event (loaded, started, completed, ...), in
+-  /// addition to the analytics the player reports itself.
+   final ValueChanged<AdEvent>? onAdEvent;
+ 
+-  /// Called with a message when an ad fails to load or play, or
+-  /// [loadTimeout] passes. The content plays on; nothing is shown to the
+-  /// viewer.
+   final ValueChanged<String>? onAdError;
+ }
+diff --git a/lib/src/ads/ad_timeline.dart b/lib/src/ads/ad_timeline.dart
+--- a/lib/src/ads/ad_timeline.dart
++++ b/lib/src/ads/ad_timeline.dart
+@@ -2,25 +2,16 @@
+ 
+ import 'vmap.dart';
+ 
+-/// A mid-roll ad break on the seek bar: where it sits and whether it has
+-/// played. The built-in seek bar draws these; a custom one gets them as
+-/// `ChorkiSeekBarState.adMarkers`.
+ @immutable
+ class ChorkiAdMarker {
+-  /// A marker for break [id] at [fraction] of the video.
+   const ChorkiAdMarker({
+     required this.id,
+     required this.fraction,
+     required this.played,
+   });
+ 
+-  /// The break's id from the VMAP; stable while the video plays.
+   final String id;
+-
+-  /// Where the break sits, from 0 (start) to 1 (end) of the content.
+   final double fraction;
+-
+-  /// Its break has started, or IMA reported every ad of the video done.
+   final bool played;
+ 
+   @override
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -393,43 +393,6 @@
+ | `loadTimeout`            | `8 s`       | Shows and plays content if no ad has started by then (`null` disables) |
+ | `onAdEvent`              | `null`      | Called for each IMA `AdEvent`                              |
+ | `onAdError`              | `null`      | Called with a message when an ad fails to load or play     |
+-
+-The seek bar marks each mid-roll. A custom seek bar gets the same marks as
+-`ChorkiSeekBarState.adMarkers` (`ChorkiAdMarker`: `id`, `fraction` 0..1 of
+-the content, `played`):
+-
+-<!-- excerpt: ads-markers -->
+-```dart
+-ChorkiPlayer(
+-  route: byteRoute,
+-  ads: const ChorkiAdConfig(),
+-  builders: ChorkiPlayerBuilders(
+-    seekBarBuilder: (context, state, onSeek) => LayoutBuilder(
+-      builder: (context, box) {
+-        final total = state.duration.inMilliseconds;
+-        final played = total == 0
+-            ? 0.0
+-            : state.position.inMilliseconds / total;
+-        return Stack(
+-          children: [
+-            LinearProgressIndicator(value: played),
+-            // One tick per mid-roll; played breaks are dimmed.
+-            for (final marker in state.adMarkers)
+-              Positioned(
+-                left: marker.fraction * box.maxWidth - 2,
+-                child: Container(
+-                  width: 4,
+-                  height: 8,
+-                  color: marker.played ? Colors.white38 : Colors.amber,
+-                ),
+-              ),
+-          ],
+-        );
+-      },
+-    ),
+-  ),
+-)
+-```
+ 
+ ### Platform setup checklist
+ 
+diff --git a/example/lib/readme/snippets.dart b/example/lib/readme/snippets.dart
+--- a/example/lib/readme/snippets.dart
++++ b/example/lib/readme/snippets.dart
+@@ -184,42 +184,6 @@
+       loadTimeout: const Duration(seconds: 8),
+       onAdEvent: (event) => debugPrint('IMA event: ${event.type}'),
+       onAdError: (message) => debugPrint('Ad error: $message'),
+-    ),
+-  )
+-  // #endregion
+-  ;
+-}
+-
+-Widget adsMarkers(String byteRoute) {
+-  return
+-  // #region ads-markers
+-  ChorkiPlayer(
+-    route: byteRoute,
+-    ads: const ChorkiAdConfig(),
+-    builders: ChorkiPlayerBuilders(
+-      seekBarBuilder: (context, state, onSeek) => LayoutBuilder(
+-        builder: (context, box) {
+-          final total = state.duration.inMilliseconds;
+-          final played = total == 0
+-              ? 0.0
+-              : state.position.inMilliseconds / total;
+-          return Stack(
+-            children: [
+-              LinearProgressIndicator(value: played),
+-              // One tick per mid-roll; played breaks are dimmed.
+-              for (final marker in state.adMarkers)
+-                Positioned(
+-                  left: marker.fraction * box.maxWidth - 2,
+-                  child: Container(
+-                    width: 4,
+-                    height: 8,
+-                    color: marker.played ? Colors.white38 : Colors.amber,
+-                  ),
+-                ),
+-            ],
+-          );
+-        },
+-      ),
+     ),
+   )
+   // #endregion
+diff --git a/test/guardrails/baselines.json b/test/guardrails/baselines.json
+--- a/test/guardrails/baselines.json
++++ b/test/guardrails/baselines.json
+@@ -1,5 +1,7 @@
+ {
+   "dartdoc": {
++    "lib/src/ads/ad_timeline.dart": 4,
++    "lib/src/ads/chorki_ad_config.dart": 6,
+     "lib/src/analytics/chorki_analytics_event.dart": 5,
+     "lib/src/analytics/chorki_analytics_session.dart": 1,
+     "lib/src/analytics/chorki_media_metadata.dart": 5,

@@ -1,0 +1,22 @@
+name: consent_revoked
+description: revoking consent ends the view silently and sinks drop what they buffered
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 4s}
+  - consent: false
+  - play: {to: 8s}
+  - consent: true
+  - play: {to: 9s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression: {$session: $new, $position: 8}
+    - play: {timeToPlayMs: 0}
+    - firstFrame
+    # Quartiles are position based: a view starting at 8 s of 20 s is past 25 %.
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: end}
+    - sessionEnd: {$watched: 1, $session: $new}

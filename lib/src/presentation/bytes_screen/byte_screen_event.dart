@@ -1,4 +1,4 @@
-import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
+import '../../domain/entity/byte_data_entity.dart';
 
 abstract class ByteScreenEvent {
   const ByteScreenEvent();

@@ -1,0 +1,7 @@
+criteria:
+  - id: regression_scenario
+    weight: 2
+    check: a new scenario under test/scenarios mentions loopCount
+  - id: mutant_added
+    weight: 2
+    check: tool/mutants.yaml gained a mutant, and it is killed

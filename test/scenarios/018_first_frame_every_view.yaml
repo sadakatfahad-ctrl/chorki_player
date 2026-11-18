@@ -1,0 +1,24 @@
+name: first_frame_every_view
+description: "regression: revisiting a loaded page reported no first frame"
+given: {duration: 20s}
+steps:
+  - activate
+  - loadStart
+  - loadRunning
+  - loaded
+  - bind
+  - value: {initialized: true}
+  - play: {to: 1s}
+  - deactivate: swipedAway
+  - value: {playing: false, position: 0s}
+  - activate
+  - advance: 50ms
+  - play: {to: 1s}
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - firstFrame: {preloaded: false, $session: $first}
+    - sessionEnd: {$session: $first}
+    - impression: {$session: $second}
+    - firstFrame: {preloaded: true, $session: $second}

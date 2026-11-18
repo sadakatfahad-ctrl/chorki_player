@@ -1,0 +1,10 @@
+criteria:
+  - id: schema_entry
+    weight: 2
+    check: ChorkiAnalyticsSchema.own(replay) has a required integer fromMs
+  - id: scenario_added
+    weight: 2
+    check: a new test/scenarios/*.yaml asserts the replay event
+  - id: matomo_mapped
+    weight: 1
+    check: MatomoRequestBuilder describes replay

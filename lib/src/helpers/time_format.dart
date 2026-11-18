@@ -1,3 +1,4 @@
+/// `m:ss`, or `h:mm:ss` from an hour.
 String formatClock(Duration duration) {
   final totalSeconds = duration.inSeconds;
   final hours = totalSeconds ~/ 3600;
@@ -9,7 +10,12 @@ String formatClock(Duration duration) {
   return hours > 0 ? '$hours:$mm:$ss' : '$mm:$ss';
 }
 
+/// A signed jump in whole seconds: `+10s`, `-5s`.
 String formatDelta(Duration duration) {
   final seconds = duration.inSeconds;
   return seconds >= 0 ? '+${seconds}s' : '${seconds}s';
 }
+
+/// A playback speed without a needless `.0`: `2`, `1.5`, `0.75`.
+String formatSpeed(double speed) =>
+    speed == speed.roundToDouble() ? speed.toStringAsFixed(0) : '$speed';

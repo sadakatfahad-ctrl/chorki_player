@@ -1,0 +1,25 @@
+name: seek_not_watched
+description: a seek is reported with its source; the jump is not watched time
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 4s}
+  - seek: {to: 15s, source: scrub}
+  - play: {to: 16s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - play
+    - firstFrame
+    - heartbeat: {trigger: seek, newSegments: [5]}
+    - seek: {fromMs: 4000, toMs: 15000, source: scrub}
+    - quartile: {percent: 25}
+    - quartile: {percent: 50}
+    - quartile: {percent: 75}
+    - heartbeat: {trigger: end, newSegments: [20]}
+    - sessionEnd: {seekCount: 1, $watched: 5, maxPositionMs: 16000, watchedPercent: 25}
+  matomo:
+    - {e_a: seek (scrub), e_v: "11"}

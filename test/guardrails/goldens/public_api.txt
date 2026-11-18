@@ -1,0 +1,1263 @@
+## lib/chorki_player.dart
+export 'package:video_player/video_player.dart' show VideoAudioTrack, VideoPlayerController, VideoPlayerValue, VideoTrack, VideoViewType;
+# AdCampaignEntity
+. Removed in 2.0.0.') typedef AdCampaignEntity = entity.AdCampaignEntity; [deprecated]
+# ByteDataEntity
+. Removed in 2.0.0.') typedef ByteDataEntity = entity.ByteDataEntity; [deprecated]
+# CallbackAnalyticsSink
+class CallbackAnalyticsSink extends ChorkiAnalyticsSink
+  CallbackAnalyticsSink(this.callback)
+  final ValueChanged<ChorkiAnalyticsEvent> callback
+# ChorkiAdConfig
+class ChorkiAdConfig
+  const ChorkiAdConfig({this.enabled = true, this.progressInterval = const Duration(milliseconds: 200), this.enablePreloading = true, this.loadTimeout = const Duration(seconds: 8), this.onAdEvent, this.onAdError})
+  final Duration progressInterval
+  final Duration? loadTimeout
+  final ValueChanged<AdEvent>? onAdEvent
+  final ValueChanged<String>? onAdError
+  final bool enablePreloading
+  final bool enabled
+# ChorkiAdMarker
+class ChorkiAdMarker
+  const ChorkiAdMarker({required this.id, required this.fraction, required this.played})
+  final String id
+  final bool played
+  final double fraction
+# ChorkiAnalyticsCategory
+enum ChorkiAnalyticsCategory
+  values: playback, qoe, ad, ux
+# ChorkiAnalyticsConfig
+class ChorkiAnalyticsConfig
+  bool get isActive
+  const ChorkiAnalyticsConfig({required this.sinks, this.enabled = true, this.consentGranted = true, this.heartbeatInterval = const Duration(seconds: 10), this.segmentLength = const Duration(seconds: 5), this.newSessionOnLoop = true, this.clock = systemClock, this.idGenerator = randomId})
+  final ChorkiClock clock
+  final ChorkiIdGenerator idGenerator
+  final Duration heartbeatInterval
+  final Duration segmentLength
+  final List<ChorkiAnalyticsSink> sinks
+  final bool consentGranted
+  final bool enabled
+  final bool newSessionOnLoop
+# ChorkiAnalyticsEvent
+class ChorkiAnalyticsEvent
+  ChorkiAnalyticsCategory get category
+  const ChorkiAnalyticsEvent({required this.type, required this.sessionId, required this.timestamp, required this.metadata, required this.position, required this.duration, required this.watchedTime, this.videoSize = Size.zero, this.timeToPlay, this.data = const {}})
+  final ChorkiAnalyticsEventType type
+  final ChorkiMediaMetadata metadata
+  final DateTime timestamp
+  final Duration duration
+  final Duration position
+  final Duration watchedTime
+  final Duration? timeToPlay
+  final Map<String, Object?> data
+  final Size videoSize
+  final String sessionId
+# ChorkiAnalyticsEventType
+enum ChorkiAnalyticsEventType
+  values: impression, play, pause, resume, seek, heartbeat, quartile, complete, loop, sessionEnd, loadStart, firstFrame, bufferStart, bufferEnd, error, retry, qualityChange, abandon, adBreakStart, adStart, adQuartile, adComplete, adSkip, adClick, adPause, adResume, adError, adBreakEnd, speedChange, speedBoostStart, speedBoostEnd, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen
+  const ChorkiAnalyticsEventType(this.category)
+  final ChorkiAnalyticsCategory category
+# ChorkiAnalyticsField
+class ChorkiAnalyticsField
+  const ChorkiAnalyticsField(this.key, this.type, {this.required = true})
+  const ChorkiAnalyticsField.optional(this.key, this.type)
+  final ChorkiAnalyticsValueType type
+  final String key
+  final bool required
+# ChorkiAnalyticsKeys
+abstract final class ChorkiAnalyticsKeys
+  static const abandonStage
+  static const adCampaignId
+  static const adCampaignTitle
+  static const adDurationMs
+  static const adId
+  static const adSystem
+  static const adTitle
+  static const advertiser
+  static const afterSeek
+  static const attempt
+  static const auto
+  static const bitrate
+  static const breakIndex
+  static const breakKind
+  static const code
+  static const detail
+  static const durationMs
+  static const dwellMs
+  static const errorCount
+  static const fit
+  static const from
+  static const fromHeight
+  static const fromMs
+  static const fromTrack
+  static const initMs
+  static const interrupted
+  static const label
+  static const loopCount
+  static const maxPositionMs
+  static const message
+  static const muted
+  static const newSegments
+  static const pauseCount
+  static const percent
+  static const podPosition
+  static const podTotal
+  static const preloaded
+  static const queueWaitMs
+  static const reason
+  static const rebufferCount
+  static const rebufferMs
+  static const seekCount
+  static const skippable
+  static const source
+  static const speed
+  static const stage
+  static const startupMs
+  static const status
+  static const statusCode
+  static const timeToPlayMs
+  static const to
+  static const toHeight
+  static const toMs
+  static const toTrack
+  static const transient
+  static const trigger
+  static const waitedMs
+  static const watchedPercent
+  static const willRetry
+# ChorkiAnalyticsSchema
+abstract final class ChorkiAnalyticsSchema
+  static List<ChorkiAnalyticsField> of(ChorkiAnalyticsEventType type)
+  static List<ChorkiAnalyticsField> own(ChorkiAnalyticsEventType type)
+  static List<String> validate(ChorkiAnalyticsEventType type, Map<String, Object?> data)
+  static const List<ChorkiAnalyticsField> adCommon
+  static const List<ChorkiAnalyticsField> adDetails
+# ChorkiAnalyticsSession
+class ChorkiAnalyticsSession
+  ChorkiAnalyticsConfig get config
+  ChorkiAnalyticsSession({required this._config, required this._metadata, ChorkiClock? clock, ChorkiIdGenerator? idGenerator})
+  Duration get watchedTime
+  Map<String, Object?> adContext
+  String? get sessionId
+  bool get isActive
+  bool get isHeartbeatRunning
+  dynamic set config(ChorkiAnalyticsConfig value)
+  void activate()
+  void bind(ValueListenable<VideoPlayerValue> video)
+  void deactivate(ChorkiSessionEndReason reason)
+  void dispose()
+  void heartbeat()
+  void recordAd(ChorkiAnalyticsEventType type, [Map<String, Object?>? data])
+  void recordAdBreakEnd()
+  void recordAdBreakStart()
+  void recordAudioTrackChange(String? from, String to)
+  void recordError(ChorkiPlayerError error, {required bool willRetry})
+  void recordFitChange(String fit)
+  void recordLoadRunning()
+  void recordLoadStart()
+  void recordLoaded()
+  void recordPipChange(String status)
+  void recordQualityChange({int? fromHeight, int? toHeight, int? bitrate, String? label})
+  void recordRetry({required int attempt, required bool auto})
+  void recordScrubCancel()
+  void recordScrubStart()
+  void recordSeek(Duration from, Duration to, ChorkiSeekSource source)
+  void recordSettingsOpen()
+  void recordSpeedBoostEnd()
+  void recordSpeedBoostStart(double speed)
+  void recordSpeedChange(double from, double to)
+  void unbind()
+# ChorkiAnalyticsSink
+abstract class ChorkiAnalyticsSink
+  Future<void> dispose()
+  Future<void> flush()
+  Future<void> onConsentRevoked()
+  void onEvent(ChorkiAnalyticsEvent event)
+# ChorkiAnalyticsStorage
+abstract class ChorkiAnalyticsStorage
+  Future<String?> read(String key)
+  Future<void> write(String key, String? value)
+# ChorkiAnalyticsValueType
+enum ChorkiAnalyticsValueType
+  values: integer, number, boolean, string, integerList
+  bool accepts(Object? value)
+# ChorkiClock
+typedef ChorkiClock = DateTime Function();
+# ChorkiDiagnostics
+abstract final class ChorkiDiagnostics
+  static ChorkiErrorHandler? onError
+  static void report(Object error, StackTrace stack, String context)
+# ChorkiErrorCode
+enum ChorkiErrorCode
+  values: noInternet, timeout, unauthorized, forbidden, notFound, badRequest, server, malformedResponse, noVideoUrl, videoLoad, playback, unknown
+# ChorkiErrorHandler
+typedef ChorkiErrorHandler = void Function(Object error, StackTrace stack, String context);
+# ChorkiErrorStage
+enum ChorkiErrorStage
+  values: route, load, playback
+# ChorkiFloatingPipDelegate
+class ChorkiFloatingPipDelegate implements ChorkiPipDelegate
+  ChorkiFloatingPipDelegate([Floating? floating])
+# ChorkiGestureFeedback
+class ChorkiGestureFeedback
+  const ChorkiGestureFeedback({required this.kind, required this.label})
+  final ChorkiGestureKind kind
+  final String label
+# ChorkiGestureKind
+enum ChorkiGestureKind
+  values: seekForward, seekBackward, speed
+# ChorkiGestureOverlay
+class ChorkiGestureOverlay extends StatefulWidget
+  const ChorkiGestureOverlay({super.key, required this.controller, required this.onTogglePlayPause, this.doubleTapSeek = const Duration(seconds: 10), this.doubleTapWindow = const Duration(milliseconds: 800), this.longPressSpeed = 2.0, this.fullScreenDragSeconds = 90, this.hapticTickInterval = const Duration(seconds: 5), this.seekThrottle = const Duration(milliseconds: 150), this.onGesturesActiveChanged, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders()})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final Duration doubleTapSeek
+  final Duration doubleTapWindow
+  final Duration hapticTickInterval
+  final Duration seekThrottle
+  final ValueChanged<bool>? onGesturesActiveChanged
+  final VideoPlayerController controller
+  final VoidCallback onTogglePlayPause
+  final double fullScreenDragSeconds
+  final double longPressSpeed
+# ChorkiIdGenerator
+typedef ChorkiIdGenerator = String Function();
+# ChorkiMediaMetadata
+class ChorkiMediaMetadata
+  ChorkiMediaMetadata copyWith({String? contentId, String? title, String? mediaUrl})
+  Map<String, String> toMap()
+  const ChorkiMediaMetadata({this.contentId, this.title, this.mediaUrl, this.seriesId, this.seriesTitle, this.seasonNumber, this.episodeNumber, this.category, this.contentType, this.feedIndex, this.pageUrl, this.referrerUrl, this.extra = const {}})
+  final Map<String, String> extra
+  final String? category
+  final String? contentId
+  final String? contentType
+  final String? mediaUrl
+  final String? pageUrl
+  final String? referrerUrl
+  final String? seriesId
+  final String? seriesTitle
+  final String? title
+  final int? episodeNumber
+  final int? feedIndex
+  final int? seasonNumber
+# ChorkiMediaOptions
+class ChorkiMediaOptions
+  ChorkiMediaOptions copyWith({Map<String, String>? httpHeaders, Duration? startPosition, Duration? backBuffer, bool? allowBackgroundPlayback, bool? mixWithOthers, bool? keepScreenOn, VideoViewType? viewType})
+  VideoPlayerOptions toVideoPlayerOptions()
+  const ChorkiMediaOptions({this.httpHeaders = const <String, String>{}, this.startPosition, this.backBuffer, this.allowBackgroundPlayback = false, this.mixWithOthers = false, this.keepScreenOn = true, this.viewType = VideoViewType.textureView})
+  final Duration? backBuffer
+  final Duration? startPosition
+  final Map<String, String> httpHeaders
+  final VideoViewType viewType
+  final bool allowBackgroundPlayback
+  final bool keepScreenOn
+  final bool mixWithOthers
+# ChorkiNetworkConfig
+class ChorkiNetworkConfig
+  const ChorkiNetworkConfig({this.headers = const {}, this.headersProvider, this.connectTimeout = const Duration(seconds: 8), this.receiveTimeout = const Duration(seconds: 15), this.useHttp2 = true})
+  final Duration connectTimeout
+  final Duration receiveTimeout
+  final Future<Map<String, String>> Function()? headersProvider
+  final Map<String, String> headers
+  final bool useHttp2
+# ChorkiPipDelegate
+abstract class ChorkiPipDelegate
+  Future<ChorkiPipStatus> enter(double aspectRatio)
+  Future<ChorkiPipStatus> status()
+  Future<void> setAuto(bool enabled, double aspectRatio)
+# ChorkiPipStatus
+enum ChorkiPipStatus
+  values: unavailable, disabled, automatic, enabled
+# ChorkiPlayer
+class ChorkiPlayer extends StatefulWidget
+  const ChorkiPlayer({super.key, required this.route, this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+  const ChorkiPlayer.url(String this.videoUrl, {super.key, this.posterUrl = '', this.adTagUrl = '', this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+  final ChorkiAdConfig? ads
+  final ChorkiAnalyticsConfig? analytics
+  final ChorkiMediaMetadata? metadata
+  final ChorkiMediaOptions mediaOptions
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerController? controller
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final ChorkiVideoFit initialFit
+  final Duration doubleTapSeek
+  final Duration initTimeout
+  final List<double> speedOptions
+  final String adTagUrl
+  final String posterUrl
+  final String route
+  final String? videoUrl
+  final bool autoPlay
+  final bool enableGestures
+  final bool looping
+  final bool preload
+  final bool showSeekBar
+  final bool showSettingsButton
+  final bool sizeToVideo
+  final double longPressSpeed
+  final double placeholderAspectRatio
+  final double seekBarBottomOffset
+  static void configure({required ChorkiNetworkConfig network})
+# ChorkiPlayerBuilders
+class ChorkiPlayerBuilders
+  const ChorkiPlayerBuilders({this.loadingBuilder, this.errorBuilder, this.errorViewBuilder, this.playPauseBuilder, this.seekBarBuilder, this.timeBubbleBuilder, this.gestureFeedbackBuilder, this.adCountdownBuilder, this.settingsButtonBuilder, this.settingsSheetBuilder, this.qualityLabelBuilder})
+  final String Function(VideoTrack track)? qualityLabelBuilder
+  final Widget Function(BuildContext, ChorkiGestureFeedback feedback)? gestureFeedbackBuilder
+  final Widget Function(BuildContext, ChorkiPlayerController controller)? settingsSheetBuilder
+  final Widget Function(BuildContext, ChorkiPlayerError error, VoidCallback? onRetry)? errorViewBuilder
+  final Widget Function(BuildContext, ChorkiSeekBarState state, ValueChanged<Duration> onSeek)? seekBarBuilder
+  final Widget Function(BuildContext, String message, VoidCallback? onRetry)? errorBuilder [deprecated]
+  final Widget Function(BuildContext, String text)? timeBubbleBuilder
+  final Widget Function(BuildContext, VideoPlayerController)? playPauseBuilder
+  final Widget Function(BuildContext, VoidCallback onPressed)? settingsButtonBuilder
+  final Widget Function(BuildContext, int secondsRemaining, VoidCallback startNow)? adCountdownBuilder
+  final WidgetBuilder? loadingBuilder
+# ChorkiPlayerController
+class ChorkiPlayerController
+  ChorkiPlayerController({double initialSpeed = 1.0, ChorkiVideoFit initialFit = ChorkiVideoFit.fit, this.seekStep = const Duration(seconds: 10), ChorkiPipDelegate? pipDelegate, this.analytics})
+  Future<void> enterPip()
+  Future<void> pause()
+  Future<void> play()
+  Future<void> refreshPipStatus()
+  Future<void> refreshTracks()
+  Future<void> seekBack([Duration? step])
+  Future<void> seekForward([Duration? step])
+  Future<void> seekTo(Duration position)
+  Future<void> selectAudioTrack(String trackId)
+  Future<void> selectQuality(VideoTrack? track)
+  Future<void> setAutoPip(bool enabled)
+  Future<void> setSpeed(double speed)
+  Future<void> togglePlayPause()
+  ValueListenable<ChorkiPipStatus> get pipStatus
+  ValueListenable<ChorkiVideoFit> get fit
+  ValueListenable<List<VideoAudioTrack>> get audioTracks
+  ValueListenable<List<VideoTrack>> get videoTracks
+  ValueListenable<String?> get selectedAudioTrackId
+  ValueListenable<VideoPlayerController?> get videoController
+  ValueListenable<VideoPlayerValue> get value
+  ValueListenable<VideoTrack?> get selectedVideoTrack
+  ValueListenable<bool> get isAdPlaying
+  ValueListenable<double> get speed
+  bool get isAttached
+  bool get isAutoPipEnabled
+  bool get isPipAvailable
+  final ChorkiAnalyticsConfig? analytics
+  final Duration seekStep
+  void attach(VideoPlayerController controller, {VoidCallback? onRetry, ChorkiAnalyticsSession? analytics})
+  void detach([VideoPlayerController? controller])
+  void dispose()
+  void retry()
+  void setAdPlaying(bool playing)
+  void setFit(ChorkiVideoFit fit)
+  void toggleFit()
+# ChorkiPlayerError
+class ChorkiPlayerError implements Exception
+  String message(ChorkiPlayerStrings strings)
+  bool get isTransient
+  const ChorkiPlayerError(this.code, {this.stage = ChorkiErrorStage.route, this.statusCode, this.detail})
+  factory ChorkiPlayerError.from(Object error, {ChorkiErrorStage stage = ChorkiErrorStage.route})
+  final ChorkiErrorCode code
+  final ChorkiErrorStage stage
+  final String? detail
+  final int? statusCode
+# ChorkiPlayerIcons
+class ChorkiPlayerIcons
+  const ChorkiPlayerIcons({this.play = Icons.play_arrow, this.refresh = Icons.refresh, this.fastForward = Icons.fast_forward, this.fastRewind = Icons.fast_rewind, this.settings = Icons.settings, this.quality = Icons.high_quality_outlined, this.audio = Icons.audiotrack_outlined, this.speed = Icons.speed, this.fit = Icons.fit_screen_outlined, this.pip = Icons.picture_in_picture_alt_outlined, this.check = Icons.check, this.back = Icons.arrow_back})
+  final IconData audio
+  final IconData back
+  final IconData check
+  final IconData fastForward
+  final IconData fastRewind
+  final IconData fit
+  final IconData pip
+  final IconData play
+  final IconData quality
+  final IconData refresh
+  final IconData settings
+  final IconData speed
+# ChorkiPlayerStrings
+class ChorkiPlayerStrings
+  const ChorkiPlayerStrings({this.videoFailed = 'Video failed to play', this.retry = 'Retry', this.seconds = 'Seconds', this.speed = 'Speed', this.noInternet = 'No internet connection', this.serverError = 'Server error occurred', this.genericError = 'Something went wrong', this.adCountdown = defaultAdCountdown, this.adStartNowHint = 'Tap to start now', this.settings = 'Settings', this.quality = 'Quality', this.auto = 'Auto', this.audio = 'Audio', this.normalSpeed = 'Normal', this.fit = 'Fit', this.fill = 'Fill', this.videoFit = 'Video size', this.pictureInPicture = 'Picture-in-picture'})
+  final String Function(int seconds) adCountdown
+  final String adStartNowHint
+  final String audio
+  final String auto
+  final String fill
+  final String fit
+  final String genericError
+  final String noInternet
+  final String normalSpeed
+  final String pictureInPicture
+  final String quality
+  final String retry
+  final String seconds
+  final String serverError
+  final String settings
+  final String speed
+  final String videoFailed
+  final String videoFit
+# ChorkiPlayerSurface
+class ChorkiPlayerSurface extends StatefulWidget
+  const ChorkiPlayerSurface({super.key, required this.controller, required this.onTogglePlayPause, this.showControls = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.overlayButton, this.chorkiController, this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.fit = ChorkiVideoFit.fit, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders()})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerController? chorkiController
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final ChorkiVideoFit fit
+  final Duration doubleTapSeek
+  final List<double> speedOptions
+  final VideoPlayerController controller
+  final VoidCallback onTogglePlayPause
+  final Widget? overlayButton
+  final bool enableGestures
+  final bool showControls
+  final bool showSeekBar
+  final bool showSettingsButton
+  final double longPressSpeed
+  final double seekBarBottomOffset
+# ChorkiPlayerTheme
+class ChorkiPlayerTheme
+  ChorkiPlayerTheme copyWith({Color? backgroundColor, Color? spinnerColor, double? spinnerSize, double? spinnerStrokeWidth, Color? iconColor, TextStyle? errorTextStyle, ButtonStyle? retryButtonStyle, Color? playBadgeColor, Color? playBadgeIconColor, double? playBadgeIconSize, Color? seekBarPlayedColor, Color? seekBarBufferedColor, Color? seekBarBaseColor, Color? seekBarThumbColor, Color? seekBarBubbleColor, TextStyle? seekBarBubbleTextStyle, double? seekBarHeight, Color? gestureOverlayColor, Color? gestureIconColor, TextStyle? gestureTextStyle, Color? adMarkerColor, Color? adMarkerPlayedColor, double? adMarkerWidth, double? adMarkerHeight, Color? adCountdownBackgroundColor, Color? adCountdownAccentColor, TextStyle? adCountdownTextStyle, Color? settingsButtonColor, Color? settingsButtonBackgroundColor, Color? settingsSheetBackgroundColor, TextStyle? settingsTextStyle, TextStyle? settingsSecondaryTextStyle, Color? settingsSelectedColor})
+  const ChorkiPlayerTheme({this.backgroundColor = Colors.black, this.spinnerColor = Colors.white, this.spinnerSize = 28, this.spinnerStrokeWidth = 2.5, this.iconColor = Colors.white, this.errorTextStyle = const TextStyle(color: Colors.white70), this.retryButtonStyle, this.playBadgeColor = Colors.black45, this.playBadgeIconColor = Colors.white, this.playBadgeIconSize = 56, this.seekBarPlayedColor = Colors.white, this.seekBarBufferedColor = Colors.white38, this.seekBarBaseColor = Colors.white24, this.seekBarThumbColor = Colors.white, this.seekBarBubbleColor = Colors.black87, this.seekBarBubbleTextStyle = const TextStyle(color: Colors.white), this.seekBarHeight = 44, this.gestureOverlayColor = const Color(0x73000000), this.gestureIconColor = Colors.white, this.gestureTextStyle = const TextStyle(color: Colors.white), this.adMarkerColor = const Color(0xFFFFC107), this.adMarkerPlayedColor = const Color(0x66FFC107), this.adMarkerWidth = 3, this.adMarkerHeight = 9, this.adCountdownBackgroundColor = const Color(0xCC000000), this.adCountdownAccentColor = const Color(0xFFFFC107), this.adCountdownTextStyle = const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600), this.settingsButtonColor = Colors.white, this.settingsButtonBackgroundColor = const Color(0x59000000), this.settingsSheetBackgroundColor = const Color(0xFF1C1C1E), this.settingsTextStyle = const TextStyle(color: Colors.white, fontSize: 15), this.settingsSecondaryTextStyle = const TextStyle(color: Colors.white60, fontSize: 14), this.settingsSelectedColor = const Color(0xFFFFC107)})
+  final ButtonStyle? retryButtonStyle
+  final Color adCountdownAccentColor
+  final Color adCountdownBackgroundColor
+  final Color adMarkerColor
+  final Color adMarkerPlayedColor
+  final Color backgroundColor
+  final Color gestureIconColor
+  final Color gestureOverlayColor
+  final Color iconColor
+  final Color playBadgeColor
+  final Color playBadgeIconColor
+  final Color seekBarBaseColor
+  final Color seekBarBubbleColor
+  final Color seekBarBufferedColor
+  final Color seekBarPlayedColor
+  final Color seekBarThumbColor
+  final Color settingsButtonBackgroundColor
+  final Color settingsButtonColor
+  final Color settingsSelectedColor
+  final Color settingsSheetBackgroundColor
+  final Color spinnerColor
+  final TextStyle adCountdownTextStyle
+  final TextStyle errorTextStyle
+  final TextStyle gestureTextStyle
+  final TextStyle seekBarBubbleTextStyle
+  final TextStyle settingsSecondaryTextStyle
+  final TextStyle settingsTextStyle
+  final double adMarkerHeight
+  final double adMarkerWidth
+  final double playBadgeIconSize
+  final double seekBarHeight
+  final double spinnerSize
+  final double spinnerStrokeWidth
+# ChorkiSeekBarState
+class ChorkiSeekBarState
+  const ChorkiSeekBarState({required this.position, required this.buffered, required this.duration, required this.dragging, this.adMarkers = const []})
+  final Duration buffered
+  final Duration duration
+  final Duration position
+  final List<ChorkiAdMarker> adMarkers
+  final bool dragging
+# ChorkiSeekSource
+enum ChorkiSeekSource
+  values: doubleTap, scrub, seekBarTap, seekBarDrag, adSkipAhead, api
+# ChorkiSessionEndReason
+enum ChorkiSessionEndReason
+  values: swipedAway, disposed, sourceChanged, looped
+# ChorkiSettingsSheet
+class ChorkiSettingsSheet extends StatefulWidget
+  const ChorkiSettingsSheet({super.key, required this.controller, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.speedOptions = defaultChorkiSpeedOptions})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerController controller
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final List<double> speedOptions
+# ChorkiShortsSeekBar
+class ChorkiShortsSeekBar extends StatefulWidget
+  const ChorkiShortsSeekBar({super.key, required this.controller, this.theme = const ChorkiPlayerTheme(), this.builders = const ChorkiPlayerBuilders(), this.barHeight = 3.0, this.expandedBarHeight = 6.0, this.thumbRadius = 7.0, this.idlePointerRadius = 4.5, this.horizontalPadding = 8.0, this.height, this.adMarkers, this.playedColor, this.bufferedColor, this.baseColor, this.thumbColor, this.bubbleColor, this.bubbleTextStyle, this.hapticTickInterval = const Duration(seconds: 5), this.seekThrottle = const Duration(milliseconds: 150), this.onSeekStarted, this.onSeekEnded})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerTheme theme
+  final Color? baseColor
+  final Color? bubbleColor
+  final Color? bufferedColor
+  final Color? playedColor
+  final Color? thumbColor
+  final Duration hapticTickInterval
+  final Duration seekThrottle
+  final List<ChorkiAdMarker>? adMarkers
+  final TextStyle? bubbleTextStyle
+  final ValueChanged<Duration>? onSeekEnded
+  final ValueChanged<Duration>? onSeekStarted
+  final VideoPlayerController controller
+  final double barHeight
+  final double expandedBarHeight
+  final double horizontalPadding
+  final double idlePointerRadius
+  final double thumbRadius
+  final double? height
+# ChorkiVideoFit
+enum ChorkiVideoFit
+  values: fit, fill
+# ChorkiVideoLoadResult
+class ChorkiVideoLoadResult
+  const ChorkiVideoLoadResult.cancelled()
+  const ChorkiVideoLoadResult.failed(ChorkiPlayerError this.error)
+  const ChorkiVideoLoadResult.loaded(VideoPlayerController this.controller)
+  final ChorkiPlayerError? error
+  final VideoPlayerController? controller
+# ChorkiVideoLoadScheduler
+class ChorkiVideoLoadScheduler
+  ChorkiVideoLoadScheduler({this.maxConcurrent = 2, this.disposalGrace = const Duration(milliseconds: 500)})
+  Future<T?> run<T>(Future<T> Function() task, {bool Function()? isHighPriority, bool Function()? isCancelled})
+  final Duration disposalGrace
+  final int maxConcurrent
+  int get running
+  static ChorkiVideoLoadScheduler get instance
+  static dynamic set instance(ChorkiVideoLoadScheduler value) [deprecated]
+  static void configure({int maxConcurrent = 2, Duration disposalGrace = const Duration(milliseconds: 500)})
+  static void resetForTesting({int maxConcurrent = 2, Duration disposalGrace = Duration.zero})
+  void trackDisposal(Future<void> disposal)
+# ChorkiVideoPreloader
+class ChorkiVideoPreloader
+  ChorkiVideoPreloader({this.initTimeout = const Duration(seconds: 15), this.scheduler})
+  Future<ChorkiVideoLoadResult> loadResult(Uri source, {ChorkiMediaOptions options = const ChorkiMediaOptions(), bool Function()? isHighPriority, bool Function()? isCancelled, void Function()? onStarted})
+  Future<VideoPlayerController?> load(Uri source, {ChorkiMediaOptions options = const ChorkiMediaOptions(), bool Function()? isHighPriority, bool Function()? isCancelled, void Function()? onStarted})
+  Future<void> disposeQuietly(VideoPlayerController? controller)
+  final ChorkiVideoLoadScheduler? scheduler
+  final Duration initTimeout
+# DioMatomoTransport
+class DioMatomoTransport implements MatomoTransport
+  DioMatomoTransport({Dio? dio, Duration timeout = const Duration(seconds: 10)})
+# FloatingPipDelegate
+typedef FloatingPipDelegate = ChorkiFloatingPipDelegate; [deprecated]
+# InMemoryAnalyticsStorage
+class InMemoryAnalyticsStorage implements ChorkiAnalyticsStorage
+  final Map<String, String> values
+# MatomoAnalyticsSink
+class MatomoAnalyticsSink extends ChorkiAnalyticsSink
+  Future<String> get visitorId
+  Map<String, String> get userProperties
+  MatomoAnalyticsSink(this.config, {MatomoTransport? transport, this.userId, Map<String, String> userProperties = const {}, @visibleForTesting this._clock = systemClock})
+  String? userId
+  final MatomoConfig config
+  int get pendingCount
+  static const Duration maxRequestAge
+  static const String queueKey
+  static const String visitorIdKey
+  void setUserProperty(String key, String? value)
+# MatomoConfig
+class MatomoConfig
+  Uri get endpoint
+  const MatomoConfig({required this.url, required this.siteId, this.dimensionIds = const {}, this.mediaAnalytics = true, this.eventTracking = true, this.excludedEvents = defaultExcludedEvents, this.playerName = 'chorki_player', this.appUrl = 'app://chorki', this.fullscreen, this.userAgent, this.batchSize = 20, this.flushInterval = const Duration(seconds: 10), this.maxQueueLength = 500, this.requestTimeout = const Duration(seconds: 10), this.storage, this.visitorIdProvider, this.naming = MatomoNaming.standard, this.mediaSize = MatomoMediaSize.video})
+  final ChorkiAnalyticsStorage? storage
+  final Duration flushInterval
+  final Duration requestTimeout
+  final Map<String, int> dimensionIds
+  final MatomoMediaSize mediaSize
+  final MatomoNaming naming
+  final Set<ChorkiAnalyticsEventType> excludedEvents
+  final String appUrl
+  final String playerName
+  final String url
+  final String? Function()? visitorIdProvider
+  final String? userAgent
+  final bool eventTracking
+  final bool mediaAnalytics
+  final bool? fullscreen
+  final int batchSize
+  final int maxQueueLength
+  final int siteId
+  static const Map<String, int> chorkiAppDimensions
+  static const Set<ChorkiAnalyticsEventType> defaultExcludedEvents
+# MatomoMediaSize
+enum MatomoMediaSize
+  values: video, viewport
+# MatomoNaming
+class MatomoNaming
+  String categoryOf(ChorkiAnalyticsCategory category)
+  const MatomoNaming({this.playbackCategory = 'Video', this.qoeCategory = 'Video QoE', this.adCategory = 'Video Ads', this.uxCategory = 'Video Player', this.actions = const {}, this.positionValue = const {}})
+  final Map<ChorkiAnalyticsEventType, String> actions
+  final Set<ChorkiAnalyticsEventType> positionValue
+  final String adCategory
+  final String playbackCategory
+  final String qoeCategory
+  final String uxCategory
+  static const MatomoNaming chorkiLegacy
+  static const MatomoNaming standard
+# MatomoRequestBuilder
+class MatomoRequestBuilder
+  List<Map<String, String>> build(ChorkiAnalyticsEvent event, {String? userId, Map<String, String> userProperties = const {}, String? resolution, String? language, Size? viewport})
+  const MatomoRequestBuilder(this.config)
+  final MatomoConfig config
+  static (String, String, String, num?) describe(ChorkiAnalyticsEvent event, [MatomoNaming naming = MatomoNaming.standard])
+# MatomoTransport
+abstract class MatomoTransport
+  Future<bool> send(Uri endpoint, List<String> requests)
+# MemoryAnalyticsSink
+class MemoryAnalyticsSink extends ChorkiAnalyticsSink
+  Iterable<ChorkiAnalyticsEventType> get types
+  final List<ChorkiAnalyticsEvent> events
+  void clear()
+# PlayerGestureOverlay
+typedef PlayerGestureOverlay = ChorkiGestureOverlay; [deprecated]
+# ShortsSeekBar
+typedef ShortsSeekBar = ChorkiShortsSeekBar; [deprecated]
+# VideoLoadScheduler
+typedef VideoLoadScheduler = ChorkiVideoLoadScheduler; [deprecated]
+# VideoPreloader
+typedef VideoPreloader = ChorkiVideoPreloader; [deprecated]
+# defaultAdCountdown
+String defaultAdCountdown(int seconds)
+# defaultChorkiSpeedOptions
+const List<double> defaultChorkiSpeedOptions
+# defaultQualityLabel
+String defaultQualityLabel(VideoTrack track, List<VideoTrack> all)
+# formatClock
+String formatClock(Duration duration)
+# formatDelta
+String formatDelta(Duration duration)
+# getIt
+final getIt [deprecated]
+# initChorkiPlayer
+void initChorkiPlayer() [deprecated]
+# showChorkiSettings
+Future<void> showChorkiSettings( BuildContext context, ChorkiPlayerController controller, { ChorkiPlayerTheme theme = const ChorkiPlayerTheme(), ChorkiPlayerIcons icons = const ChorkiPlayerIcons(), ChorkiPlayerStrings strings = const ChorkiPlayerStrings(), ChorkiPlayerBuilders builders = const ChorkiPlayerBuilders(), List<double> speedOptions = defaultChorkiSpeedOptions, })
+## lib/chorki_player_testing.dart
+# AdCampaignEntity
+. Removed in 2.0.0.') typedef AdCampaignEntity = entity.AdCampaignEntity; [deprecated]
+# ByteDataEntity
+. Removed in 2.0.0.') typedef ByteDataEntity = entity.ByteDataEntity; [deprecated]
+# CallbackAnalyticsSink
+class CallbackAnalyticsSink extends ChorkiAnalyticsSink
+  CallbackAnalyticsSink(this.callback)
+  final ValueChanged<ChorkiAnalyticsEvent> callback
+# ChorkiAdConfig
+class ChorkiAdConfig
+  const ChorkiAdConfig({this.enabled = true, this.progressInterval = const Duration(milliseconds: 200), this.enablePreloading = true, this.loadTimeout = const Duration(seconds: 8), this.onAdEvent, this.onAdError})
+  final Duration progressInterval
+  final Duration? loadTimeout
+  final ValueChanged<AdEvent>? onAdEvent
+  final ValueChanged<String>? onAdError
+  final bool enablePreloading
+  final bool enabled
+# ChorkiAdMarker
+class ChorkiAdMarker
+  const ChorkiAdMarker({required this.id, required this.fraction, required this.played})
+  final String id
+  final bool played
+  final double fraction
+# ChorkiAnalyticsCategory
+enum ChorkiAnalyticsCategory
+  values: playback, qoe, ad, ux
+# ChorkiAnalyticsConfig
+class ChorkiAnalyticsConfig
+  bool get isActive
+  const ChorkiAnalyticsConfig({required this.sinks, this.enabled = true, this.consentGranted = true, this.heartbeatInterval = const Duration(seconds: 10), this.segmentLength = const Duration(seconds: 5), this.newSessionOnLoop = true, this.clock = systemClock, this.idGenerator = randomId})
+  final ChorkiClock clock
+  final ChorkiIdGenerator idGenerator
+  final Duration heartbeatInterval
+  final Duration segmentLength
+  final List<ChorkiAnalyticsSink> sinks
+  final bool consentGranted
+  final bool enabled
+  final bool newSessionOnLoop
+# ChorkiAnalyticsEvent
+class ChorkiAnalyticsEvent
+  ChorkiAnalyticsCategory get category
+  const ChorkiAnalyticsEvent({required this.type, required this.sessionId, required this.timestamp, required this.metadata, required this.position, required this.duration, required this.watchedTime, this.videoSize = Size.zero, this.timeToPlay, this.data = const {}})
+  final ChorkiAnalyticsEventType type
+  final ChorkiMediaMetadata metadata
+  final DateTime timestamp
+  final Duration duration
+  final Duration position
+  final Duration watchedTime
+  final Duration? timeToPlay
+  final Map<String, Object?> data
+  final Size videoSize
+  final String sessionId
+# ChorkiAnalyticsEventType
+enum ChorkiAnalyticsEventType
+  values: impression, play, pause, resume, seek, heartbeat, quartile, complete, loop, sessionEnd, loadStart, firstFrame, bufferStart, bufferEnd, error, retry, qualityChange, abandon, adBreakStart, adStart, adQuartile, adComplete, adSkip, adClick, adPause, adResume, adError, adBreakEnd, speedChange, speedBoostStart, speedBoostEnd, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen
+  const ChorkiAnalyticsEventType(this.category)
+  final ChorkiAnalyticsCategory category
+# ChorkiAnalyticsField
+class ChorkiAnalyticsField
+  const ChorkiAnalyticsField(this.key, this.type, {this.required = true})
+  const ChorkiAnalyticsField.optional(this.key, this.type)
+  final ChorkiAnalyticsValueType type
+  final String key
+  final bool required
+# ChorkiAnalyticsKeys
+abstract final class ChorkiAnalyticsKeys
+  static const abandonStage
+  static const adCampaignId
+  static const adCampaignTitle
+  static const adDurationMs
+  static const adId
+  static const adSystem
+  static const adTitle
+  static const advertiser
+  static const afterSeek
+  static const attempt
+  static const auto
+  static const bitrate
+  static const breakIndex
+  static const breakKind
+  static const code
+  static const detail
+  static const durationMs
+  static const dwellMs
+  static const errorCount
+  static const fit
+  static const from
+  static const fromHeight
+  static const fromMs
+  static const fromTrack
+  static const initMs
+  static const interrupted
+  static const label
+  static const loopCount
+  static const maxPositionMs
+  static const message
+  static const muted
+  static const newSegments
+  static const pauseCount
+  static const percent
+  static const podPosition
+  static const podTotal
+  static const preloaded
+  static const queueWaitMs
+  static const reason
+  static const rebufferCount
+  static const rebufferMs
+  static const seekCount
+  static const skippable
+  static const source
+  static const speed
+  static const stage
+  static const startupMs
+  static const status
+  static const statusCode
+  static const timeToPlayMs
+  static const to
+  static const toHeight
+  static const toMs
+  static const toTrack
+  static const transient
+  static const trigger
+  static const waitedMs
+  static const watchedPercent
+  static const willRetry
+# ChorkiAnalyticsSchema
+abstract final class ChorkiAnalyticsSchema
+  static List<ChorkiAnalyticsField> of(ChorkiAnalyticsEventType type)
+  static List<ChorkiAnalyticsField> own(ChorkiAnalyticsEventType type)
+  static List<String> validate(ChorkiAnalyticsEventType type, Map<String, Object?> data)
+  static const List<ChorkiAnalyticsField> adCommon
+  static const List<ChorkiAnalyticsField> adDetails
+# ChorkiAnalyticsSession
+class ChorkiAnalyticsSession
+  ChorkiAnalyticsConfig get config
+  ChorkiAnalyticsSession({required this._config, required this._metadata, ChorkiClock? clock, ChorkiIdGenerator? idGenerator})
+  Duration get watchedTime
+  Map<String, Object?> adContext
+  String? get sessionId
+  bool get isActive
+  bool get isHeartbeatRunning
+  dynamic set config(ChorkiAnalyticsConfig value)
+  void activate()
+  void bind(ValueListenable<VideoPlayerValue> video)
+  void deactivate(ChorkiSessionEndReason reason)
+  void dispose()
+  void heartbeat()
+  void recordAd(ChorkiAnalyticsEventType type, [Map<String, Object?>? data])
+  void recordAdBreakEnd()
+  void recordAdBreakStart()
+  void recordAudioTrackChange(String? from, String to)
+  void recordError(ChorkiPlayerError error, {required bool willRetry})
+  void recordFitChange(String fit)
+  void recordLoadRunning()
+  void recordLoadStart()
+  void recordLoaded()
+  void recordPipChange(String status)
+  void recordQualityChange({int? fromHeight, int? toHeight, int? bitrate, String? label})
+  void recordRetry({required int attempt, required bool auto})
+  void recordScrubCancel()
+  void recordScrubStart()
+  void recordSeek(Duration from, Duration to, ChorkiSeekSource source)
+  void recordSettingsOpen()
+  void recordSpeedBoostEnd()
+  void recordSpeedBoostStart(double speed)
+  void recordSpeedChange(double from, double to)
+  void unbind()
+# ChorkiAnalyticsSink
+abstract class ChorkiAnalyticsSink
+  Future<void> dispose()
+  Future<void> flush()
+  Future<void> onConsentRevoked()
+  void onEvent(ChorkiAnalyticsEvent event)
+# ChorkiAnalyticsStorage
+abstract class ChorkiAnalyticsStorage
+  Future<String?> read(String key)
+  Future<void> write(String key, String? value)
+# ChorkiAnalyticsValueType
+enum ChorkiAnalyticsValueType
+  values: integer, number, boolean, string, integerList
+  bool accepts(Object? value)
+# ChorkiClock
+typedef ChorkiClock = DateTime Function();
+# ChorkiDiagnostics
+abstract final class ChorkiDiagnostics
+  static ChorkiErrorHandler? onError
+  static void report(Object error, StackTrace stack, String context)
+# ChorkiErrorCode
+enum ChorkiErrorCode
+  values: noInternet, timeout, unauthorized, forbidden, notFound, badRequest, server, malformedResponse, noVideoUrl, videoLoad, playback, unknown
+# ChorkiErrorHandler
+typedef ChorkiErrorHandler = void Function(Object error, StackTrace stack, String context);
+# ChorkiErrorStage
+enum ChorkiErrorStage
+  values: route, load, playback
+# ChorkiFloatingPipDelegate
+class ChorkiFloatingPipDelegate implements ChorkiPipDelegate
+  ChorkiFloatingPipDelegate([Floating? floating])
+# ChorkiGestureFeedback
+class ChorkiGestureFeedback
+  const ChorkiGestureFeedback({required this.kind, required this.label})
+  final ChorkiGestureKind kind
+  final String label
+# ChorkiGestureKind
+enum ChorkiGestureKind
+  values: seekForward, seekBackward, speed
+# ChorkiGestureOverlay
+class ChorkiGestureOverlay extends StatefulWidget
+  const ChorkiGestureOverlay({super.key, required this.controller, required this.onTogglePlayPause, this.doubleTapSeek = const Duration(seconds: 10), this.doubleTapWindow = const Duration(milliseconds: 800), this.longPressSpeed = 2.0, this.fullScreenDragSeconds = 90, this.hapticTickInterval = const Duration(seconds: 5), this.seekThrottle = const Duration(milliseconds: 150), this.onGesturesActiveChanged, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders()})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final Duration doubleTapSeek
+  final Duration doubleTapWindow
+  final Duration hapticTickInterval
+  final Duration seekThrottle
+  final ValueChanged<bool>? onGesturesActiveChanged
+  final VideoPlayerController controller
+  final VoidCallback onTogglePlayPause
+  final double fullScreenDragSeconds
+  final double longPressSpeed
+# ChorkiIdGenerator
+typedef ChorkiIdGenerator = String Function();
+# ChorkiMediaMetadata
+class ChorkiMediaMetadata
+  ChorkiMediaMetadata copyWith({String? contentId, String? title, String? mediaUrl})
+  Map<String, String> toMap()
+  const ChorkiMediaMetadata({this.contentId, this.title, this.mediaUrl, this.seriesId, this.seriesTitle, this.seasonNumber, this.episodeNumber, this.category, this.contentType, this.feedIndex, this.pageUrl, this.referrerUrl, this.extra = const {}})
+  final Map<String, String> extra
+  final String? category
+  final String? contentId
+  final String? contentType
+  final String? mediaUrl
+  final String? pageUrl
+  final String? referrerUrl
+  final String? seriesId
+  final String? seriesTitle
+  final String? title
+  final int? episodeNumber
+  final int? feedIndex
+  final int? seasonNumber
+# ChorkiMediaOptions
+class ChorkiMediaOptions
+  ChorkiMediaOptions copyWith({Map<String, String>? httpHeaders, Duration? startPosition, Duration? backBuffer, bool? allowBackgroundPlayback, bool? mixWithOthers, bool? keepScreenOn, VideoViewType? viewType})
+  VideoPlayerOptions toVideoPlayerOptions()
+  const ChorkiMediaOptions({this.httpHeaders = const <String, String>{}, this.startPosition, this.backBuffer, this.allowBackgroundPlayback = false, this.mixWithOthers = false, this.keepScreenOn = true, this.viewType = VideoViewType.textureView})
+  final Duration? backBuffer
+  final Duration? startPosition
+  final Map<String, String> httpHeaders
+  final VideoViewType viewType
+  final bool allowBackgroundPlayback
+  final bool keepScreenOn
+  final bool mixWithOthers
+# ChorkiNetworkConfig
+class ChorkiNetworkConfig
+  const ChorkiNetworkConfig({this.headers = const {}, this.headersProvider, this.connectTimeout = const Duration(seconds: 8), this.receiveTimeout = const Duration(seconds: 15), this.useHttp2 = true})
+  final Duration connectTimeout
+  final Duration receiveTimeout
+  final Future<Map<String, String>> Function()? headersProvider
+  final Map<String, String> headers
+  final bool useHttp2
+# ChorkiPipDelegate
+abstract class ChorkiPipDelegate
+  Future<ChorkiPipStatus> enter(double aspectRatio)
+  Future<ChorkiPipStatus> status()
+  Future<void> setAuto(bool enabled, double aspectRatio)
+# ChorkiPipStatus
+enum ChorkiPipStatus
+  values: unavailable, disabled, automatic, enabled
+# ChorkiPlayer
+class ChorkiPlayer extends StatefulWidget
+  const ChorkiPlayer({super.key, required this.route, this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+  const ChorkiPlayer.url(String this.videoUrl, {super.key, this.posterUrl = '', this.adTagUrl = '', this.autoPlay = true, this.preload = false, this.looping = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.initTimeout = const Duration(seconds: 15), this.ads, this.controller, this.mediaOptions = const ChorkiMediaOptions(), this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.initialFit = ChorkiVideoFit.fit, this.sizeToVideo = false, this.placeholderAspectRatio = 16 / 9, this.metadata, this.analytics})
+  final ChorkiAdConfig? ads
+  final ChorkiAnalyticsConfig? analytics
+  final ChorkiMediaMetadata? metadata
+  final ChorkiMediaOptions mediaOptions
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerController? controller
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final ChorkiVideoFit initialFit
+  final Duration doubleTapSeek
+  final Duration initTimeout
+  final List<double> speedOptions
+  final String adTagUrl
+  final String posterUrl
+  final String route
+  final String? videoUrl
+  final bool autoPlay
+  final bool enableGestures
+  final bool looping
+  final bool preload
+  final bool showSeekBar
+  final bool showSettingsButton
+  final bool sizeToVideo
+  final double longPressSpeed
+  final double placeholderAspectRatio
+  final double seekBarBottomOffset
+  static void configure({required ChorkiNetworkConfig network})
+# ChorkiPlayerBuilders
+class ChorkiPlayerBuilders
+  const ChorkiPlayerBuilders({this.loadingBuilder, this.errorBuilder, this.errorViewBuilder, this.playPauseBuilder, this.seekBarBuilder, this.timeBubbleBuilder, this.gestureFeedbackBuilder, this.adCountdownBuilder, this.settingsButtonBuilder, this.settingsSheetBuilder, this.qualityLabelBuilder})
+  final String Function(VideoTrack track)? qualityLabelBuilder
+  final Widget Function(BuildContext, ChorkiGestureFeedback feedback)? gestureFeedbackBuilder
+  final Widget Function(BuildContext, ChorkiPlayerController controller)? settingsSheetBuilder
+  final Widget Function(BuildContext, ChorkiPlayerError error, VoidCallback? onRetry)? errorViewBuilder
+  final Widget Function(BuildContext, ChorkiSeekBarState state, ValueChanged<Duration> onSeek)? seekBarBuilder
+  final Widget Function(BuildContext, String message, VoidCallback? onRetry)? errorBuilder [deprecated]
+  final Widget Function(BuildContext, String text)? timeBubbleBuilder
+  final Widget Function(BuildContext, VideoPlayerController)? playPauseBuilder
+  final Widget Function(BuildContext, VoidCallback onPressed)? settingsButtonBuilder
+  final Widget Function(BuildContext, int secondsRemaining, VoidCallback startNow)? adCountdownBuilder
+  final WidgetBuilder? loadingBuilder
+# ChorkiPlayerController
+class ChorkiPlayerController
+  ChorkiPlayerController({double initialSpeed = 1.0, ChorkiVideoFit initialFit = ChorkiVideoFit.fit, this.seekStep = const Duration(seconds: 10), ChorkiPipDelegate? pipDelegate, this.analytics})
+  Future<void> enterPip()
+  Future<void> pause()
+  Future<void> play()
+  Future<void> refreshPipStatus()
+  Future<void> refreshTracks()
+  Future<void> seekBack([Duration? step])
+  Future<void> seekForward([Duration? step])
+  Future<void> seekTo(Duration position)
+  Future<void> selectAudioTrack(String trackId)
+  Future<void> selectQuality(VideoTrack? track)
+  Future<void> setAutoPip(bool enabled)
+  Future<void> setSpeed(double speed)
+  Future<void> togglePlayPause()
+  ValueListenable<ChorkiPipStatus> get pipStatus
+  ValueListenable<ChorkiVideoFit> get fit
+  ValueListenable<List<VideoAudioTrack>> get audioTracks
+  ValueListenable<List<VideoTrack>> get videoTracks
+  ValueListenable<String?> get selectedAudioTrackId
+  ValueListenable<VideoPlayerController?> get videoController
+  ValueListenable<VideoPlayerValue> get value
+  ValueListenable<VideoTrack?> get selectedVideoTrack
+  ValueListenable<bool> get isAdPlaying
+  ValueListenable<double> get speed
+  bool get isAttached
+  bool get isAutoPipEnabled
+  bool get isPipAvailable
+  final ChorkiAnalyticsConfig? analytics
+  final Duration seekStep
+  void attach(VideoPlayerController controller, {VoidCallback? onRetry, ChorkiAnalyticsSession? analytics})
+  void detach([VideoPlayerController? controller])
+  void dispose()
+  void retry()
+  void setAdPlaying(bool playing)
+  void setFit(ChorkiVideoFit fit)
+  void toggleFit()
+# ChorkiPlayerError
+class ChorkiPlayerError implements Exception
+  String message(ChorkiPlayerStrings strings)
+  bool get isTransient
+  const ChorkiPlayerError(this.code, {this.stage = ChorkiErrorStage.route, this.statusCode, this.detail})
+  factory ChorkiPlayerError.from(Object error, {ChorkiErrorStage stage = ChorkiErrorStage.route})
+  final ChorkiErrorCode code
+  final ChorkiErrorStage stage
+  final String? detail
+  final int? statusCode
+# ChorkiPlayerIcons
+class ChorkiPlayerIcons
+  const ChorkiPlayerIcons({this.play = Icons.play_arrow, this.refresh = Icons.refresh, this.fastForward = Icons.fast_forward, this.fastRewind = Icons.fast_rewind, this.settings = Icons.settings, this.quality = Icons.high_quality_outlined, this.audio = Icons.audiotrack_outlined, this.speed = Icons.speed, this.fit = Icons.fit_screen_outlined, this.pip = Icons.picture_in_picture_alt_outlined, this.check = Icons.check, this.back = Icons.arrow_back})
+  final IconData audio
+  final IconData back
+  final IconData check
+  final IconData fastForward
+  final IconData fastRewind
+  final IconData fit
+  final IconData pip
+  final IconData play
+  final IconData quality
+  final IconData refresh
+  final IconData settings
+  final IconData speed
+# ChorkiPlayerStrings
+class ChorkiPlayerStrings
+  const ChorkiPlayerStrings({this.videoFailed = 'Video failed to play', this.retry = 'Retry', this.seconds = 'Seconds', this.speed = 'Speed', this.noInternet = 'No internet connection', this.serverError = 'Server error occurred', this.genericError = 'Something went wrong', this.adCountdown = defaultAdCountdown, this.adStartNowHint = 'Tap to start now', this.settings = 'Settings', this.quality = 'Quality', this.auto = 'Auto', this.audio = 'Audio', this.normalSpeed = 'Normal', this.fit = 'Fit', this.fill = 'Fill', this.videoFit = 'Video size', this.pictureInPicture = 'Picture-in-picture'})
+  final String Function(int seconds) adCountdown
+  final String adStartNowHint
+  final String audio
+  final String auto
+  final String fill
+  final String fit
+  final String genericError
+  final String noInternet
+  final String normalSpeed
+  final String pictureInPicture
+  final String quality
+  final String retry
+  final String seconds
+  final String serverError
+  final String settings
+  final String speed
+  final String videoFailed
+  final String videoFit
+# ChorkiPlayerSurface
+class ChorkiPlayerSurface extends StatefulWidget
+  const ChorkiPlayerSurface({super.key, required this.controller, required this.onTogglePlayPause, this.showControls = true, this.showSeekBar = true, this.seekBarBottomOffset = 0, this.enableGestures = true, this.doubleTapSeek = const Duration(seconds: 10), this.longPressSpeed = 2.0, this.overlayButton, this.chorkiController, this.showSettingsButton = true, this.speedOptions = defaultChorkiSpeedOptions, this.fit = ChorkiVideoFit.fit, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders()})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerController? chorkiController
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final ChorkiVideoFit fit
+  final Duration doubleTapSeek
+  final List<double> speedOptions
+  final VideoPlayerController controller
+  final VoidCallback onTogglePlayPause
+  final Widget? overlayButton
+  final bool enableGestures
+  final bool showControls
+  final bool showSeekBar
+  final bool showSettingsButton
+  final double longPressSpeed
+  final double seekBarBottomOffset
+# ChorkiPlayerTheme
+class ChorkiPlayerTheme
+  ChorkiPlayerTheme copyWith({Color? backgroundColor, Color? spinnerColor, double? spinnerSize, double? spinnerStrokeWidth, Color? iconColor, TextStyle? errorTextStyle, ButtonStyle? retryButtonStyle, Color? playBadgeColor, Color? playBadgeIconColor, double? playBadgeIconSize, Color? seekBarPlayedColor, Color? seekBarBufferedColor, Color? seekBarBaseColor, Color? seekBarThumbColor, Color? seekBarBubbleColor, TextStyle? seekBarBubbleTextStyle, double? seekBarHeight, Color? gestureOverlayColor, Color? gestureIconColor, TextStyle? gestureTextStyle, Color? adMarkerColor, Color? adMarkerPlayedColor, double? adMarkerWidth, double? adMarkerHeight, Color? adCountdownBackgroundColor, Color? adCountdownAccentColor, TextStyle? adCountdownTextStyle, Color? settingsButtonColor, Color? settingsButtonBackgroundColor, Color? settingsSheetBackgroundColor, TextStyle? settingsTextStyle, TextStyle? settingsSecondaryTextStyle, Color? settingsSelectedColor})
+  const ChorkiPlayerTheme({this.backgroundColor = Colors.black, this.spinnerColor = Colors.white, this.spinnerSize = 28, this.spinnerStrokeWidth = 2.5, this.iconColor = Colors.white, this.errorTextStyle = const TextStyle(color: Colors.white70), this.retryButtonStyle, this.playBadgeColor = Colors.black45, this.playBadgeIconColor = Colors.white, this.playBadgeIconSize = 56, this.seekBarPlayedColor = Colors.white, this.seekBarBufferedColor = Colors.white38, this.seekBarBaseColor = Colors.white24, this.seekBarThumbColor = Colors.white, this.seekBarBubbleColor = Colors.black87, this.seekBarBubbleTextStyle = const TextStyle(color: Colors.white), this.seekBarHeight = 44, this.gestureOverlayColor = const Color(0x73000000), this.gestureIconColor = Colors.white, this.gestureTextStyle = const TextStyle(color: Colors.white), this.adMarkerColor = const Color(0xFFFFC107), this.adMarkerPlayedColor = const Color(0x66FFC107), this.adMarkerWidth = 3, this.adMarkerHeight = 9, this.adCountdownBackgroundColor = const Color(0xCC000000), this.adCountdownAccentColor = const Color(0xFFFFC107), this.adCountdownTextStyle = const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600), this.settingsButtonColor = Colors.white, this.settingsButtonBackgroundColor = const Color(0x59000000), this.settingsSheetBackgroundColor = const Color(0xFF1C1C1E), this.settingsTextStyle = const TextStyle(color: Colors.white, fontSize: 15), this.settingsSecondaryTextStyle = const TextStyle(color: Colors.white60, fontSize: 14), this.settingsSelectedColor = const Color(0xFFFFC107)})
+  final ButtonStyle? retryButtonStyle
+  final Color adCountdownAccentColor
+  final Color adCountdownBackgroundColor
+  final Color adMarkerColor
+  final Color adMarkerPlayedColor
+  final Color backgroundColor
+  final Color gestureIconColor
+  final Color gestureOverlayColor
+  final Color iconColor
+  final Color playBadgeColor
+  final Color playBadgeIconColor
+  final Color seekBarBaseColor
+  final Color seekBarBubbleColor
+  final Color seekBarBufferedColor
+  final Color seekBarPlayedColor
+  final Color seekBarThumbColor
+  final Color settingsButtonBackgroundColor
+  final Color settingsButtonColor
+  final Color settingsSelectedColor
+  final Color settingsSheetBackgroundColor
+  final Color spinnerColor
+  final TextStyle adCountdownTextStyle
+  final TextStyle errorTextStyle
+  final TextStyle gestureTextStyle
+  final TextStyle seekBarBubbleTextStyle
+  final TextStyle settingsSecondaryTextStyle
+  final TextStyle settingsTextStyle
+  final double adMarkerHeight
+  final double adMarkerWidth
+  final double playBadgeIconSize
+  final double seekBarHeight
+  final double spinnerSize
+  final double spinnerStrokeWidth
+# ChorkiSeekBarState
+class ChorkiSeekBarState
+  const ChorkiSeekBarState({required this.position, required this.buffered, required this.duration, required this.dragging, this.adMarkers = const []})
+  final Duration buffered
+  final Duration duration
+  final Duration position
+  final List<ChorkiAdMarker> adMarkers
+  final bool dragging
+# ChorkiSeekSource
+enum ChorkiSeekSource
+  values: doubleTap, scrub, seekBarTap, seekBarDrag, adSkipAhead, api
+# ChorkiSessionEndReason
+enum ChorkiSessionEndReason
+  values: swipedAway, disposed, sourceChanged, looped
+# ChorkiSettingsSheet
+class ChorkiSettingsSheet extends StatefulWidget
+  const ChorkiSettingsSheet({super.key, required this.controller, this.theme = const ChorkiPlayerTheme(), this.icons = const ChorkiPlayerIcons(), this.strings = const ChorkiPlayerStrings(), this.builders = const ChorkiPlayerBuilders(), this.speedOptions = defaultChorkiSpeedOptions})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerController controller
+  final ChorkiPlayerIcons icons
+  final ChorkiPlayerStrings strings
+  final ChorkiPlayerTheme theme
+  final List<double> speedOptions
+# ChorkiShortsSeekBar
+class ChorkiShortsSeekBar extends StatefulWidget
+  const ChorkiShortsSeekBar({super.key, required this.controller, this.theme = const ChorkiPlayerTheme(), this.builders = const ChorkiPlayerBuilders(), this.barHeight = 3.0, this.expandedBarHeight = 6.0, this.thumbRadius = 7.0, this.idlePointerRadius = 4.5, this.horizontalPadding = 8.0, this.height, this.adMarkers, this.playedColor, this.bufferedColor, this.baseColor, this.thumbColor, this.bubbleColor, this.bubbleTextStyle, this.hapticTickInterval = const Duration(seconds: 5), this.seekThrottle = const Duration(milliseconds: 150), this.onSeekStarted, this.onSeekEnded})
+  final ChorkiPlayerBuilders builders
+  final ChorkiPlayerTheme theme
+  final Color? baseColor
+  final Color? bubbleColor
+  final Color? bufferedColor
+  final Color? playedColor
+  final Color? thumbColor
+  final Duration hapticTickInterval
+  final Duration seekThrottle
+  final List<ChorkiAdMarker>? adMarkers
+  final TextStyle? bubbleTextStyle
+  final ValueChanged<Duration>? onSeekEnded
+  final ValueChanged<Duration>? onSeekStarted
+  final VideoPlayerController controller
+  final double barHeight
+  final double expandedBarHeight
+  final double horizontalPadding
+  final double idlePointerRadius
+  final double thumbRadius
+  final double? height
+# ChorkiVideoFit
+enum ChorkiVideoFit
+  values: fit, fill
+# ChorkiVideoLoadResult
+class ChorkiVideoLoadResult
+  const ChorkiVideoLoadResult.cancelled()
+  const ChorkiVideoLoadResult.failed(ChorkiPlayerError this.error)
+  const ChorkiVideoLoadResult.loaded(VideoPlayerController this.controller)
+  final ChorkiPlayerError? error
+  final VideoPlayerController? controller
+# ChorkiVideoLoadScheduler
+class ChorkiVideoLoadScheduler
+  ChorkiVideoLoadScheduler({this.maxConcurrent = 2, this.disposalGrace = const Duration(milliseconds: 500)})
+  Future<T?> run<T>(Future<T> Function() task, {bool Function()? isHighPriority, bool Function()? isCancelled})
+  final Duration disposalGrace
+  final int maxConcurrent
+  int get running
+  static ChorkiVideoLoadScheduler get instance
+  static dynamic set instance(ChorkiVideoLoadScheduler value) [deprecated]
+  static void configure({int maxConcurrent = 2, Duration disposalGrace = const Duration(milliseconds: 500)})
+  static void resetForTesting({int maxConcurrent = 2, Duration disposalGrace = Duration.zero})
+  void trackDisposal(Future<void> disposal)
+# ChorkiVideoPreloader
+class ChorkiVideoPreloader
+  ChorkiVideoPreloader({this.initTimeout = const Duration(seconds: 15), this.scheduler})
+  Future<ChorkiVideoLoadResult> loadResult(Uri source, {ChorkiMediaOptions options = const ChorkiMediaOptions(), bool Function()? isHighPriority, bool Function()? isCancelled, void Function()? onStarted})
+  Future<VideoPlayerController?> load(Uri source, {ChorkiMediaOptions options = const ChorkiMediaOptions(), bool Function()? isHighPriority, bool Function()? isCancelled, void Function()? onStarted})
+  Future<void> disposeQuietly(VideoPlayerController? controller)
+  final ChorkiVideoLoadScheduler? scheduler
+  final Duration initTimeout
+# DioMatomoTransport
+class DioMatomoTransport implements MatomoTransport
+  DioMatomoTransport({Dio? dio, Duration timeout = const Duration(seconds: 10)})
+# FloatingPipDelegate
+typedef FloatingPipDelegate = ChorkiFloatingPipDelegate; [deprecated]
+# InMemoryAnalyticsStorage
+class InMemoryAnalyticsStorage implements ChorkiAnalyticsStorage
+  final Map<String, String> values
+# MatomoAnalyticsSink
+class MatomoAnalyticsSink extends ChorkiAnalyticsSink
+  Future<String> get visitorId
+  Map<String, String> get userProperties
+  MatomoAnalyticsSink(this.config, {MatomoTransport? transport, this.userId, Map<String, String> userProperties = const {}, @visibleForTesting this._clock = systemClock})
+  String? userId
+  final MatomoConfig config
+  int get pendingCount
+  static const Duration maxRequestAge
+  static const String queueKey
+  static const String visitorIdKey
+  void setUserProperty(String key, String? value)
+# MatomoConfig
+class MatomoConfig
+  Uri get endpoint
+  const MatomoConfig({required this.url, required this.siteId, this.dimensionIds = const {}, this.mediaAnalytics = true, this.eventTracking = true, this.excludedEvents = defaultExcludedEvents, this.playerName = 'chorki_player', this.appUrl = 'app://chorki', this.fullscreen, this.userAgent, this.batchSize = 20, this.flushInterval = const Duration(seconds: 10), this.maxQueueLength = 500, this.requestTimeout = const Duration(seconds: 10), this.storage, this.visitorIdProvider, this.naming = MatomoNaming.standard, this.mediaSize = MatomoMediaSize.video})
+  final ChorkiAnalyticsStorage? storage
+  final Duration flushInterval
+  final Duration requestTimeout
+  final Map<String, int> dimensionIds
+  final MatomoMediaSize mediaSize
+  final MatomoNaming naming
+  final Set<ChorkiAnalyticsEventType> excludedEvents
+  final String appUrl
+  final String playerName
+  final String url
+  final String? Function()? visitorIdProvider
+  final String? userAgent
+  final bool eventTracking
+  final bool mediaAnalytics
+  final bool? fullscreen
+  final int batchSize
+  final int maxQueueLength
+  final int siteId
+  static const Map<String, int> chorkiAppDimensions
+  static const Set<ChorkiAnalyticsEventType> defaultExcludedEvents
+# MatomoMediaSize
+enum MatomoMediaSize
+  values: video, viewport
+# MatomoNaming
+class MatomoNaming
+  String categoryOf(ChorkiAnalyticsCategory category)
+  const MatomoNaming({this.playbackCategory = 'Video', this.qoeCategory = 'Video QoE', this.adCategory = 'Video Ads', this.uxCategory = 'Video Player', this.actions = const {}, this.positionValue = const {}})
+  final Map<ChorkiAnalyticsEventType, String> actions
+  final Set<ChorkiAnalyticsEventType> positionValue
+  final String adCategory
+  final String playbackCategory
+  final String qoeCategory
+  final String uxCategory
+  static const MatomoNaming chorkiLegacy
+  static const MatomoNaming standard
+# MatomoRequestBuilder
+class MatomoRequestBuilder
+  List<Map<String, String>> build(ChorkiAnalyticsEvent event, {String? userId, Map<String, String> userProperties = const {}, String? resolution, String? language, Size? viewport})
+  const MatomoRequestBuilder(this.config)
+  final MatomoConfig config
+  static (String, String, String, num?) describe(ChorkiAnalyticsEvent event, [MatomoNaming naming = MatomoNaming.standard])
+# MatomoTransport
+abstract class MatomoTransport
+  Future<bool> send(Uri endpoint, List<String> requests)
+# MemoryAnalyticsSink
+class MemoryAnalyticsSink extends ChorkiAnalyticsSink
+  Iterable<ChorkiAnalyticsEventType> get types
+  final List<ChorkiAnalyticsEvent> events
+  void clear()
+# PlayerGestureOverlay
+typedef PlayerGestureOverlay = ChorkiGestureOverlay; [deprecated]
+# ShortsSeekBar
+typedef ShortsSeekBar = ChorkiShortsSeekBar; [deprecated]
+# VideoLoadScheduler
+typedef VideoLoadScheduler = ChorkiVideoLoadScheduler; [deprecated]
+# VideoPreloader
+typedef VideoPreloader = ChorkiVideoPreloader; [deprecated]
+# defaultAdCountdown
+String defaultAdCountdown(int seconds)
+# defaultChorkiSpeedOptions
+const List<double> defaultChorkiSpeedOptions
+# defaultQualityLabel
+String defaultQualityLabel(VideoTrack track, List<VideoTrack> all)
+# formatClock
+String formatClock(Duration duration)
+# formatDelta
+String formatDelta(Duration duration)
+# getIt
+final getIt [deprecated]
+# initChorkiPlayer
+void initChorkiPlayer() [deprecated]
+# showChorkiSettings
+Future<void> showChorkiSettings( BuildContext context, ChorkiPlayerController controller, { ChorkiPlayerTheme theme = const ChorkiPlayerTheme(), ChorkiPlayerIcons icons = const ChorkiPlayerIcons(), ChorkiPlayerStrings strings = const ChorkiPlayerStrings(), ChorkiPlayerBuilders builders = const ChorkiPlayerBuilders(), List<double> speedOptions = defaultChorkiSpeedOptions, })

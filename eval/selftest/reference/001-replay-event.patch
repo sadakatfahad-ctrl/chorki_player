@@ -1,0 +1,157 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index c05e489..4ee9361 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -62,6 +62,8 @@
+ - `ChorkiAnalyticsConfig.clock` / `idGenerator` (deterministic tests) and
+   `ChorkiAnalyticsSink.onConsentRevoked` (`MatomoAnalyticsSink` and
+   `MemoryAnalyticsSink` drop what they buffered).
++- `ChorkiAnalyticsEventType.replay` (`fromMs`): the viewer went back to the
++  start after the video completed in the same view; Matomo event `replay`.
+ - A `heartbeat` with `trigger: background` when the app goes to the
+   background, followed by a flush of every sink.
+ - `ChorkiSeekBarState.adMarkers`: a custom `seekBarBuilder` can draw the
+diff --git a/README.md b/README.md
+index 6bc94eb..5a247b2 100644
+--- a/README.md
++++ b/README.md
+@@ -585,6 +585,7 @@ events also carry the *ad context* (`breakIndex`, `adCampaignId`?,
+ | `quartile` | playback | `percent` |
+ | `complete` | playback | – |
+ | `loop` | playback | `loopCount` |
++| `replay` | playback | `fromMs` |
+ | `sessionEnd` | playback | `reason`, `dwellMs`, `watchedPercent`, `maxPositionMs`, `rebufferCount`, `rebufferMs`, `pauseCount`, `seekCount`, `loopCount`, `errorCount` |
+ | `loadStart` | qoe | – |
+ | `firstFrame` | qoe | `startupMs`, `queueWaitMs`?, `initMs`?, `preloaded` |
+diff --git a/lib/src/analytics/chorki_analytics_event.dart b/lib/src/analytics/chorki_analytics_event.dart
+index 4884d90..2d58e0d 100644
+--- a/lib/src/analytics/chorki_analytics_event.dart
++++ b/lib/src/analytics/chorki_analytics_event.dart
+@@ -75,6 +75,12 @@ enum ChorkiAnalyticsEventType {
+   /// Data: `loopCount`.
+   loop(ChorkiAnalyticsCategory.playback),
+ 
++  /// The viewer went back to the start (under 1 s) after the video
++  /// completed, in the same view. Once per completion.
++  ///
++  /// Data: `fromMs`.
++  replay(ChorkiAnalyticsCategory.playback),
++
+   /// The view is over. `reason` is a [ChorkiSessionEndReason] name.
+   ///
+   /// Data: `reason`, `dwellMs`, `watchedPercent`, `maxPositionMs`,
+diff --git a/lib/src/analytics/chorki_analytics_schema.dart b/lib/src/analytics/chorki_analytics_schema.dart
+index cd8ca8e..7f4a508 100644
+--- a/lib/src/analytics/chorki_analytics_schema.dart
++++ b/lib/src/analytics/chorki_analytics_schema.dart
+@@ -293,6 +293,9 @@ abstract final class ChorkiAnalyticsSchema {
+         ChorkiAnalyticsEventType.loop => const [
+           ChorkiAnalyticsField(_K.loopCount, _int),
+         ],
++        ChorkiAnalyticsEventType.replay => const [
++          ChorkiAnalyticsField(_K.fromMs, _int),
++        ],
+         ChorkiAnalyticsEventType.sessionEnd => const [
+           ChorkiAnalyticsField(_K.reason, _str),
+           ChorkiAnalyticsField(_K.dwellMs, _int),
+diff --git a/lib/src/analytics/chorki_analytics_session.dart b/lib/src/analytics/chorki_analytics_session.dart
+index f8f1a3e..8f2db23 100644
+--- a/lib/src/analytics/chorki_analytics_session.dart
++++ b/lib/src/analytics/chorki_analytics_session.dart
+@@ -576,7 +576,10 @@ class ChorkiAnalyticsSession {
+     });
+     _lastPos = to;
+     // Replaying from (near) the start after the end: quartiles count again.
+-    if (_completed && to < _oneSecond) _watch.resetQuartiles();
++    if (_completed && to < _oneSecond) {
++      _watch.resetQuartiles();
++      _emit(ChorkiAnalyticsEventType.replay, {_K.fromMs: from.inMilliseconds});
++    }
+     _completed = false;
+   }
+ 
+diff --git a/lib/src/analytics/matomo/matomo_request_builder.dart b/lib/src/analytics/matomo/matomo_request_builder.dart
+index 1223963..5a61e53 100644
+--- a/lib/src/analytics/matomo/matomo_request_builder.dart
++++ b/lib/src/analytics/matomo/matomo_request_builder.dart
+@@ -197,6 +197,11 @@ class MatomoRequestBuilder {
+       ),
+       ChorkiAnalyticsEventType.complete => ('complete', title, null),
+       ChorkiAnalyticsEventType.loop => ('loop', title, n(_K.loopCount)),
++      ChorkiAnalyticsEventType.replay => (
++        'replay',
++        title,
++        (n(_K.fromMs) ?? 0) / 1000,
++      ),
+       ChorkiAnalyticsEventType.sessionEnd => (
+         'session end (${s(_K.reason)})',
+         title,
+diff --git a/test/guardrails/goldens/public_api.txt b/test/guardrails/goldens/public_api.txt
+index b28f6f4..1dee33c 100644
+--- a/test/guardrails/goldens/public_api.txt
++++ b/test/guardrails/goldens/public_api.txt
+@@ -54,7 +54,7 @@ class ChorkiAnalyticsEvent
+   final String sessionId
+ # ChorkiAnalyticsEventType
+ enum ChorkiAnalyticsEventType
+-  values: impression, play, pause, resume, seek, heartbeat, quartile, complete, loop, sessionEnd, loadStart, firstFrame, bufferStart, bufferEnd, error, retry, qualityChange, abandon, adBreakStart, adStart, adQuartile, adComplete, adSkip, adClick, adPause, adResume, adError, adBreakEnd, speedChange, speedBoostStart, speedBoostEnd, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen
++  values: impression, play, pause, resume, seek, heartbeat, quartile, complete, loop, replay, sessionEnd, loadStart, firstFrame, bufferStart, bufferEnd, error, retry, qualityChange, abandon, adBreakStart, adStart, adQuartile, adComplete, adSkip, adClick, adPause, adResume, adError, adBreakEnd, speedChange, speedBoostStart, speedBoostEnd, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen
+   const ChorkiAnalyticsEventType(this.category)
+   final ChorkiAnalyticsCategory category
+ # ChorkiAnalyticsField
+@@ -685,7 +685,7 @@ class ChorkiAnalyticsEvent
+   final String sessionId
+ # ChorkiAnalyticsEventType
+ enum ChorkiAnalyticsEventType
+-  values: impression, play, pause, resume, seek, heartbeat, quartile, complete, loop, sessionEnd, loadStart, firstFrame, bufferStart, bufferEnd, error, retry, qualityChange, abandon, adBreakStart, adStart, adQuartile, adComplete, adSkip, adClick, adPause, adResume, adError, adBreakEnd, speedChange, speedBoostStart, speedBoostEnd, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen
++  values: impression, play, pause, resume, seek, heartbeat, quartile, complete, loop, replay, sessionEnd, loadStart, firstFrame, bufferStart, bufferEnd, error, retry, qualityChange, abandon, adBreakStart, adStart, adQuartile, adComplete, adSkip, adClick, adPause, adResume, adError, adBreakEnd, speedChange, speedBoostStart, speedBoostEnd, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen
+   const ChorkiAnalyticsEventType(this.category)
+   final ChorkiAnalyticsCategory category
+ # ChorkiAnalyticsField
+diff --git a/test/scenarios/033_replay.yaml b/test/scenarios/033_replay.yaml
+new file mode 100644
+index 0000000..7cc2699
+--- /dev/null
++++ b/test/scenarios/033_replay.yaml
+@@ -0,0 +1,24 @@
++name: replay
++description: going back to the start after the end reports one replay; a later seek to 0 does not
++given: {duration: 10s}
++steps:
++  - bind
++  - value: {initialized: true}
++  - activate
++  - play: {to: 10s}
++  - value: {playing: false, completed: true}
++  - seek: {to: 0s, source: api}
++  - value: {completed: false}
++  - play: {to: 4s}
++  - seek: {to: 0s, source: scrub}
++  - deactivate: swipedAway
++expect:
++  mode: subsequence
++  events:
++    - complete
++    - seek: {fromMs: 10000, toMs: 0}
++    - replay: {fromMs: 10000}
++    - seek: {fromMs: 4000, toMs: 0}
++    - sessionEnd: {seekCount: 2}
++  matomo:
++    - {e_a: replay, e_v: "10"}
+diff --git a/tool/mutants.yaml b/tool/mutants.yaml
+index e1d4318..69a6214 100644
+--- a/tool/mutants.yaml
++++ b/tool/mutants.yaml
+@@ -120,6 +120,12 @@
+   find: "      _scrub.clamp(target),\n"
+   replace: "      target,\n"
+   tests: [test/shorts_seek_bar_test.dart]
++- id: session.noReplay
++  why: replays after the end were not reported
++  file: lib/src/analytics/chorki_analytics_session.dart
++  find: "      _emit(ChorkiAnalyticsEventType.replay, {_K.fromMs: from.inMilliseconds});\n"
++  replace: ""
++  tests: [test/scenarios/scenario_runner_test.dart]
+ - id: network.only200and201
+   why: 202 and 206 responses were treated as errors
+   file: lib/src/network/api_result.dart

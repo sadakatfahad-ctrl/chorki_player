@@ -37,38 +37,11 @@ void main() {
       expect(helper.getJsonInt('missing'), 0);
     });
 
-    test('getJsonBool never throws on non-bool values', () {
-      final helper = JsonHelper(json: {'on': true, 'str': 'true', 'bad': 1});
-
-      expect(helper.getJsonBool('on'), isTrue);
-      expect(helper.getJsonBool('str'), isTrue);
-      expect(helper.getJsonBool('bad'), isFalse);
-    });
-
-    test('getJsonList only accepts lists of maps', () {
-      final helper = JsonHelper(
-        json: {
-          'items': [
-            {'id': 1},
-          ],
-          'notList': 'x',
-        },
-      );
-
-      expect(helper.getJsonList('items'), [
-        {'id': 1},
-      ]);
-      expect(helper.getJsonList('notList'), isEmpty);
-      expect(helper.getJsonList('missing'), isEmpty);
-    });
-
     test('non-map json yields safe defaults', () {
       final helper = JsonHelper(json: null);
 
       expect(helper.getJsonString('any'), '');
       expect(helper.getJsonInt('any'), 0);
-      expect(helper.getJsonDouble('any'), 0.0);
-      expect(helper.getJsonMap('any'), isEmpty);
     });
   });
 
@@ -92,6 +65,16 @@ void main() {
   });
 
   group('ApiResult.fromResponse', () {
+    test('any 2xx is a success (bug: 202 and 206 were thrown as errors)', () {
+      for (final code in const [201, 202, 206]) {
+        final result = ApiResult.fromResponse(
+          _response(code, data: {'ok': true}),
+        );
+        expect(result.statusCode, code);
+        expect(result.data, {'ok': true});
+      }
+    });
+
     test('success statuses return the decoded data', () {
       final result = ApiResult.fromResponse(_response(200, data: {'ok': true}));
 

@@ -1,6 +1,6 @@
-import 'package:chorki_player/src/domain/entity/ad_campaign_entity.dart';
-import 'package:chorki_player/src/domain/entity/byte_data_entity.dart';
-import 'package:chorki_player/src/helpers/json_helper.dart';
+import '../../domain/entity/ad_campaign_entity.dart';
+import '../../domain/entity/byte_data_entity.dart';
+import '../../helpers/json_helper.dart';
 
 class ByteModel {
   const ByteModel({

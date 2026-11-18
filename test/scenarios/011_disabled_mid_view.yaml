@@ -1,0 +1,24 @@
+name: disabled_mid_view
+description: turning analytics off ends the view without a sessionEnd; on again starts a new one
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 2s}
+  - enabled: false
+  - play: {to: 4s}
+  - enabled: true
+  - play: {to: 5s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression: {$session: $a}
+    - play
+    - firstFrame
+    - impression: {$session: $b}
+    - play: {timeToPlayMs: 0}
+    - firstFrame
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: end, newSegments: [5]}
+    - sessionEnd: {$watched: 1, $session: $b}

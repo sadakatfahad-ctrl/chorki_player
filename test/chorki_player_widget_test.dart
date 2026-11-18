@@ -2,13 +2,14 @@ import 'dart:async';
 
 import 'package:chorki_player/chorki_player.dart';
 import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
+import 'package:chorki_player/src/core/result.dart';
+import 'package:chorki_player/src/core/services.dart';
 import 'package:chorki_player/src/domain/repositories/bytes_repository.dart';
 import 'package:chorki_player/src/domain/usecases/bytes_usecase.dart';
-import 'package:chorki_player/src/errors/server_failure.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_event.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/byte_screen_state.dart';
 import 'package:chorki_player/src/presentation/bytes_screen/bytes_screen_bloc.dart';
-import 'package:dartz/dartz.dart';
+import 'package:chorki_player/src/presentation/widgets/player_error_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -22,11 +23,21 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 import 'fakes/fake_ima_platform.dart';
 import 'fakes/fake_pip_delegate.dart';
 import 'fakes/fake_video_player_platform.dart';
+import 'support/diagnostics.dart';
 
 const _videoUrl = 'https://test.local/v.mp4';
 
 ByteDataEntity _byte(String url, {String thumbnail = ''}) =>
     ByteDataEntity(id: 1, thumbnailUrl: thumbnail, url: url);
+
+/// A transient route failure (5xx); the player shows its generic server
+/// error text, never the server's own message.
+const _boom = ChorkiPlayerError(
+  ChorkiErrorCode.server,
+  statusCode: 500,
+  detail: 'boom',
+);
+final _boomText = const ChorkiPlayerStrings().serverError;
 
 /// Answers each route with the next queued result; a [Completer] result
 /// stays pending until the test completes it.
@@ -36,18 +47,18 @@ class _FakeRepository implements ByteRepository {
   final List<bool> refreshes = [];
 
   @override
-  Future<Either<Failure, ByteDataEntity>> getByteData(
+  Future<Result<ByteDataEntity>> getByteData(
     String url, {
     bool refresh = false,
   }) async {
     calls.add(url);
     refreshes.add(refresh);
     final next = results[url]!.removeAt(0);
-    if (next is Failure) return Left(next);
+    if (next is ChorkiPlayerError) return Err(next);
     final data = next is Completer<ByteDataEntity>
         ? await next.future
         : next as ByteDataEntity;
-    return Right(data);
+    return Ok(data);
   }
 }
 
@@ -107,11 +118,13 @@ class _GatedCreatePlatform extends FakeVideoPlayerPlatform {
 }
 
 void main() {
-  group('VideoPreloader', () {
+  group('ChorkiVideoPreloader', () {
     testWidgets('times out even when the platform never creates the player '
         '(bug: awaiting dispose() hung the load forever)', (tester) async {
       VideoPlayerPlatform.instance = _StuckCreatePlatform();
-      final preloader = VideoPreloader(initTimeout: const Duration(seconds: 2));
+      final preloader = ChorkiVideoPreloader(
+        initTimeout: const Duration(seconds: 2),
+      );
       var done = false;
       VideoPlayerController? result;
       unawaited(
@@ -158,9 +171,8 @@ void main() {
     late ChorkiPlayerController chorki;
 
     setUp(() async {
-      await getIt.reset();
       repo = _FakeRepository();
-      getIt.registerSingleton<BytesUsecase>(BytesUsecase(repo));
+      ChorkiServices.overrideForTesting(repository: repo);
       platform = FakeVideoPlayerPlatform();
       VideoPlayerPlatform.instance = platform;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -173,7 +185,7 @@ void main() {
 
     tearDown(() async {
       chorki.dispose();
-      await getIt.reset();
+      ChorkiServices.resetForTesting();
     });
 
     Future<void> pumpPlayer(
@@ -223,17 +235,94 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('a permanent route error (404) is not retried silently; '
+        'errorViewBuilder gets the typed error', (tester) async {
+      repo.results['r'] = [
+        const ChorkiPlayerError(ChorkiErrorCode.notFound, statusCode: 404),
+        _byte('https://test.local/v.mp4'),
+      ];
+      ChorkiPlayerError? shown;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox.expand(
+            child: ChorkiPlayer(
+              route: 'r',
+              controller: chorki,
+              builders: ChorkiPlayerBuilders(
+                errorViewBuilder: (context, error, onRetry) {
+                  shown = error;
+                  return TextButton(
+                    onPressed: onRetry,
+                    child: const Text('again'),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+      expect(shown?.code, ChorkiErrorCode.notFound);
+      await tester.pump(const Duration(seconds: 5));
+      expect(repo.calls, ['r'], reason: 'no silent retry for a 404');
+
+      await tester.tap(find.text('again'));
+      await settle(tester);
+      expect(repo.calls, ['r', 'r'], reason: 'the viewer may still retry');
+      expect(find.byType(ChorkiPlayerSurface), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('the deprecated errorBuilder still gets the localized '
+        'message', (tester) async {
+      repo.results['r'] = [
+        const ChorkiPlayerError(ChorkiErrorCode.notFound, statusCode: 404),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox.expand(
+            child: ChorkiPlayer(
+              route: 'r',
+              controller: chorki,
+              builders: ChorkiPlayerBuilders(
+                // ignore: deprecated_member_use_from_same_package
+                errorBuilder: (context, message, onRetry) => Text('<$message>'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await settle(tester);
+      expect(
+        find.text('<${const ChorkiPlayerStrings().serverError}>'),
+        findsOneWidget,
+      );
+      await unmount(tester);
+    });
+
+    test('ChorkiPlayer.configure swaps the services only when the settings '
+        'change', () {
+      final before = ChorkiServices.instance;
+      ChorkiPlayer.configure(network: const ChorkiNetworkConfig());
+      expect(ChorkiServices.instance.network, const ChorkiNetworkConfig());
+      final configured = ChorkiServices.instance;
+      ChorkiPlayer.configure(network: const ChorkiNetworkConfig());
+      expect(ChorkiServices.instance, same(configured));
+      ChorkiPlayer.configure(
+        network: const ChorkiNetworkConfig(headers: {'X-A': '1'}),
+      );
+      expect(ChorkiServices.instance, isNot(same(configured)));
+      expect(before, isNotNull);
+    });
+
     testWidgets('a route that fails once retries silently and plays', (
       tester,
     ) async {
-      repo.results['r'] = [
-        const ServerFailure(message: 'boom'),
-        _byte('https://test.local/v.mp4'),
-      ];
+      repo.results['r'] = [_boom, _byte('https://test.local/v.mp4')];
       await pumpPlayer(tester, (p) => SizedBox.expand(child: p));
       await settle(tester);
 
-      expect(find.text('boom'), findsNothing);
+      expect(find.text(_boomText), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       await tester.pump(const Duration(seconds: 1));
@@ -246,25 +335,25 @@ void main() {
 
     testWidgets('a route that keeps failing shows the error after the silent '
         'retries; Retry starts a fresh round', (tester) async {
-      const boom = ServerFailure(message: 'boom');
+      const boom = _boom;
       repo.results['r'] = [boom, boom, boom, boom, _byte(_videoUrl)];
       await pumpPlayer(tester, (p) => SizedBox.expand(child: p));
       await settle(tester);
       await tester.pump(const Duration(seconds: 1));
       await settle(tester);
-      expect(find.text('boom'), findsNothing);
+      expect(find.text(_boomText), findsNothing);
       await tester.pump(const Duration(seconds: 3));
       await settle(tester);
 
       expect(repo.calls, hasLength(3));
-      expect(find.text('boom'), findsOneWidget);
+      expect(find.text(_boomText), findsOneWidget);
       await tester.pump(const Duration(seconds: 10));
       expect(repo.calls, hasLength(3), reason: 'no more silent retries');
 
       await tester.tap(find.text('Retry'));
       await settle(tester);
       expect(repo.calls, hasLength(4));
-      expect(find.text('boom'), findsNothing, reason: 'silent again');
+      expect(find.text(_boomText), findsNothing, reason: 'silent again');
       await tester.pump(const Duration(seconds: 1));
       await settle(tester);
       expect(find.byType(ChorkiPlayerSurface), findsOneWidget);
@@ -314,7 +403,7 @@ void main() {
     testWidgets('unmounting while a silent retry is pending cancels it', (
       tester,
     ) async {
-      repo.results['r'] = [const ServerFailure(message: 'boom')];
+      repo.results['r'] = [_boom];
       await pumpPlayer(tester, (p) => SizedBox.expand(child: p));
       await settle(tester);
       // The test framework fails on a timer still pending at the end.
@@ -334,6 +423,7 @@ void main() {
       await settle(tester);
 
       expect(tester.takeException(), isNull);
+      expect(find.byType(PlayerErrorView), findsOneWidget);
       expect(find.text('Video failed to play'), findsOneWidget);
       expect(find.text('Retry'), findsNothing); // label hidden, icon only
       await tester.tap(find.byTooltip('Retry'));
@@ -408,9 +498,8 @@ void main() {
     late ChorkiPlayerController chorki;
 
     setUp(() async {
-      await getIt.reset();
       repo = _FakeRepository();
-      getIt.registerSingleton<BytesUsecase>(BytesUsecase(repo));
+      ChorkiServices.overrideForTesting(repository: repo);
       platform = FakeVideoPlayerPlatform();
       VideoPlayerPlatform.instance = platform;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -423,7 +512,7 @@ void main() {
 
     tearDown(() async {
       chorki.dispose();
-      await getIt.reset();
+      ChorkiServices.resetForTesting();
     });
 
     Future<void> pumpUrl(WidgetTester tester, String url) async {
@@ -486,9 +575,8 @@ void main() {
     late ChorkiPlayerController chorki;
 
     setUp(() async {
-      await getIt.reset();
       repo = _FakeRepository();
-      getIt.registerSingleton<BytesUsecase>(BytesUsecase(repo));
+      ChorkiServices.overrideForTesting(repository: repo);
       platform = FakeVideoPlayerPlatform();
       VideoPlayerPlatform.instance = platform;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -501,7 +589,7 @@ void main() {
 
     tearDown(() async {
       chorki.dispose();
-      await getIt.reset();
+      ChorkiServices.resetForTesting();
     });
 
     Future<void> settle(WidgetTester tester) async {
@@ -564,7 +652,7 @@ void main() {
       expect(shownVideo(tester).value.isInitialized, isTrue);
       expect(platform.playCalls, isEmpty);
       expect(chorki.isAttached, isFalse);
-      expect(find.byType(ShortsSeekBar), findsNothing);
+      expect(find.byType(ChorkiShortsSeekBar), findsNothing);
       expect(find.byKey(const Key('chorki_settings_button')), findsNothing);
       await unmount(tester);
     });
@@ -579,7 +667,7 @@ void main() {
       expect(chorki.videoController.value?.dataSource, a);
       expect(platform.playCalls, hasLength(1));
       expect(chorki.value.value.isPlaying, isTrue);
-      expect(find.byType(ShortsSeekBar), findsOneWidget);
+      expect(find.byType(ChorkiShortsSeekBar), findsOneWidget);
       await unmount(tester);
     });
 
@@ -604,7 +692,7 @@ void main() {
       expect(platform.pauseCalls, isNotEmpty);
       expect(platform.seekCalls.last.$2, Duration.zero);
       expect(chorki.isAttached, isFalse);
-      expect(find.byType(ShortsSeekBar), findsNothing);
+      expect(find.byType(ChorkiShortsSeekBar), findsNothing);
       await unmount(tester);
     });
 
@@ -661,6 +749,10 @@ void main() {
     });
 
     testWidgets('ads wait until the byte is active', (tester) async {
+      // The player uses the default VMAP fetcher; the test HTTP client
+      // answers 400, so the timeline markers fail (reported, not fatal).
+      final reports = captureDiagnostics();
+      addTearDown(() => expect(reports.toSet(), {'ads.vmap'}));
       final ima = FakeImaPlatform();
       InteractiveMediaAdsPlatform.instance = ima;
       addTearDown(() => InteractiveMediaAdsPlatform.instance = null);
@@ -710,6 +802,8 @@ void main() {
         'back to preload (it stays mounted for one more frame)', (
       tester,
     ) async {
+      final reports = captureDiagnostics();
+      addTearDown(() => expect(reports.toSet(), {'ads.vmap'}));
       final ima = FakeImaPlatform();
       InteractiveMediaAdsPlatform.instance = ima;
       addTearDown(() => InteractiveMediaAdsPlatform.instance = null);
@@ -816,7 +910,7 @@ void main() {
 
     testWidgets('a preloading byte whose route keeps failing never shows the '
         'error view, and loads when it becomes active', (tester) async {
-      const boom = ServerFailure(message: 'boom');
+      const boom = _boom;
       repo.results['r'] = [boom, boom, boom, _byte(a)];
 
       Widget player({required bool preload}) => MaterialApp(
@@ -832,7 +926,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await settle(tester);
       expect(repo.calls, hasLength(3), reason: 'silent retries off screen');
-      expect(find.text('boom'), findsNothing);
+      expect(find.text(_boomText), findsNothing);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
       await tester.pumpWidget(player(preload: false));
@@ -977,13 +1071,13 @@ void main() {
 
       await pumpSurface(showControls: false);
       expect(find.byType(VideoPlayer), findsOneWidget);
-      expect(find.byType(ShortsSeekBar), findsNothing);
-      expect(find.byType(PlayerGestureOverlay), findsNothing);
+      expect(find.byType(ChorkiShortsSeekBar), findsNothing);
+      expect(find.byType(ChorkiGestureOverlay), findsNothing);
       final view = tester.element(find.byType(VideoPlayer));
 
       await pumpSurface(showControls: true);
-      expect(find.byType(ShortsSeekBar), findsOneWidget);
-      expect(find.byType(PlayerGestureOverlay), findsOneWidget);
+      expect(find.byType(ChorkiShortsSeekBar), findsOneWidget);
+      expect(find.byType(ChorkiGestureOverlay), findsOneWidget);
       expect(tester.element(find.byType(VideoPlayer)), same(view));
 
       await tester.pumpWidget(const SizedBox());

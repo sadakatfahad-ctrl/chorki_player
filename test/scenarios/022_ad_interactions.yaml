@@ -1,0 +1,29 @@
+name: ad_interactions
+description: skips, clicks, pauses and ad errors are reported with the ad context
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 1s}
+  - adBreakStart
+  - value: {playing: false}
+  - ad: {type: adPause}
+  - ad: {type: adResume}
+  - ad: {type: adClick}
+  - ad: {type: adSkip}
+  - ad: {type: adError, data: {message: no fill}}
+  - adBreakEnd
+  - deactivate: swipedAway
+expect:
+  mode: subsequence
+  events:
+    - adBreakStart: {breakKind: midRoll}
+    - adPause: {breakIndex: 0}
+    - adResume
+    - adClick
+    - adSkip
+    - adError: {message: no fill}
+    - adBreakEnd
+  matomo:
+    - {e_a: ad error, e_n: no fill}

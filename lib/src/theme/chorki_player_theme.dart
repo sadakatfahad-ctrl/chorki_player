@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
-import '../controllers/chorki_player_controller.dart';
+export 'chorki_player_builders.dart';
+export 'chorki_player_strings.dart';
 
 @immutable
 class ChorkiPlayerTheme {
@@ -166,169 +166,80 @@ class ChorkiPlayerTheme {
           settingsSelectedColor ?? this.settingsSelectedColor,
     );
   }
-}
 
-/// Icon overrides.
-@immutable
-class ChorkiPlayerIcons {
-  const ChorkiPlayerIcons({
-    this.play = Icons.play_arrow,
-    this.refresh = Icons.refresh,
-    this.fastForward = Icons.fast_forward,
-    this.fastRewind = Icons.fast_rewind,
-    this.settings = Icons.settings,
-    this.quality = Icons.high_quality_outlined,
-    this.audio = Icons.audiotrack_outlined,
-    this.speed = Icons.speed,
-    this.fit = Icons.fit_screen_outlined,
-    this.pip = Icons.picture_in_picture_alt_outlined,
-    this.check = Icons.check,
-    this.back = Icons.arrow_back,
-  });
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ChorkiPlayerTheme &&
+          other.backgroundColor == backgroundColor &&
+          other.spinnerColor == spinnerColor &&
+          other.spinnerSize == spinnerSize &&
+          other.spinnerStrokeWidth == spinnerStrokeWidth &&
+          other.iconColor == iconColor &&
+          other.errorTextStyle == errorTextStyle &&
+          other.retryButtonStyle == retryButtonStyle &&
+          other.playBadgeColor == playBadgeColor &&
+          other.playBadgeIconColor == playBadgeIconColor &&
+          other.playBadgeIconSize == playBadgeIconSize &&
+          other.seekBarPlayedColor == seekBarPlayedColor &&
+          other.seekBarBufferedColor == seekBarBufferedColor &&
+          other.seekBarBaseColor == seekBarBaseColor &&
+          other.seekBarThumbColor == seekBarThumbColor &&
+          other.seekBarBubbleColor == seekBarBubbleColor &&
+          other.seekBarBubbleTextStyle == seekBarBubbleTextStyle &&
+          other.seekBarHeight == seekBarHeight &&
+          other.gestureOverlayColor == gestureOverlayColor &&
+          other.gestureIconColor == gestureIconColor &&
+          other.gestureTextStyle == gestureTextStyle &&
+          other.adMarkerColor == adMarkerColor &&
+          other.adMarkerPlayedColor == adMarkerPlayedColor &&
+          other.adMarkerWidth == adMarkerWidth &&
+          other.adMarkerHeight == adMarkerHeight &&
+          other.adCountdownBackgroundColor == adCountdownBackgroundColor &&
+          other.adCountdownAccentColor == adCountdownAccentColor &&
+          other.adCountdownTextStyle == adCountdownTextStyle &&
+          other.settingsButtonColor == settingsButtonColor &&
+          other.settingsButtonBackgroundColor ==
+              settingsButtonBackgroundColor &&
+          other.settingsSheetBackgroundColor == settingsSheetBackgroundColor &&
+          other.settingsTextStyle == settingsTextStyle &&
+          other.settingsSecondaryTextStyle == settingsSecondaryTextStyle &&
+          other.settingsSelectedColor == settingsSelectedColor);
 
-  final IconData play;
-  final IconData refresh;
-  final IconData fastForward;
-  final IconData fastRewind;
-  final IconData settings;
-  final IconData quality;
-  final IconData audio;
-  final IconData speed;
-  final IconData fit;
-  final IconData pip;
-  final IconData check;
-  final IconData back;
-}
-
-/// Text overrides (localization).
-@immutable
-class ChorkiPlayerStrings {
-  const ChorkiPlayerStrings({
-    this.videoFailed = 'Video failed to play',
-    this.retry = 'Retry',
-    this.seconds = 'Seconds',
-    this.speed = 'Speed',
-    this.noInternet = 'No internet connection',
-    this.serverError = 'Server error occurred',
-    this.genericError = 'Something went wrong',
-    this.adCountdown = defaultAdCountdown,
-    this.adStartNowHint = 'Tap to start now',
-    this.settings = 'Settings',
-    this.quality = 'Quality',
-    this.auto = 'Auto',
-    this.audio = 'Audio',
-    this.normalSpeed = 'Normal',
-    this.fit = 'Fit',
-    this.fill = 'Fill',
-    this.videoFit = 'Video size',
-    this.pictureInPicture = 'Picture-in-picture',
-  });
-
-  final String videoFailed;
-  final String retry;
-  final String seconds;
-  final String speed;
-  final String noInternet;
-  final String serverError;
-  final String genericError;
-
-  /// Text for the pill shown before an ad break.
-  final String Function(int seconds) adCountdown;
-
-  /// Accessibility hint for the countdown pill.
-  final String adStartNowHint;
-
-  /// Settings sheet.
-  final String settings;
-  final String quality;
-  final String auto;
-  final String audio;
-  final String normalSpeed;
-  final String fit;
-  final String fill;
-  final String videoFit;
-  final String pictureInPicture;
-}
-
-String defaultAdCountdown(int seconds) => 'Ad starts in ${seconds}s';
-
-/// Optional widget builders that fully replace default UI pieces.
-@immutable
-class ChorkiPlayerBuilders {
-  const ChorkiPlayerBuilders({
-    this.loadingBuilder,
-    this.errorBuilder,
-    this.playPauseBuilder,
-    this.seekBarBuilder,
-    this.timeBubbleBuilder,
-    this.gestureFeedbackBuilder,
-    this.adCountdownBuilder,
-    this.settingsButtonBuilder,
-    this.settingsSheetBuilder,
-    this.qualityLabelBuilder,
-  });
-
-  final WidgetBuilder? loadingBuilder;
-
-  final Widget Function(BuildContext, String message, VoidCallback? onRetry)?
-  errorBuilder;
-
-  final Widget Function(BuildContext, VideoPlayerController)? playPauseBuilder;
-
-  final Widget Function(
-    BuildContext,
-    ChorkiSeekBarState state,
-    ValueChanged<Duration> onSeek,
-  )?
-  seekBarBuilder;
-
-  final Widget Function(BuildContext, String text)? timeBubbleBuilder;
-
-  final Widget Function(BuildContext, ChorkiGestureFeedback feedback)?
-  gestureFeedbackBuilder;
-
-  /// Replaces the "Ad starts in N" pill; call [startNow] to begin the ad.
-  final Widget Function(
-    BuildContext,
-    int secondsRemaining,
-    VoidCallback startNow,
-  )?
-  adCountdownBuilder;
-
-  /// Replaces the gear button; call [onPressed] to open the settings.
-  final Widget Function(BuildContext, VoidCallback onPressed)?
-  settingsButtonBuilder;
-
-  /// Replaces the content of the settings bottom sheet.
-  final Widget Function(BuildContext, ChorkiPlayerController controller)?
-  settingsSheetBuilder;
-
-  /// Label for a quality entry (default: "720p", plus bitrate on ties).
-  final String Function(VideoTrack track)? qualityLabelBuilder;
-}
-
-@immutable
-class ChorkiSeekBarState {
-  const ChorkiSeekBarState({
-    required this.position,
-    required this.buffered,
-    required this.duration,
-    required this.dragging,
-  });
-
-  final Duration position;
-  final Duration buffered;
-  final Duration duration;
-  final bool dragging;
-}
-
-enum ChorkiGestureKind { seekForward, seekBackward, speed }
-
-@immutable
-class ChorkiGestureFeedback {
-  const ChorkiGestureFeedback({required this.kind, required this.label});
-
-  final ChorkiGestureKind kind;
-
-  final String label;
+  @override
+  int get hashCode => Object.hashAll([
+    backgroundColor,
+    spinnerColor,
+    spinnerSize,
+    spinnerStrokeWidth,
+    iconColor,
+    errorTextStyle,
+    retryButtonStyle,
+    playBadgeColor,
+    playBadgeIconColor,
+    playBadgeIconSize,
+    seekBarPlayedColor,
+    seekBarBufferedColor,
+    seekBarBaseColor,
+    seekBarThumbColor,
+    seekBarBubbleColor,
+    seekBarBubbleTextStyle,
+    seekBarHeight,
+    gestureOverlayColor,
+    gestureIconColor,
+    gestureTextStyle,
+    adMarkerColor,
+    adMarkerPlayedColor,
+    adMarkerWidth,
+    adMarkerHeight,
+    adCountdownBackgroundColor,
+    adCountdownAccentColor,
+    adCountdownTextStyle,
+    settingsButtonColor,
+    settingsButtonBackgroundColor,
+    settingsSheetBackgroundColor,
+    settingsTextStyle,
+    settingsSecondaryTextStyle,
+    settingsSelectedColor,
+  ]);
 }

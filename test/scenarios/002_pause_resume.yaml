@@ -1,0 +1,26 @@
+name: pause_resume
+description: paused time is not watched time; a pause flushes a heartbeat
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 3s}
+  - value: {playing: false}
+  - advance: 5s
+  - play: {to: 6s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - play: {timeToPlayMs: 0}
+    - firstFrame
+    - heartbeat: {trigger: pause, newSegments: [5]}
+    - pause: {$position: 3}
+    - resume
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: end, newSegments: [10]}
+    - sessionEnd: {pauseCount: 1, watchedPercent: 30, $watched: 6, dwellMs: 11000}
+  matomo:
+    - {e_a: pause, e_v: "3"}
+    - {e_a: resume}

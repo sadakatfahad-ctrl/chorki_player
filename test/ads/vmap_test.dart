@@ -1,5 +1,6 @@
 import 'package:chorki_player/src/ads/vmap.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/diagnostics.dart';
 
 const _sampleVmap = '''<?xml version="1.0" encoding="UTF-8"?>
 <vmap:VMAP xmlns:vmap="http://www.iab.net/videosuite/vmap" version="1.0">
@@ -255,6 +256,8 @@ void main() {
     });
 
     test('returns an empty list when the fetcher throws', () async {
+      final reports = captureDiagnostics();
+      addTearDown(() => expect(reports, ['ads.vmap']));
       final breaks = await loadVmapBreaks(
         'https://ads.example.com/vmap.xml',
         fetcher: (url) async => throw StateError('network down'),
