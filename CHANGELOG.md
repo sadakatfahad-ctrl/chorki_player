@@ -1,3 +1,38 @@
+## 1.6.0
+
+- New analytics: `ChorkiPlayer(metadata:, analytics:)` and
+  `ChorkiPlayerController(analytics:)` report detailed viewing events to
+  one or more `ChorkiAnalyticsSink`s:
+  - Playback: impression, play (time to play), pause, resume, seek (with
+    its source: double tap, scrub, seek bar, ad skip-ahead, API), heartbeat
+    with watched segments, 25/50/75/100% quartiles, complete, loop, and a
+    session end with dwell time, watched %, rebuffer, pause, seek and loop
+    totals.
+  - QoE: load start, first frame (startup time, queue wait, init time),
+    rebuffering with durations, errors by stage, auto and manual retries,
+    quality changes.
+  - Ads: break start/end (pre/mid/post-roll, duration), ad start, quartiles,
+    complete, skip, click, pause/resume, errors and the load timeout, with
+    the campaign id/title.
+  - UX: speed changes, long-press boost, audio track, fit, PiP, volume and
+    mute, settings opened.
+  - Watched time counts only real playback (not while paused, buffering,
+    scrubbing or during ads). In a feed only the page on screen reports.
+- New `MatomoAnalyticsSink`: Matomo Media Analytics (`ma_*`) heartbeats plus
+  Matomo Events and Custom Dimensions, sent in bulk with an offline queue,
+  backoff, back-dated `cdt` and a flush when the app goes to the background.
+  Pluggable `ChorkiAnalyticsStorage` for a persistent visitor id.
+- New `CallbackAnalyticsSink` and `MemoryAnalyticsSink`.
+- `abandon` event: the view ended before the first frame (exit before video
+  start), with the wait, the stage (`loading` / `ready`) and the error count.
+- Chorki app compatibility: `MatomoConfig.visitorIdProvider` (share the app's
+  `matomo_tracker` visitor), `MatomoNaming.chorkiLegacy` (`MediaVideo` /
+  `play` / `pause` / `finished`), `MatomoConfig.chorkiAppDimensions`,
+  `MatomoMediaSize.viewport`, and `ChorkiMediaMetadata.pageUrl` /
+  `referrerUrl` (`url` / `urlref`).
+- `VideoPreloader.load` takes `onStarted`. `ChorkiPlayerController.attach`
+  takes `analytics`.
+
 ## 1.5.0
 
 - New `ChorkiPlayer.preload` (opt-in, both constructors) for feeds that build

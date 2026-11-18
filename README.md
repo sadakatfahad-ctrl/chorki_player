@@ -39,6 +39,8 @@ and safe video controller lifecycle handling.
   back-buffer size, background playback, and keep-screen-on.
 - **Picture-in-picture (Android)**: enter PiP manually, or automatically
   when the user leaves the app.
+- **Analytics**: detailed playback, QoE, ad and UX events, with a built-in
+  Matomo sink (Media Analytics + Events + Custom Dimensions).
 
 ## Installation
 
@@ -46,7 +48,7 @@ Add to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  chorki_player: ^1.5.0
+  chorki_player: ^1.6.0
 ```
 
 ## Usage
@@ -410,6 +412,125 @@ ChorkiPlayer(
 - [ ] **iOS**
   - [ ] Deployment target of 13.0 or higher, set in `ios/Podfile`
         (`platform :ios, '13.0'`) and in the Xcode project.
+
+## Analytics (Matomo)
+
+The player reports detailed viewing analytics: what was watched (impressions,
+plays, pauses, seeks, watched time and segments, quartiles, completions,
+loops), quality of experience (startup time, queue wait, rebuffering,
+errors, retries, quality switches), IMA ads (breaks, starts, quartiles,
+skips, clicks, errors) and player UI (speed, long-press boost, audio track,
+fit, PiP, volume, settings).
+
+Events go to one or more **sinks**. `MatomoAnalyticsSink` is built in; you can
+add your own (Firebase, your API) by implementing `ChorkiAnalyticsSink`.
+
+```dart
+// Once for the app.
+final matomo = MatomoAnalyticsSink(
+  const MatomoConfig(
+    url: 'https://analytics.example.com', // or .../matomo.php
+    siteId: 3,
+    // Custom Dimensions you created in Matomo → their ids.
+    dimensionIds: {
+      'contentId': 1,
+      'category': 2,
+      'seriesId': 3,
+      'subscriptionTier': 4, // a user property, see below
+    },
+  ),
+);
+
+// When the viewer signs in / their plan is known.
+matomo.userId = user.id;
+matomo.setUserProperty('subscriptionTier', user.tier);
+
+ChorkiPlayer(
+  route: route,
+  metadata: const ChorkiMediaMetadata(
+    contentId: 'ep-1042',
+    title: 'Episode 4',
+    seriesId: 'show-77',
+    category: 'drama',
+    contentType: 'episode',
+  ),
+  analytics: ChorkiAnalyticsConfig(sinks: [matomo]),
+);
+```
+
+For a feed, put the config on the shared controller
+(`ChorkiPlayerController(analytics: ...)`) and give every page its own
+`metadata` (`feedIndex` helps). Only the page on screen reports: a preloading
+page sends nothing; swiping away ends its session (`sessionEnd`, reason
+`swipedAway`) and the next page's session starts.
+
+### What is sent to Matomo
+
+- **Media Analytics** (premium plugin): an `impression` (`ma_st=0`) when an
+  item is shown, then a heartbeat every 10 s while playing and on pause, seek,
+  completion and session end, with `ma_id` (one per view), `ma_ti`, `ma_re`,
+  `ma_mt=video`, `ma_pn`, `ma_st` (seconds actually played), `ma_ps`, `ma_le`,
+  `ma_ttp`, `ma_w`/`ma_h` and `ma_se` (newly watched 5 s segments).
+- **Events** for everything else, with categories `Video`, `Video QoE`,
+  `Video Ads` and `Video Player`, e.g. `Video QoE / rebuffer / <title> / 1.5`.
+- Every request carries `ca=1` (never a page view), `cdt` (the event time, so
+  queued requests keep their time), the visitor `_id`, `uid` and your mapped
+  `dimensionN` values.
+- Requests are sent in bulk (`POST matomo.php`), retried with backoff while
+  offline and flushed when the app goes to the background. Pass a
+  `ChorkiAnalyticsStorage` (`MatomoConfig.storage`) backed by e.g.
+  `shared_preferences` to keep the visitor id and unsent requests across
+  launches; the default keeps them in memory.
+
+Without the Media Analytics plugin, set `mediaAnalytics: false`: impressions
+are then sent as events too. Set `ChorkiAnalyticsConfig.consentGranted` to
+false until the viewer agrees; nothing is reported or buffered meanwhile.
+
+### Inside the Chorki app
+
+The app already runs `matomo_tracker` (screen views) and has Matomo reports
+built on its own names. To keep one visitor and the same reports:
+
+```dart
+final matomo = MatomoAnalyticsSink(
+  MatomoConfig(
+    url: settings.analytics_matomo_url!,
+    siteId: int.parse(settings.analytics_matomo_site_id!),
+    // Same visitor as the app's screen views.
+    visitorIdProvider: () => MatomoTracker.instance.visitor.id,
+    // MediaVideo / play / pause / finished, e_v = position.
+    naming: MatomoNaming.chorkiLegacy,
+    playerName: 'ShortsPlayer',
+    // dimension1 user id, 2 subscription, 3 app version, 4/5 cast output.
+    dimensionIds: MatomoConfig.chorkiAppDimensions,
+    mediaSize: MatomoMediaSize.viewport, // ma_w/ma_h = screen, as the app does
+  ),
+);
+matomo
+  ..userId = user.id
+  ..setUserProperty('userId', user.id)
+  ..setUserProperty('subscription', subscribed ? 'Subscribed' : 'Non-Subscribed')
+  ..setUserProperty('appVersion', appVersion);
+
+ChorkiPlayer(
+  route: byte.routeUri,
+  metadata: ChorkiMediaMetadata(
+    contentId: byte.id,
+    title: byte.title,
+    pageUrl: '$frontendUrl${byte.routeUri}',
+    contentType: 'byte',
+  ),
+  analytics: ChorkiAnalyticsConfig(sinks: [matomo]),
+);
+```
+
+Viewers who leave before the first frame are reported as `abandon`
+("exit before video start"), with how long they waited and whether the video
+had loaded.
+
+Watched time only grows while the video really plays: not while paused,
+buffering, scrubbing or during an ad. Each loop of a looping byte counts as a
+new play (`newSessionOnLoop`, default true).
 
 ## Example
 

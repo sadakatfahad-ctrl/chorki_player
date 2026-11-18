@@ -46,3 +46,4 @@ app.*.map.json
 
 # Library packages should not commit lock files (root or example).
 pubspec.lock
+docs/analytics/ChorkiPlayer_Matomo_Analytics.pdf

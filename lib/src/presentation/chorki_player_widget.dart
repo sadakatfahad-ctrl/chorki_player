@@ -1,6 +1,11 @@
 import 'dart:async';
 
 import 'package:chorki_player/src/ads/chorki_ad_config.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_config.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_event.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_scope.dart';
+import 'package:chorki_player/src/analytics/chorki_analytics_session.dart';
+import 'package:chorki_player/src/analytics/chorki_media_metadata.dart';
 import 'package:chorki_player/src/ads/chorki_ad_layer.dart';
 import 'package:chorki_player/src/controllers/chorki_player_controller.dart';
 import 'package:chorki_player/src/controllers/video_load_scheduler.dart';
@@ -45,6 +50,8 @@ class ChorkiPlayer extends StatefulWidget {
     this.initialFit = ChorkiVideoFit.fit,
     this.sizeToVideo = false,
     this.placeholderAspectRatio = 16 / 9,
+    this.metadata,
+    this.analytics,
   }) : videoUrl = null,
        posterUrl = '',
        adTagUrl = '',
@@ -82,6 +89,8 @@ class ChorkiPlayer extends StatefulWidget {
     this.initialFit = ChorkiVideoFit.fit,
     this.sizeToVideo = false,
     this.placeholderAspectRatio = 16 / 9,
+    this.metadata,
+    this.analytics,
   }) : route = '',
        assert(seekBarBottomOffset >= 0),
        assert(placeholderAspectRatio > 0);
@@ -164,6 +173,15 @@ class ChorkiPlayer extends StatefulWidget {
   /// errors).
   final double placeholderAspectRatio;
 
+  /// What is playing, for analytics: content id, title, series, category…
+  /// Without it events only carry the byte id and video URL.
+  final ChorkiMediaMetadata? metadata;
+
+  /// Turns on analytics (e.g. Matomo via [MatomoAnalyticsSink]). Falls back
+  /// to [ChorkiPlayerController.analytics]. A preloading player reports
+  /// nothing until it becomes active.
+  final ChorkiAnalyticsConfig? analytics;
+
   @override
   State<ChorkiPlayer> createState() => _ChorkiPlayerState();
 }
@@ -214,10 +232,71 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   /// not be marked dirty during build.
   late bool _preloading;
 
+  /// Analytics for this player (one per widget: a feed's controller is
+  /// shared, its views are not).
+  ChorkiAnalyticsSession? _session;
+
+  ChorkiAnalyticsConfig? get _analyticsConfig =>
+      widget.analytics ?? widget.controller?.analytics;
+
+  void _syncSession() {
+    final config = _analyticsConfig;
+    final session = _session;
+    if (config == null) {
+      if (session != null) {
+        session.dispose();
+        _session = null;
+        _reattach();
+      }
+      return;
+    }
+    if (session != null) {
+      session.config = config;
+      return;
+    }
+    final created = ChorkiAnalyticsSession(config: config, metadata: _metadata);
+    _session = created;
+    created.adContext = _adContext(_byteData);
+    final c = _controller;
+    if (c != null) created.bind(c);
+    if (!_preloading) created.activate();
+    _reattach();
+  }
+
+  /// Hands the current session to the controller.
+  void _reattach() {
+    final c = _controller;
+    if (c != null && !_preloading) {
+      _chorki.attach(c, onRetry: _retry, analytics: _session);
+    }
+  }
+
+  ChorkiMediaMetadata _metadata() {
+    final given = widget.metadata ?? const ChorkiMediaMetadata();
+    final data = _byteData;
+    final url = data?.url ?? widget.videoUrl;
+    return given.copyWith(
+      contentId:
+          given.contentId ??
+          (data != null && data.id != 0 ? '${data.id}' : null),
+      mediaUrl: given.mediaUrl ?? url,
+    );
+  }
+
+  static Map<String, Object?> _adContext(ByteDataEntity? data) {
+    final campaign = data?.adCampaign;
+    if (campaign == null) return const {};
+    return {
+      if (campaign.id.isNotEmpty) 'adCampaignId': campaign.id,
+      if (campaign.title.isNotEmpty) 'adCampaignTitle': campaign.title,
+    };
+  }
+
   @override
   void initState() {
     super.initState();
     _preloading = widget.preload;
+    _syncSession();
     initChorkiPlayer();
     _bloc = BytesBloc(getByteDataUsecase: getIt<BytesUsecase>())
       ..add(_loadEvent());
@@ -254,14 +333,27 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
         _ownController?.dispose();
         _ownController = null;
       }
-      if (c != null && !_preloading) _chorki.attach(c, onRetry: _retry);
+      if (c != null && !_preloading) {
+        _chorki.attach(c, onRetry: _retry, analytics: _session);
+      }
+    }
+    if (oldWidget.analytics != widget.analytics ||
+        oldWidget.controller?.analytics != widget.controller?.analytics) {
+      _syncSession();
     }
     if (oldWidget.route != widget.route ||
         oldWidget.videoUrl != widget.videoUrl ||
         oldWidget.posterUrl != widget.posterUrl ||
         oldWidget.adTagUrl != widget.adTagUrl) {
       _resetRetries();
+      // End the old view while its video is still bound, then unbind it
+      // (the synchronous part of _resetVideo) before the new view starts, so
+      // the new impression waits for the new video.
+      final session = _session;
+      final restart = session != null && session.isActive;
+      if (restart) session.deactivate(ChorkiSessionEndReason.sourceChanged);
       unawaited(_resetVideo());
+      if (restart) session.activate();
       _bloc.add(_loadEvent());
     } else if (oldWidget.looping != widget.looping) {
       final c = _controller;
@@ -280,6 +372,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     if (widget.preload) {
       // Swiped away: the next visit plays it as a fresh view.
       _resumeAt = null;
+      _session?.deactivate(ChorkiSessionEndReason.swipedAway);
       if (controller != null) {
         _chorki.detach(controller);
         final start = widget.mediaOptions.startPosition ?? Duration.zero;
@@ -294,13 +387,14 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       return;
     }
     setState(() => _preloading = false);
+    _session?.activate();
     _resetRetries();
     if (_videoFailed || _bloc.state is ByteScreenFailedState) {
       // It failed off screen, e.g. on a network blip, or is waiting for a
       // silent retry: try again now that it is seen.
-      _retry();
+      _retry(auto: true);
     } else if (controller != null) {
-      _chorki.attach(controller, onRetry: _retry);
+      _chorki.attach(controller, onRetry: _retry, analytics: _session);
       // play() marks the video playing before its first await, so the play
       // badge never shows when the controls appear next frame.
       if (widget.autoPlay && !_adsActive(_byteData)) {
@@ -327,11 +421,12 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   Future<void> _loadVideo(ByteDataEntity byteData, int gen) async {
     if (byteData.url.isEmpty) {
       // Nothing to play: retrying cannot help.
-      _onVideoFailed(transient: false);
+      _onVideoFailed(transient: false, message: 'No video URL');
       return;
     }
 
     final resumeAt = _resumeAt;
+    _session?.recordLoadStart();
     final controller = await _preloader.load(
       Uri.parse(byteData.url),
       options: resumeAt == null
@@ -341,6 +436,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       isHighPriority: () => mounted && !widget.preload,
       // Swiped past before its turn: it never creates a player.
       isCancelled: () => !mounted || gen != _loadGen,
+      onStarted: () => _session?.recordLoadRunning(),
     );
 
     if (!mounted || gen != _loadGen) {
@@ -349,10 +445,11 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     }
 
     if (controller == null) {
-      _onVideoFailed();
+      _onVideoFailed(message: 'Video failed to load');
       return;
     }
     _resumeAt = null;
+    _session?.recordLoaded();
 
     final previous = _controller;
     previous?.removeListener(_onControllerValue);
@@ -360,8 +457,11 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     unawaited(_preloader.disposeQuietly(previous));
     _lastPosition = controller.value.position;
     controller.addListener(_onControllerValue);
+    _session?.bind(controller);
     // A preloading player leaves a shared controller to the visible one.
-    if (!_preloading) _chorki.attach(controller, onRetry: _retry);
+    if (!_preloading) {
+      _chorki.attach(controller, onRetry: _retry, analytics: _session);
+    }
 
     unawaited(_safe(() => controller.setLooping(widget.looping)));
     if (widget.autoPlay && !_preloading && !_adsActive(byteData)) {
@@ -384,6 +484,8 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       final position = _lastPosition;
       _onVideoFailed(
         resumeAt: !_preloading && position > Duration.zero ? position : null,
+        message: c.value.errorDescription ?? 'Playback error',
+        stage: 'playback',
       );
     }
     // Nothing may play a preloading video, e.g. the ad layer resuming the
@@ -393,23 +495,43 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     }
   }
 
-  void _onVideoFailed({bool transient = true, Duration? resumeAt}) {
+  void _onVideoFailed({
+    bool transient = true,
+    Duration? resumeAt,
+    String message = 'Video error',
+    String stage = 'load',
+  }) {
     if (!mounted) return;
     _videoFailed = true;
-    _onLoadFailed(transient: transient, resumeAt: resumeAt);
+    _onLoadFailed(
+      transient: transient,
+      resumeAt: resumeAt,
+      message: message,
+      stage: stage,
+    );
   }
 
   /// A route fetch or the video failed. A [transient] failure is retried
   /// silently a few times ([_autoRetryDelays]) before the error shows.
-  void _onLoadFailed({bool transient = true, Duration? resumeAt}) {
+  void _onLoadFailed({
+    bool transient = true,
+    Duration? resumeAt,
+    String message = 'Route failed to load',
+    String stage = 'route',
+  }) {
     if (!mounted) return;
     if (resumeAt != null) _resumeAt = resumeAt;
-    if (transient && _autoRetries < _autoRetryDelays.length) {
+    final willRetry = transient && _autoRetries < _autoRetryDelays.length;
+    _session?.recordError(message, stage: stage, willRetry: willRetry);
+    if (willRetry) {
       final delay = _autoRetryDelays[_autoRetries++];
+      final attempt = _autoRetries;
       _retryTimer?.cancel();
       _retryTimer = Timer(delay, () {
         _retryTimer = null;
-        if (mounted) _reload();
+        if (!mounted) return;
+        _session?.recordRetry(attempt: attempt, auto: true);
+        _reload();
       });
     }
     setState(() {});
@@ -429,6 +551,7 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
     _loadGen++;
     final controller = _controller;
     controller?.removeListener(_onControllerValue);
+    _session?.unbind();
     // Also clears isAdPlaying, but only if this player is the attached one.
     if (controller != null) _chorki.detach(controller);
     _controller = null;
@@ -440,8 +563,12 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
 
   /// Manual retry (the Retry button, [ChorkiPlayerController.retry]) or a
   /// byte becoming active: a fresh set of silent retries.
-  void _retry() {
+  ///
+  /// [auto] is true when it is not the viewer asking (a byte that failed off
+  /// screen becoming active).
+  void _retry({bool auto = false}) {
     _autoRetries = 0;
+    _session?.recordRetry(attempt: 1, auto: auto);
     _reload();
   }
 
@@ -466,6 +593,8 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
   void dispose() {
     _retryTimer?.cancel();
     _retryTimer = null;
+    _session?.dispose();
+    _session = null;
     _bloc.close();
     _loadGen++;
     final controller = _controller;
@@ -485,17 +614,21 @@ class _ChorkiPlayerState extends State<ChorkiPlayer> {
       listener: (context, state) {
         if (state is ByteScreenLoadedState) {
           _byteData = state.data;
+          _session?.adContext = _adContext(state.data);
           unawaited(_startVideo(state.data));
         } else if (state is ByteScreenFailedState) {
-          _onLoadFailed();
+          _onLoadFailed(message: state.message);
         }
       },
       child: BlocBuilder<BytesBloc, ByteScreenState>(
         bloc: _bloc,
         builder: (context, state) {
-          final body = ColoredBox(
-            color: widget.theme.backgroundColor,
-            child: _buildBody(state),
+          final body = ChorkiAnalyticsScope(
+            session: _session,
+            child: ColoredBox(
+              color: widget.theme.backgroundColor,
+              child: _buildBody(state),
+            ),
           );
           if (!widget.sizeToVideo) return body;
           return AspectRatio(aspectRatio: _aspectRatio, child: body);

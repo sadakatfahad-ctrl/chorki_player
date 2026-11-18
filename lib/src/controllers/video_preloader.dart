@@ -25,15 +25,20 @@ class VideoPreloader {
   /// The load waits its turn in [VideoLoadScheduler]: [isHighPriority] (the
   /// visible page) goes first, and once [isCancelled] is true a load still
   /// queued returns null without creating a player. [initTimeout] counts
-  /// only from the moment the load starts.
+  /// only from the moment the load starts, which is when [onStarted] is
+  /// called (used to measure the queue wait).
   Future<VideoPlayerController?> load(
     Uri source, {
     ChorkiMediaOptions options = const ChorkiMediaOptions(),
     bool Function()? isHighPriority,
     bool Function()? isCancelled,
+    void Function()? onStarted,
   }) {
     return _loads.run<VideoPlayerController?>(
-      () => _load(source, options),
+      () {
+        onStarted?.call();
+        return _load(source, options);
+      },
       isHighPriority: isHighPriority,
       isCancelled: isCancelled,
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../ads/chorki_ad_state.dart';
+import '../../analytics/chorki_analytics_scope.dart';
 import '../../controllers/chorki_player_controller.dart';
 import '../../pip/chorki_pip.dart';
 import '../../theme/chorki_player_theme.dart';
@@ -261,6 +262,7 @@ class _ChorkiPlayerSurfaceState extends State<ChorkiPlayerSurface> {
   void _openSettings() {
     final chorki = widget.chorkiController;
     if (chorki == null) return;
+    ChorkiAnalyticsScope.maybeOf(context)?.recordSettingsOpen();
     showChorkiSettings(
       context,
       chorki,

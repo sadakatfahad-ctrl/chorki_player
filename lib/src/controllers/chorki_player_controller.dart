@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart';
 
+import '../analytics/chorki_analytics_config.dart';
+import '../analytics/chorki_analytics_event.dart';
+import '../analytics/chorki_analytics_session.dart';
 import '../pip/chorki_pip.dart';
 
 /// How the video fills the player box.
@@ -26,12 +29,20 @@ class ChorkiPlayerController {
     ChorkiVideoFit initialFit = ChorkiVideoFit.fit,
     this.seekStep = const Duration(seconds: 10),
     ChorkiPipDelegate? pipDelegate,
+    this.analytics,
   }) : _speed = ValueNotifier(initialSpeed),
        _fit = ValueNotifier(initialFit),
        _pip = pipDelegate ?? FloatingPipDelegate();
 
   /// Step used by [seekForward] / [seekBack].
   final Duration seekStep;
+
+  /// Analytics for every [ChorkiPlayer] driven by this controller that has
+  /// no `analytics` of its own, e.g. one config for a whole feed.
+  final ChorkiAnalyticsConfig? analytics;
+
+  /// Session of the attached player; settings and API actions report to it.
+  ChorkiAnalyticsSession? _session;
 
   final ChorkiPipDelegate _pip;
 
@@ -100,15 +111,24 @@ class ChorkiPlayerController {
 
   /// Binds [controller]. Re-applies the chosen speed and refreshes tracks.
   /// [onRetry] backs [retry].
-  void attach(VideoPlayerController controller, {VoidCallback? onRetry}) {
+  ///
+  /// [analytics] is the attached player's session: settings changes and
+  /// commands sent through this controller are reported to it.
+  void attach(
+    VideoPlayerController controller, {
+    VoidCallback? onRetry,
+    ChorkiAnalyticsSession? analytics,
+  }) {
     if (_disposed) return;
     if (identical(_video.value, controller)) {
       _onRetry = onRetry ?? _onRetry;
+      _session = analytics ?? _session;
       return;
     }
     _detachListener();
     _attachGen++;
     _onRetry = onRetry;
+    _session = analytics;
     _tracksLoadedFor = false;
     _videoTracks.value = const [];
     _selectedVideoTrack.value = null;
@@ -128,6 +148,7 @@ class ChorkiPlayerController {
     _detachListener();
     _attachGen++;
     _onRetry = null;
+    _session = null;
     _video.value = null;
     _value.value = const VideoPlayerValue.uninitialized();
     _videoTracks.value = const [];
@@ -179,15 +200,19 @@ class ChorkiPlayerController {
       _withVideo((c) => c.value.isPlaying ? c.pause() : c.play());
 
   Future<void> seekTo(Duration position) async =>
-      _withVideo((c) => c.seekTo(_clamp(c, position)));
+      _withVideo((c) => _seek(c, position));
 
-  Future<void> seekForward([Duration? step]) async => _withVideo(
-    (c) => c.seekTo(_clamp(c, c.value.position + (step ?? seekStep))),
-  );
+  Future<void> seekForward([Duration? step]) async =>
+      _withVideo((c) => _seek(c, c.value.position + (step ?? seekStep)));
 
-  Future<void> seekBack([Duration? step]) async => _withVideo(
-    (c) => c.seekTo(_clamp(c, c.value.position - (step ?? seekStep))),
-  );
+  Future<void> seekBack([Duration? step]) async =>
+      _withVideo((c) => _seek(c, c.value.position - (step ?? seekStep)));
+
+  Future<void> _seek(VideoPlayerController c, Duration target) {
+    final to = _clamp(c, target);
+    _session?.recordSeek(c.value.position, to, ChorkiSeekSource.api);
+    return c.seekTo(to);
+  }
 
   Duration _clamp(VideoPlayerController c, Duration d) {
     if (d < Duration.zero) return Duration.zero;
@@ -200,12 +225,15 @@ class ChorkiPlayerController {
   Future<void> setSpeed(double speed) async {
     assert(speed > 0);
     if (_disposed) return;
+    _session?.recordSpeedChange(_speed.value, speed);
     _speed.value = speed;
     await _withVideo((c) => c.setPlaybackSpeed(speed));
   }
 
   void setFit(ChorkiVideoFit fit) {
-    if (!_disposed) _fit.value = fit;
+    if (_disposed || _fit.value == fit) return;
+    _fit.value = fit;
+    _session?.recordFitChange(fit.name);
   }
 
   void toggleFit() => setFit(
@@ -250,7 +278,16 @@ class ChorkiPlayerController {
     if (c == null || !c.value.isInitialized || _disposed) return;
     try {
       await c.selectVideoTrack(track);
-      if (identical(c, _video.value)) _selectedVideoTrack.value = track;
+      if (identical(c, _video.value)) {
+        final from = _selectedVideoTrack.value;
+        _selectedVideoTrack.value = track;
+        _session?.recordQualityChange(
+          fromHeight: from?.height,
+          toHeight: track?.height,
+          bitrate: track?.bitrate,
+          label: track?.label,
+        );
+      }
     } catch (_) {}
   }
 
@@ -259,7 +296,10 @@ class ChorkiPlayerController {
     if (c == null || !c.value.isInitialized || _disposed) return;
     try {
       await c.selectAudioTrack(trackId);
-      if (identical(c, _video.value)) _selectedAudioTrackId.value = trackId;
+      if (identical(c, _video.value)) {
+        _session?.recordAudioTrackChange(_selectedAudioTrackId.value, trackId);
+        _selectedAudioTrackId.value = trackId;
+      }
     } catch (_) {}
   }
 
@@ -276,7 +316,7 @@ class ChorkiPlayerController {
     _ensureLifecycle();
     try {
       final status = await _pip.enter(_aspectRatio);
-      if (!_disposed) _pipStatus.value = status;
+      _setPipStatus(status);
     } catch (_) {}
     _schedulePipProbes();
   }
@@ -294,8 +334,18 @@ class ChorkiPlayerController {
     if (_disposed) return;
     try {
       final status = await _pip.status();
-      if (!_disposed) _pipStatus.value = status;
+      _setPipStatus(status);
     } catch (_) {}
+  }
+
+  void _setPipStatus(ChorkiPipStatus status) {
+    if (_disposed || _pipStatus.value == status) return;
+    final wasKnown = _pipStatus.value != ChorkiPipStatus.unavailable;
+    _pipStatus.value = status;
+    // Availability being discovered is not a viewer action.
+    if (wasKnown || status == ChorkiPipStatus.enabled) {
+      _session?.recordPipChange(status.name);
+    }
   }
 
   void _ensureLifecycle() {
@@ -336,6 +386,7 @@ class ChorkiPlayerController {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _session = null;
     _detachListener();
     _lifecycle?.dispose();
     _lifecycle = null;

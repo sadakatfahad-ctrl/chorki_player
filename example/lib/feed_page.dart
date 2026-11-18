@@ -1,6 +1,7 @@
 import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/material.dart';
 
+import 'analytics.dart';
 import 'test_videos.dart';
 
 const _feedRatios = {'9:16', '1:1', '4:5', '9:19.5'};
@@ -22,7 +23,11 @@ class BytesFeedPage extends StatefulWidget {
 
 class _BytesFeedPageState extends State<BytesFeedPage> {
   // One controller for the whole feed: it drives whichever byte is current.
-  final ChorkiPlayerController _controller = ChorkiPlayerController();
+  // Its analytics config applies to every byte; each byte reports its own
+  // views, and only while it is the one on screen.
+  final ChorkiPlayerController _controller = ChorkiPlayerController(
+    analytics: exampleAnalytics,
+  );
 
   int _current = 0;
 
@@ -32,13 +37,21 @@ class _BytesFeedPageState extends State<BytesFeedPage> {
     super.dispose();
   }
 
-  Widget _byte(TestVideo video, {required bool preload}) {
+  Widget _byte(TestVideo video, int index, {required bool preload}) {
     final route = video.route;
+    final metadata = ChorkiMediaMetadata(
+      contentId: route ?? video.url,
+      title: video.title,
+      category: 'bytes',
+      contentType: 'byte',
+      feedIndex: index,
+    );
     if (route != null) {
       return ChorkiPlayer(
         route: route,
         preload: preload,
         controller: _controller,
+        metadata: metadata,
         ads: const ChorkiAdConfig(),
       );
     }
@@ -46,6 +59,7 @@ class _BytesFeedPageState extends State<BytesFeedPage> {
       video.url!,
       preload: preload,
       controller: _controller,
+      metadata: metadata,
       mediaOptions: ChorkiMediaOptions(httpHeaders: video.headers),
     );
   }
@@ -78,7 +92,7 @@ class _BytesFeedPageState extends State<BytesFeedPage> {
         itemCount: feedVideos.length,
         onPageChanged: (i) => setState(() => _current = i),
         itemBuilder: (context, i) =>
-            _byte(feedVideos[i], preload: i != _current),
+            _byte(feedVideos[i], i, preload: i != _current),
       ),
     );
   }

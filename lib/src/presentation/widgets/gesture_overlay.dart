@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../analytics/chorki_analytics_event.dart';
+import '../../analytics/chorki_analytics_scope.dart';
+import '../../analytics/chorki_analytics_session.dart';
 import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
 
@@ -80,6 +83,9 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
 
   VideoPlayerController get _controller => widget.controller;
 
+  ChorkiAnalyticsSession? get _analytics =>
+      mounted ? ChorkiAnalyticsScope.maybeOf(context) : null;
+
   bool get _canControl => _controller.value.isInitialized;
 
   @override
@@ -154,6 +160,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     if (target < Duration.zero) target = Duration.zero;
     if (target > value.duration) target = value.duration;
 
+    _analytics?.recordSeek(base, target, ChorkiSeekSource.doubleTap);
     _pendingDoubleTapTarget = target;
     _doubleTapTargetReset?.cancel();
     _doubleTapTargetReset = Timer(widget.doubleTapWindow, () {
@@ -178,6 +185,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     _resumeOnScrubEnd = value.isPlaying;
     _lastHapticTick = _tickIndex(_scrubTarget);
 
+    _analytics?.recordScrubStart();
     if (value.isPlaying) {
       _safe(() => _controller.pause());
     }
@@ -227,6 +235,12 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     _scrubThrottle = null;
     HapticFeedback.lightImpact();
 
+    final target = _clampToDuration(_scrubTarget);
+    if (target == _scrubBase) {
+      _analytics?.recordScrubCancel();
+    } else {
+      _analytics?.recordSeek(_scrubBase, target, ChorkiSeekSource.scrub);
+    }
     unawaited(_seekClamped(_scrubTarget));
     if (_resumeOnScrubEnd) {
       _resumeOnScrubEnd = false;
@@ -253,6 +267,7 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     HapticFeedback.mediumImpact();
     _speedBeforeHold = _controller.value.playbackSpeed;
     _safe(() => _controller.setPlaybackSpeed(widget.longPressSpeed));
+    _analytics?.recordSpeedBoostStart(widget.longPressSpeed);
     setState(() => _speedHoldActive = true);
     _notifyGesturesActive(true);
   }
@@ -265,7 +280,10 @@ class _PlayerGestureOverlayState extends State<PlayerGestureOverlay>
     if (!_speedHoldActive) return;
     _safe(() => _controller.setPlaybackSpeed(_speedBeforeHold));
     _speedHoldActive = false;
-    if (mounted) setState(() {});
+    if (mounted) {
+      _analytics?.recordSpeedBoostEnd();
+      setState(() {});
+    }
     _notifyGesturesActive(false);
   }
 

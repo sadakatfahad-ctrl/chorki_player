@@ -2,6 +2,7 @@ import 'package:chorki_player/chorki_player.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'analytics.dart';
 import 'feed_page.dart';
 import 'test_videos.dart';
 
@@ -185,6 +186,12 @@ class _PlayerPageState extends State<PlayerPage> {
   Widget _player({required bool sizeToVideo}) {
     final video = widget.video;
     final route = video.route;
+    final metadata = ChorkiMediaMetadata(
+      contentId: route ?? video.url,
+      title: video.title,
+      category: 'catalog',
+      extra: {'ratio': video.ratio},
+    );
     if (route != null) {
       return ChorkiPlayer(
         key: _playerKey,
@@ -203,6 +210,8 @@ class _PlayerPageState extends State<PlayerPage> {
         ),
         seekBarBottomOffset: 20,
         ads: const ChorkiAdConfig(),
+        metadata: metadata,
+        analytics: exampleAnalytics,
       );
     }
     return ChorkiPlayer.url(
@@ -215,6 +224,8 @@ class _PlayerPageState extends State<PlayerPage> {
           : 16 / 9,
       mediaOptions: ChorkiMediaOptions(httpHeaders: video.headers),
       seekBarBottomOffset: 20,
+      metadata: metadata,
+      analytics: exampleAnalytics,
     );
   }
 

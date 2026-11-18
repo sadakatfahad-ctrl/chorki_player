@@ -6,6 +6,9 @@ import 'package:video_player/video_player.dart';
 
 import '../../ads/ad_timeline.dart';
 import '../../ads/chorki_ad_state.dart';
+import '../../analytics/chorki_analytics_event.dart';
+import '../../analytics/chorki_analytics_scope.dart';
+import '../../analytics/chorki_analytics_session.dart';
 import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
 
@@ -112,11 +115,19 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
     super.dispose();
   }
 
+  /// Position when the current drag began, for the seek event.
+  Duration? _dragStart;
+
+  ChorkiAnalyticsSession? get _analytics =>
+      mounted ? ChorkiAnalyticsScope.maybeOf(context) : null;
+
   void _beginScrub(double fraction) {
     final value = _controller.value;
     if (!value.isInitialized || value.duration == Duration.zero) return;
 
     HapticFeedback.lightImpact();
+    _dragStart = value.position;
+    _analytics?.recordScrubStart();
     setState(() {
       _dragging = true;
       _dragFraction = fraction.clamp(0.0, 1.0);
@@ -158,9 +169,17 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
 
   void _restoreAfterScrub({required bool applySeek}) {
     if (applySeek) {
+      final target = _positionOf(_dragFraction);
+      final from = _dragStart ?? _controller.value.position;
+      if (target == from) {
+        _analytics?.recordScrubCancel();
+      } else {
+        _analytics?.recordSeek(from, target, ChorkiSeekSource.seekBarDrag);
+      }
       _applyDragSeek();
-      widget.onSeekEnded?.call(_positionOf(_dragFraction));
+      widget.onSeekEnded?.call(target);
     }
+    _dragStart = null;
     if (_resumeOnEnd) {
       _resumeOnEnd = false;
       _safe(() => _controller.play());
@@ -242,7 +261,14 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
               duration: value.duration,
               dragging: _dragging,
             ),
-            (target) => _safe(() => _controller.seekTo(target)),
+            (target) {
+              _analytics?.recordSeek(
+                _controller.value.position,
+                target,
+                ChorkiSeekSource.seekBarTap,
+              );
+              _safe(() => _controller.seekTo(target));
+            },
           );
         }
 
@@ -255,7 +281,13 @@ class _ShortsSeekBarState extends State<ShortsSeekBar> {
                 behavior: HitTestBehavior.opaque,
                 onTapUp: (details) {
                   HapticFeedback.selectionClick();
-                  unawaited(_seekTo(_fractionAt(details.localPosition, width)));
+                  final fraction = _fractionAt(details.localPosition, width);
+                  _analytics?.recordSeek(
+                    _controller.value.position,
+                    _positionOf(fraction),
+                    ChorkiSeekSource.seekBarTap,
+                  );
+                  unawaited(_seekTo(fraction));
                 },
                 onHorizontalDragStart: (details) =>
                     _beginScrub(_fractionAt(details.localPosition, width)),

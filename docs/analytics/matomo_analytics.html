@@ -1,0 +1,1177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ChorkiPlayer Matomo Analytics</title>
+<style>
+  @page { size: A4 landscape; margin: 0; }
+  :root {
+    --ink: #17202e; --muted: #5b6577; --line: #d6dbe4; --bg: #ffffff; --panel: #f4f6fa;
+    --play: #2f6fde; --play-l: #e3ecfc;
+    --qoe: #d9822b; --qoe-l: #fcefe1;
+    --ad: #b8418f; --ad-l: #f8e4f1;
+    --ux: #23936b; --ux-l: #def4ea;
+    --mat: #3152a0; --mat-l: #e2e8f6;
+    --dark: #1f2a3d;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .page { width: 297mm; height: 210mm; padding: 13mm 15mm 11mm; position: relative;
+    page-break-after: always; overflow: hidden; }
+  .page:last-child { page-break-after: auto; }
+  .hdr { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 2px solid var(--ink); padding-bottom: 2.5mm; margin-bottom: 5mm; }
+  .hdr h2 { margin: 0; font-size: 21px; letter-spacing: -0.2px; }
+  .hdr .sec { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1.4px; }
+  .foot { position: absolute; bottom: 6mm; left: 15mm; right: 15mm; display: flex;
+    justify-content: space-between; font-size: 8.5px; color: var(--muted); }
+  p, li { font-size: 11px; line-height: 1.45; }
+  .lead { font-size: 12px; color: var(--muted); margin: 0 0 4mm; max-width: 230mm; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5mm; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4mm; }
+  .card { background: var(--panel); border-radius: 3mm; padding: 4mm; }
+  .card h3 { margin: 0 0 2mm; font-size: 13px; }
+  .card p { margin: 0; }
+  code, .mono { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9.5px; }
+  pre { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 9px; line-height: 1.45;
+    background: var(--dark); color: #e8edf5; border-radius: 2.5mm; padding: 3.5mm 4mm; margin: 0;
+    white-space: pre-wrap; }
+  pre .k { color: #8fb8ff; } pre .s { color: #a8e0a0; } pre .c { color: #8a96ab; } pre .n { color: #ffcc80; }
+  table { border-collapse: collapse; width: 100%; font-size: 9.2px; }
+  th { text-align: left; background: var(--ink); color: #fff; padding: 1.6mm 2mm; font-weight: 600; }
+  td { padding: 1.25mm 2mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfd; }
+  .pill { display: inline-block; padding: 0.4mm 2mm; border-radius: 10px; font-size: 8.5px; font-weight: 600; }
+  .p-play { background: var(--play-l); color: var(--play); }
+  .p-qoe { background: var(--qoe-l); color: #a85f14; }
+  .p-ad { background: var(--ad-l); color: var(--ad); }
+  .p-ux { background: var(--ux-l); color: #17724f; }
+  .p-mat { background: var(--mat-l); color: var(--mat); }
+  .legend { display: flex; gap: 5mm; font-size: 9.5px; color: var(--muted); align-items: center; }
+  .legend i { display: inline-block; width: 3mm; height: 3mm; border-radius: 1mm; margin-right: 1.3mm; vertical-align: -0.4mm; }
+  svg text { font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif; }
+  svg .mono { font-family: "SF Mono", Menlo, monospace; }
+  .note { border-left: 3px solid var(--qoe); background: var(--qoe-l); padding: 2.5mm 3.5mm; font-size: 10.5px; border-radius: 0 2mm 2mm 0; }
+  .ok { border-left-color: var(--ux); background: var(--ux-l); }
+  .big { font-size: 30px; font-weight: 700; letter-spacing: -0.5px; }
+  .toc li { font-size: 12px; margin: 1.3mm 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ 1. COVER -->
+<section class="page" style="padding:0; background: linear-gradient(135deg,#17202e 0%,#24365c 60%,#2f6fde 130%); color:#fff;">
+  <svg width="297mm" height="210mm" viewBox="0 0 1123 794" style="position:absolute;inset:0">
+    <!-- decorative player frame + timeline -->
+    <g opacity="0.16" fill="none" stroke="#fff" stroke-width="2">
+      <rect x="690" y="120" width="330" height="560" rx="34"/>
+      <line x1="720" y1="610" x2="990" y2="610"/>
+    </g>
+    <g opacity="0.9">
+      <rect x="720" y="606" width="150" height="8" rx="4" fill="#8fb8ff"/>
+      <circle cx="870" cy="610" r="11" fill="#fff"/>
+      <polygon points="830,330 830,430 915,380" fill="#fff" opacity="0.85"/>
+    </g>
+    <!-- segment bars -->
+    <g transform="translate(720,650)">
+      <rect x="0" y="0" width="22" height="10" rx="2" fill="#2f6fde"/><rect x="26" y="0" width="22" height="10" rx="2" fill="#2f6fde"/>
+      <rect x="52" y="0" width="22" height="10" rx="2" fill="#2f6fde"/><rect x="78" y="0" width="22" height="10" rx="2" fill="#ffffff" opacity=".25"/>
+      <rect x="104" y="0" width="22" height="10" rx="2" fill="#ffffff" opacity=".25"/><rect x="130" y="0" width="22" height="10" rx="2" fill="#2f6fde"/>
+      <rect x="156" y="0" width="22" height="10" rx="2" fill="#2f6fde"/><rect x="182" y="0" width="22" height="10" rx="2" fill="#ffffff" opacity=".25"/>
+      <rect x="208" y="0" width="22" height="10" rx="2" fill="#ffffff" opacity=".25"/><rect x="234" y="0" width="22" height="10" rx="2" fill="#ffffff" opacity=".25"/>
+    </g>
+    <g font-size="12" fill="#cfe0ff">
+      <text x="720" y="690">watched segments (ma_se)</text>
+    </g>
+    <!-- event bubbles -->
+    <g font-size="13" font-weight="600">
+      <rect x="600" y="170" width="110" height="30" rx="15" fill="#2f6fde"/><text x="655" y="190" fill="#fff" text-anchor="middle">impression</text>
+      <rect x="985" y="230" width="90" height="30" rx="15" fill="#23936b"/><text x="1030" y="250" fill="#fff" text-anchor="middle">speed 2x</text>
+      <rect x="600" y="470" width="110" height="30" rx="15" fill="#d9822b"/><text x="655" y="490" fill="#fff" text-anchor="middle">rebuffer</text>
+      <rect x="975" y="500" width="110" height="30" rx="15" fill="#b8418f"/><text x="1030" y="520" fill="#fff" text-anchor="middle">ad break</text>
+      <rect x="625" y="320" width="90" height="30" rx="15" fill="#2f6fde"/><text x="670" y="340" fill="#fff" text-anchor="middle">seek</text>
+    </g>
+  </svg>
+  <div style="position:absolute; left:20mm; top:38mm; width:150mm;">
+    <div style="font-size:12px; letter-spacing:3px; text-transform:uppercase; color:#9fc0ff;">chorki_player 1.6.0 · implementation guide</div>
+    <h1 style="font-size:46px; line-height:1.05; margin:5mm 0 6mm; letter-spacing:-1px;">Matomo video analytics<br>in ChorkiPlayer</h1>
+    <p style="font-size:15px; line-height:1.5; color:#d6e2f7; max-width:135mm;">How every view, pause, seek, stall, ad and settings change is captured inside the player, turned into analytics events, and delivered to Matomo as Media Analytics heartbeats and Events.</p>
+    <div style="display:flex; gap:9mm; margin-top:12mm;">
+      <div><div class="big">36</div><div style="font-size:11px;color:#b9cbe8">event types</div></div>
+      <div><div class="big">4</div><div style="font-size:11px;color:#b9cbe8">categories</div></div>
+      <div><div class="big">13</div><div style="font-size:11px;color:#b9cbe8">ma_* params</div></div>
+      <div><div class="big">38</div><div style="font-size:11px;color:#b9cbe8">new tests</div></div>
+    </div>
+    <div style="margin-top:14mm; font-size:11px; color:#9fb2d3;">November 2026 · Flutter SDK · video_player + IMA</div>
+  </div>
+</section>
+
+<!-- ============================================================ 2. CONTENTS + AT A GLANCE -->
+<section class="page">
+  <div class="hdr"><h2>At a glance</h2><span class="sec">Overview</span></div>
+  <div class="grid2" style="grid-template-columns: 1.05fr 1fr;">
+    <div>
+      <p class="lead">The SDK had no analytics layer. 1.6.0 adds one: a per-player <b>session engine</b> that watches playback and the player's own UI, emits typed events, and fans them out to <b>sinks</b>. A built-in <b>Matomo sink</b> turns them into Matomo requests.</p>
+      <svg viewBox="0 0 560 300" width="100%">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"/></marker>
+        </defs>
+        <!-- sources -->
+        <g font-size="12">
+          <rect x="0" y="10" width="150" height="280" rx="12" fill="#f4f6fa"/>
+          <text x="75" y="32" text-anchor="middle" font-weight="700" font-size="12.5">Inside the player</text>
+          <rect x="12" y="46" width="126" height="34" rx="7" fill="#fff" stroke="#d6dbe4"/><text x="75" y="67" text-anchor="middle">video_player value</text>
+          <rect x="12" y="88" width="126" height="34" rx="7" fill="#fff" stroke="#d6dbe4"/><text x="75" y="109" text-anchor="middle">Gestures &amp; seek bar</text>
+          <rect x="12" y="130" width="126" height="34" rx="7" fill="#fff" stroke="#d6dbe4"/><text x="75" y="151" text-anchor="middle">Controller &amp; settings</text>
+          <rect x="12" y="172" width="126" height="34" rx="7" fill="#fff" stroke="#d6dbe4"/><text x="75" y="193" text-anchor="middle">IMA ad layer</text>
+          <rect x="12" y="214" width="126" height="34" rx="7" fill="#fff" stroke="#d6dbe4"/><text x="75" y="235" text-anchor="middle">Load / error / retry</text>
+        </g>
+        <!-- session -->
+        <rect x="205" y="90" width="140" height="110" rx="14" fill="#2f6fde"/>
+        <text x="275" y="128" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">Analytics</text>
+        <text x="275" y="146" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">Session</text>
+        <text x="275" y="170" text-anchor="middle" fill="#d6e4ff" font-size="10.5">one per player widget</text>
+        <g stroke="#5b6577" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+          <path d="M140,63 C175,63 175,120 203,125"/>
+          <path d="M140,105 C170,105 175,135 203,138"/>
+          <path d="M140,147 L203,147"/>
+          <path d="M140,189 C170,189 175,160 203,157"/>
+          <path d="M140,231 C175,231 175,175 203,170"/>
+        </g>
+        <!-- sinks -->
+        <g stroke="#5b6577" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+          <path d="M345,130 C375,130 375,60 403,60"/>
+          <path d="M345,145 L403,145"/>
+          <path d="M345,160 C375,160 375,230 403,230"/>
+        </g>
+        <rect x="405" y="35" width="150" height="50" rx="10" fill="#e2e8f6" stroke="#3152a0"/>
+        <text x="480" y="57" text-anchor="middle" font-size="12" font-weight="700" fill="#3152a0">MatomoAnalyticsSink</text>
+        <text x="480" y="73" text-anchor="middle" font-size="10" fill="#3152a0">built in</text>
+        <rect x="405" y="120" width="150" height="50" rx="10" fill="#def4ea" stroke="#23936b"/>
+        <text x="480" y="142" text-anchor="middle" font-size="12" font-weight="700" fill="#17724f">CallbackAnalyticsSink</text>
+        <text x="480" y="158" text-anchor="middle" font-size="10" fill="#17724f">debug log, quick hooks</text>
+        <rect x="405" y="205" width="150" height="50" rx="10" fill="#fff" stroke="#5b6577" stroke-dasharray="4 3"/>
+        <text x="480" y="227" text-anchor="middle" font-size="12" font-weight="700">Your own sink</text>
+        <text x="480" y="243" text-anchor="middle" font-size="10" fill="#5b6577">Firebase, API, ...</text>
+      </svg>
+    </div>
+    <div>
+      <div class="grid2" style="gap:4mm;">
+        <div class="card" style="border-top:4px solid var(--play)"><h3 style="color:var(--play)">Playback · 10</h3><p>impression, play, pause, resume, seek (6 sources), heartbeat, quartile, complete, loop, sessionEnd</p></div>
+        <div class="card" style="border-top:4px solid var(--qoe)"><h3 style="color:#a85f14">QoE · 8</h3><p>loadStart, firstFrame (startup, queue wait, init), bufferStart/End, error (route, load, playback), retry, qualityChange, abandon (exit before start)</p></div>
+        <div class="card" style="border-top:4px solid var(--ad)"><h3 style="color:var(--ad)">Ads · 10</h3><p>adBreakStart/End (pre/mid/post), adStart, adQuartile, adComplete, adSkip, adClick, adPause/Resume, adError</p></div>
+        <div class="card" style="border-top:4px solid var(--ux)"><h3 style="color:#17724f">Player UX · 8</h3><p>speedChange, speedBoostStart/End, audioTrackChange, fitChange, pipChange, volumeChange, settingsOpen</p></div>
+      </div>
+      <h3 style="font-size:13px; margin:6mm 0 2mm;">In this document</h3>
+      <ol class="toc" style="display:grid; grid-template-columns:1fr 1fr; grid-auto-flow:column; grid-template-rows:repeat(8,auto); margin:0; padding-left:5mm; column-gap:8mm;">
+        <li>Architecture &amp; files</li>
+        <li>Session lifecycle</li>
+        <li>Feeds: one view per swipe</li>
+        <li>Watched time &amp; segments</li>
+        <li>Pauses, seeks, loops, quartiles</li>
+        <li>Where seeks come from</li>
+        <li>QoE: startup &amp; rebuffering</li>
+        <li>Ads: IMA → events</li>
+        <li>Event catalog</li>
+        <li>Matomo wire format</li>
+        <li>Delivery: queue &amp; retry</li>
+        <li>Integration &amp; Matomo setup</li>
+        <li>Inside the Chorki app</li>
+        <li>Reports you get</li>
+        <li>Testing, limits, next steps</li>
+      </ol>
+      <div class="note ok" style="margin-top:5mm;">Decisions: <b>hybrid</b> tracking (Media Analytics + Events), <b>pluggable sinks</b> with a built-in Matomo sink, <b>all four scopes</b>, and <b>metadata passed by the app</b>.</div>
+    </div>
+  </div>
+  <div class="foot"><span>ChorkiPlayer · Matomo analytics</span><span>2</span></div>
+</section>
+
+<!-- ============================================================ 3. ARCHITECTURE -->
+<section class="page">
+  <div class="hdr"><h2>1 · Architecture &amp; files</h2><span class="sec">Structure</span></div>
+  <p class="lead">Session state belongs to the <b>widget</b>, never the <b>controller</b>, because a feed shares one controller across all pages. Widgets below the player reach the session through an <code>InheritedWidget</code> scope. The controller only forwards commands to whichever session is attached.</p>
+  <svg viewBox="0 0 1060 520" width="100%">
+    <defs>
+      <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"/></marker>
+      <marker id="a2b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2f6fde"/></marker>
+    </defs>
+    <!-- Widget tree column -->
+    <rect x="0" y="0" width="420" height="515" rx="14" fill="#f4f6fa"/>
+    <text x="20" y="28" font-size="13" font-weight="700">Widget tree (one ChorkiPlayer)</text>
+    <g font-size="11.5">
+      <rect x="20" y="45" width="380" height="54" rx="9" fill="#fff" stroke="#17202e" stroke-width="1.4"/>
+      <text x="34" y="66" font-weight="700">ChorkiPlayer  (_ChorkiPlayerState)</text>
+      <text x="34" y="85" class="mono" font-size="9.5" fill="#5b6577">presentation/chorki_player_widget.dart</text>
+
+      <rect x="40" y="112" width="360" height="54" rx="9" fill="#e3ecfc" stroke="#2f6fde"/>
+      <text x="54" y="133" font-weight="700" fill="#2f6fde">ChorkiAnalyticsScope</text>
+      <text x="54" y="152" class="mono" font-size="9.5" fill="#5b6577">analytics/chorki_analytics_scope.dart</text>
+
+      <rect x="60" y="179" width="340" height="54" rx="9" fill="#fff" stroke="#b8418f"/>
+      <text x="74" y="200" font-weight="700" fill="#b8418f">ChorkiAdLayer  (when ads on)</text>
+      <text x="74" y="219" class="mono" font-size="9.5" fill="#5b6577">ads/chorki_ad_layer.dart</text>
+
+      <rect x="80" y="246" width="320" height="54" rx="9" fill="#fff" stroke="#d6dbe4"/>
+      <text x="94" y="267" font-weight="700">ChorkiPlayerSurface</text>
+      <text x="94" y="286" class="mono" font-size="9.5" fill="#5b6577">settings gear → settingsOpen</text>
+
+      <rect x="100" y="313" width="300" height="54" rx="9" fill="#fff" stroke="#d6dbe4"/>
+      <text x="114" y="334" font-weight="700">PlayerGestureOverlay</text>
+      <text x="114" y="353" class="mono" font-size="9.5" fill="#5b6577">double tap, scrub, long-press boost</text>
+
+      <rect x="100" y="380" width="300" height="54" rx="9" fill="#fff" stroke="#d6dbe4"/>
+      <text x="114" y="401" font-weight="700">ShortsSeekBar</text>
+      <text x="114" y="420" class="mono" font-size="9.5" fill="#5b6577">tap, drag, custom builder seek</text>
+
+      <rect x="100" y="447" width="300" height="50" rx="9" fill="#fff" stroke="#d6dbe4"/>
+      <text x="114" y="468" font-weight="700">ChorkiSettingsSheet</text>
+      <text x="114" y="485" class="mono" font-size="9.5" fill="#5b6577">calls the controller</text>
+    </g>
+    <!-- maybeOf arrows -->
+    <g stroke="#2f6fde" stroke-width="1.4" fill="none" stroke-dasharray="4 3" marker-end="url(#a2b)">
+      <path d="M400,206 C430,206 430,139 402,139"/>
+      <path d="M400,273 C440,273 440,145 402,145"/>
+      <path d="M400,340 C450,340 450,150 402,150"/>
+      <path d="M400,407 C460,407 460,155 402,155"/>
+    </g>
+    <text x="470" y="300" font-size="10.5" fill="#2f6fde" transform="rotate(-90 470 300)">ChorkiAnalyticsScope.maybeOf(context)</text>
+
+    <!-- Session -->
+    <rect x="500" y="150" width="230" height="170" rx="14" fill="#2f6fde"/>
+    <text x="615" y="182" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">ChorkiAnalyticsSession</text>
+    <g fill="#e3ecfc" font-size="10.5">
+      <text x="520" y="208">· activate / deactivate (on screen)</text>
+      <text x="520" y="226">· bind / unbind (video value)</text>
+      <text x="520" y="244">· watched time, segments, quartiles</text>
+      <text x="520" y="262">· play / pause / buffer / loop edges</text>
+      <text x="520" y="280">· heartbeat timer (10 s)</text>
+      <text x="520" y="298">· record*() from UI, ads, controller</text>
+    </g>
+    <!-- widget owns session -->
+    <path d="M400,72 C560,72 615,90 615,148" stroke="#17202e" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
+    <text x="520" y="66" font-size="10.5" fill="#17202e">owns (created in initState)</text>
+
+    <!-- controller -->
+    <rect x="500" y="380" width="230" height="110" rx="12" fill="#fff" stroke="#17202e" stroke-width="1.4"/>
+    <text x="615" y="405" text-anchor="middle" font-size="13" font-weight="700">ChorkiPlayerController</text>
+    <text x="615" y="423" text-anchor="middle" font-size="10" fill="#5b6577">shared by a whole feed</text>
+    <g font-size="10" fill="#17202e">
+      <text x="514" y="445">attach(video, analytics: session)</text>
+      <text x="514" y="462">seekTo / setSpeed / setFit / quality</text>
+      <text x="514" y="479">audio / PiP → session.record*()</text>
+    </g>
+    <path d="M615,378 L615,322" stroke="#17202e" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
+    <path d="M400,472 C450,472 450,440 498,440" stroke="#5b6577" stroke-width="1.4" fill="none" marker-end="url(#a2)"/>
+
+    <!-- video -->
+    <rect x="500" y="20" width="230" height="56" rx="10" fill="#fff" stroke="#d6dbe4"/>
+    <text x="615" y="44" text-anchor="middle" font-size="12" font-weight="700">VideoPlayerController</text>
+    <text x="615" y="62" text-anchor="middle" font-size="10" fill="#5b6577">position, playing, buffering, volume</text>
+    <path d="M700,78 L700,148" stroke="#5b6577" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
+    <text x="706" y="118" font-size="10" fill="#5b6577">listener</text>
+
+    <!-- sinks -->
+    <rect x="790" y="0" width="270" height="515" rx="14" fill="#e2e8f6"/>
+    <text x="810" y="28" font-size="13" font-weight="700" fill="#3152a0">Sinks</text>
+    <path d="M730,235 L788,235" stroke="#5b6577" stroke-width="1.6" fill="none" marker-end="url(#a2)"/>
+    <g font-size="11">
+      <rect x="808" y="45" width="234" height="60" rx="9" fill="#fff"/>
+      <text x="820" y="66" font-weight="700">ChorkiAnalyticsSink</text>
+      <text x="820" y="84" class="mono" font-size="9.5" fill="#5b6577">onEvent · flush · dispose</text>
+      <text x="820" y="98" font-size="9.5" fill="#5b6577">MemoryAnalyticsSink · CallbackAnalyticsSink</text>
+
+      <rect x="808" y="125" width="234" height="365" rx="9" fill="#fff" stroke="#3152a0"/>
+      <text x="820" y="147" font-weight="700" fill="#3152a0">MatomoAnalyticsSink</text>
+      <rect x="822" y="160" width="206" height="54" rx="7" fill="#e2e8f6"/>
+      <text x="832" y="180" font-weight="600">MatomoRequestBuilder</text>
+      <text x="832" y="198" font-size="9.5" fill="#5b6577">event → ma_* / e_* params (pure)</text>
+      <path d="M925,214 L925,232" stroke="#3152a0" stroke-width="1.4" marker-end="url(#a2)"/>
+      <rect x="822" y="234" width="206" height="54" rx="7" fill="#e2e8f6"/>
+      <text x="832" y="254" font-weight="600">Queue (cap 500)</text>
+      <text x="832" y="272" font-size="9.5" fill="#5b6577">batch 20 · flush 10 s · backoff</text>
+      <path d="M925,288 L925,306" stroke="#3152a0" stroke-width="1.4" marker-end="url(#a2)"/>
+      <rect x="822" y="308" width="206" height="54" rx="7" fill="#e2e8f6"/>
+      <text x="832" y="328" font-weight="600">DioMatomoTransport</text>
+      <text x="832" y="346" font-size="9.5" fill="#5b6577">POST matomo.php {"requests":[..]}</text>
+      <rect x="822" y="382" width="206" height="54" rx="7" fill="#fff" stroke="#d6dbe4"/>
+      <text x="832" y="402" font-weight="600">ChorkiAnalyticsStorage</text>
+      <text x="832" y="420" font-size="9.5" fill="#5b6577">visitor id + unsent queue</text>
+      <path d="M925,364 L925,380" stroke="#3152a0" stroke-width="1.4" stroke-dasharray="3 3"/>
+      <text x="832" y="462" font-size="9.5" fill="#5b6577">AppLifecycleListener → flush on</text>
+      <text x="832" y="476" font-size="9.5" fill="#5b6577">hide / detach</text>
+    </g>
+  </svg>
+  <div class="foot"><span>New files: lib/src/analytics/{event, sink, config, metadata, session, scope}.dart · lib/src/analytics/matomo/{config, request_builder, sink, analytics_storage}.dart</span><span>3</span></div>
+</section>
+
+<!-- ============================================================ 4. SESSION LIFECYCLE -->
+<section class="page">
+  <div class="hdr"><h2>2 · Session lifecycle</h2><span class="sec">State machine</span></div>
+  <p class="lead">A session reports only when it is <b>active</b> (on screen) <b>and bound</b> (its video is loaded). Each activation gets a new <code>sessionId</code>, which becomes Matomo's <code>ma_id</code>. A reload after an error keeps the session.</p>
+  <svg viewBox="0 0 1060 470" width="100%">
+    <defs>
+      <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#17202e"/></marker>
+    </defs>
+    <g font-size="12" text-anchor="middle">
+      <!-- states -->
+      <rect x="10" y="40" width="170" height="70" rx="35" fill="#f4f6fa" stroke="#5b6577"/>
+      <text x="95" y="70" font-weight="700">Inactive</text><text x="95" y="88" font-size="10" fill="#5b6577">preloading / created</text>
+
+      <rect x="270" y="40" width="190" height="70" rx="35" fill="#fff" stroke="#2f6fde" stroke-width="1.6"/>
+      <text x="365" y="70" font-weight="700">Active, unbound</text><text x="365" y="88" font-size="10" fill="#5b6577">new sessionId · loading</text>
+
+      <rect x="560" y="40" width="200" height="70" rx="35" fill="#e3ecfc" stroke="#2f6fde" stroke-width="1.6"/>
+      <text x="660" y="70" font-weight="700" fill="#2f6fde">Shown</text><text x="660" y="88" font-size="10" fill="#2f6fde">impression sent</text>
+
+      <rect x="560" y="200" width="200" height="70" rx="35" fill="#2f6fde"/>
+      <text x="660" y="230" font-weight="700" fill="#fff">Playing</text><text x="660" y="248" font-size="10" fill="#d6e4ff">heartbeat every 10 s</text>
+
+      <rect x="860" y="200" width="180" height="70" rx="35" fill="#fff" stroke="#2f6fde" stroke-width="1.6"/>
+      <text x="950" y="230" font-weight="700">Paused</text><text x="950" y="248" font-size="10" fill="#5b6577">watched time frozen</text>
+
+      <rect x="290" y="200" width="180" height="70" rx="35" fill="#fcefe1" stroke="#d9822b" stroke-width="1.6"/>
+      <text x="380" y="230" font-weight="700" fill="#a85f14">Buffering</text><text x="380" y="248" font-size="10" fill="#a85f14">rebuffer timer</text>
+
+      <rect x="560" y="350" width="200" height="70" rx="35" fill="#f8e4f1" stroke="#b8418f" stroke-width="1.6"/>
+      <text x="660" y="380" font-weight="700" fill="#b8418f">Ad break</text><text x="660" y="398" font-size="10" fill="#b8418f">content frozen, no pause event</text>
+
+      <rect x="860" y="350" width="180" height="70" rx="35" fill="#f4f6fa" stroke="#17202e" stroke-width="1.6"/>
+      <text x="950" y="380" font-weight="700">Ended</text><text x="950" y="398" font-size="10" fill="#5b6577">sessionEnd + totals</text>
+
+      <rect x="10" y="350" width="200" height="70" rx="35" fill="#fff" stroke="#2f6fde" stroke-dasharray="5 3" stroke-width="1.6"/>
+      <text x="110" y="380" font-weight="700">Loop wrap</text><text x="110" y="398" font-size="10" fill="#5b6577">complete → loop → new id</text>
+    </g>
+    <g stroke="#17202e" stroke-width="1.5" fill="none" marker-end="url(#a3)" font-size="10.5">
+      <path d="M180,75 L268,75"/>
+      <path d="M460,75 L558,75"/>
+      <path d="M660,110 L660,198"/>
+      <path d="M760,225 L858,225"/>
+      <path d="M858,250 L762,250"/>
+      <path d="M560,225 L472,225"/>
+      <path d="M472,250 L558,250"/>
+      <path d="M640,270 L640,348"/>
+      <path d="M680,348 L680,272"/>
+      <path d="M950,272 L950,348"/>
+      <path d="M560,265 C420,320 260,330 210,360"/>
+      <path d="M150,350 C220,300 420,250 558,240"/>
+      <path d="M760,75 C1090,75 1090,385 1042,385"/>
+    </g>
+    <g font-size="10.5" fill="#17202e">
+      <text x="186" y="66">activate()</text>
+      <text x="470" y="66">bind(video)</text>
+      <text x="666" y="160">first play</text>
+      <text x="666" y="174" fill="#5b6577">play(timeToPlayMs)</text>
+      <text x="772" y="218">pause</text>
+      <text x="784" y="266">resume</text>
+      <text x="478" y="218">stall</text>
+      <text x="482" y="266">bufferEnd</text>
+      <text x="560" y="312">adBreakStart</text>
+      <text x="686" y="312">adBreakEnd</text>
+      <text x="956" y="312">deactivate(reason)</text>
+      <text x="300" y="322" fill="#2f6fde">position wraps end → 0</text>
+      <text x="250" y="292" fill="#2f6fde">impression + play (new ma_id)</text>
+      <text x="905" y="66">deactivate from any active state</text>
+    </g>
+  </svg>
+  <div class="grid4" style="margin-top:2mm;">
+    <div class="card"><h3>swipedAway</h3><p>Feed page became <code>preload: true</code> again.</p></div>
+    <div class="card"><h3>disposed</h3><p>The player left the widget tree.</p></div>
+    <div class="card"><h3>sourceChanged</h3><p>Route or URL changed under the same player. A new session starts right away.</p></div>
+    <div class="card"><h3>looped</h3><p>A looping video wrapped while <code>newSessionOnLoop</code> is on (the default).</p></div>
+  </div>
+  <div class="foot"><span>chorki_analytics_session.dart · activate(), deactivate(), bind(), unbind(), dispose()</span><span>4</span></div>
+</section>
+
+<!-- ============================================================ 5. FEED -->
+<section class="page">
+  <div class="hdr"><h2>3 · Feeds: one view per swipe</h2><span class="sec">Bytes-style PageView</span></div>
+  <p class="lead">Pages next to the current one are built with <code>preload: true</code>. They load and buffer but <b>report nothing</b>. When a swipe flips <code>preload</code>, <code>_syncPreload</code> ends the old page's session and activates the new one. Because the new page is already bound, its impression is immediate.</p>
+  <svg viewBox="0 0 1060 430" width="100%">
+    <defs><marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#17202e"/></marker></defs>
+    <!-- lanes -->
+    <g font-size="12" font-weight="700">
+      <text x="0" y="55">Page A</text><text x="0" y="135">Page B</text><text x="0" y="215">Shared controller</text><text x="0" y="295">Sink receives</text>
+    </g>
+    <g stroke="#d6dbe4"><line x1="130" y1="50" x2="1060" y2="50"/><line x1="130" y1="130" x2="1060" y2="130"/><line x1="130" y1="210" x2="1060" y2="210"/><line x1="130" y1="290" x2="1060" y2="290"/></g>
+    <!-- time axis -->
+    <line x1="130" y1="380" x2="1050" y2="380" stroke="#17202e" stroke-width="1.5" marker-end="url(#a4)"/>
+    <g font-size="10.5" fill="#5b6577" text-anchor="middle"><text x="200" y="400">t0 open feed</text><text x="560" y="400">t1 swipe up</text><text x="900" y="400">t2 leave feed</text></g>
+    <line x1="560" y1="30" x2="560" y2="375" stroke="#17202e" stroke-dasharray="5 4"/>
+    <line x1="900" y1="30" x2="900" y2="375" stroke="#17202e" stroke-dasharray="5 4"/>
+    <!-- page A bars -->
+    <rect x="140" y="36" width="420" height="28" rx="6" fill="#2f6fde"/><text x="350" y="55" fill="#fff" font-size="11" text-anchor="middle">active · session a1 · playing</text>
+    <rect x="560" y="36" width="340" height="28" rx="6" fill="#f4f6fa" stroke="#d6dbe4"/><text x="730" y="55" font-size="11" text-anchor="middle" fill="#5b6577">preload (rewound to start) · silent</text>
+    <!-- page B -->
+    <rect x="140" y="116" width="420" height="28" rx="6" fill="#f4f6fa" stroke="#d6dbe4"/><text x="350" y="135" font-size="11" text-anchor="middle" fill="#5b6577">preload · loaded &amp; buffered · silent</text>
+    <rect x="560" y="116" width="340" height="28" rx="6" fill="#2f6fde"/><text x="730" y="135" fill="#fff" font-size="11" text-anchor="middle">active · session b1 · playing</text>
+    <!-- controller -->
+    <rect x="140" y="196" width="420" height="28" rx="6" fill="#fff" stroke="#17202e"/><text x="350" y="215" font-size="11" text-anchor="middle">attach(A.video, analytics: a1)</text>
+    <rect x="560" y="196" width="340" height="28" rx="6" fill="#fff" stroke="#17202e"/><text x="730" y="215" font-size="11" text-anchor="middle">attach(B.video, analytics: b1)</text>
+    <!-- sink events -->
+    <g font-size="10" font-weight="600">
+      <rect x="150" y="276" width="78" height="26" rx="13" fill="#e3ecfc"/><text x="189" y="293" text-anchor="middle" fill="#2f6fde">A impression</text>
+      <rect x="236" y="276" width="56" height="26" rx="13" fill="#e3ecfc"/><text x="264" y="293" text-anchor="middle" fill="#2f6fde">A play</text>
+      <rect x="300" y="276" width="80" height="26" rx="13" fill="#fcefe1"/><text x="340" y="293" text-anchor="middle" fill="#a85f14">A firstFrame</text>
+      <rect x="388" y="276" width="78" height="26" rx="13" fill="#e3ecfc"/><text x="427" y="293" text-anchor="middle" fill="#2f6fde">A heartbeat</text>
+      <rect x="474" y="276" width="78" height="26" rx="13" fill="#e3ecfc"/><text x="513" y="293" text-anchor="middle" fill="#2f6fde">A quartile 25</text>
+      <rect x="566" y="250" width="148" height="26" rx="13" fill="#17202e"/><text x="640" y="267" text-anchor="middle" fill="#fff">A heartbeat(end) + sessionEnd</text>
+      <rect x="566" y="282" width="78" height="26" rx="13" fill="#e3ecfc"/><text x="605" y="299" text-anchor="middle" fill="#2f6fde">B impression</text>
+      <rect x="652" y="282" width="56" height="26" rx="13" fill="#e3ecfc"/><text x="680" y="299" text-anchor="middle" fill="#2f6fde">B play</text>
+      <rect x="716" y="282" width="84" height="26" rx="13" fill="#fcefe1"/><text x="758" y="299" text-anchor="middle" fill="#a85f14">B firstFrame*</text>
+      <rect x="808" y="282" width="78" height="26" rx="13" fill="#e3ecfc"/><text x="847" y="299" text-anchor="middle" fill="#2f6fde">B heartbeat</text>
+      <rect x="906" y="276" width="148" height="26" rx="13" fill="#17202e"/><text x="980" y="293" text-anchor="middle" fill="#fff">B sessionEnd(disposed)</text>
+    </g>
+    <text x="566" y="335" font-size="10.5" fill="#5b6577">sessionEnd data: reason=swipedAway, dwellMs, watchedPercent, maxPositionMs,</text>
+    <text x="566" y="350" font-size="10.5" fill="#5b6577">rebufferCount, rebufferMs, pauseCount, seekCount, loopCount</text>
+    <text x="140" y="335" font-size="10.5" fill="#5b6577">* firstFrame carries preloaded=true and a near-zero</text>
+    <text x="140" y="350" font-size="10.5" fill="#5b6577">  startupMs: the preload paid the cost off screen.</text>
+  </svg>
+  <div class="grid3" style="margin-top:1mm;">
+    <div class="card"><h3>Config once</h3><p><code>ChorkiPlayerController(analytics: config)</code>. Every page inherits it; a page's own <code>analytics:</code> wins.</p></div>
+    <div class="card"><h3>Metadata per page</h3><p>Give each page <code>ChorkiMediaMetadata(contentId, title, feedIndex: i, ...)</code> so Matomo can tell items apart.</p></div>
+    <div class="card"><h3>No double counting</h3><p>The controller's commands go only to the session passed in the latest <code>attach()</code>, which is always the visible page.</p></div>
+  </div>
+  <div class="foot"><span>chorki_player_widget.dart · _syncPreload(), _syncSession(), _reattach()</span><span>5</span></div>
+</section>
+
+<!-- ============================================================ 6. WATCHED TIME & SEGMENTS -->
+<section class="page">
+  <div class="hdr"><h2>4 · Watched time &amp; segments</h2><span class="sec">ma_st · ma_se</span></div>
+  <p class="lead">video_player reports the position about every 500 ms. Between two ticks the session adds the position delta to the watched time, but only if the video was playing at <b>both</b> ticks, is not buffering, is not in an ad, and the jump is no bigger than 3 s × speed (larger jumps are seeks). The covered 5-second buckets are marked as watched.</p>
+  <svg viewBox="0 0 1060 400" width="100%">
+    <!-- position axis -->
+    <g font-size="10" fill="#5b6577" text-anchor="middle">
+      <text x="60" y="20" text-anchor="start" font-size="11.5" font-weight="700" fill="#17202e">Example view of a 60 s video (wall-clock time →)</text>
+    </g>
+    <!-- timeline bars -->
+    <g font-size="10.5">
+      <rect x="40" y="40" width="240" height="34" rx="4" fill="#2f6fde"/><text x="160" y="62" text-anchor="middle" fill="#fff">play 0 → 12 s</text>
+      <rect x="280" y="40" width="110" height="34" rx="4" fill="#d6dbe4"/><text x="335" y="62" text-anchor="middle">paused 30 s</text>
+      <rect x="390" y="40" width="30" height="34" rx="4" fill="#2f6fde"/>
+      <rect x="420" y="40" width="20" height="34" fill="#17202e"/><text x="430" y="94" text-anchor="middle" font-size="9.5">seek</text>
+      <rect x="440" y="40" width="60" height="34" rx="4" fill="#d9822b"/><text x="470" y="62" text-anchor="middle" fill="#fff">stall 1.2 s</text>
+      <rect x="500" y="40" width="80" height="34" rx="4" fill="#2f6fde"/><text x="540" y="62" text-anchor="middle" fill="#fff">40 → 44</text>
+      <rect x="580" y="40" width="210" height="34" rx="4" fill="#b8418f"/><text x="685" y="62" text-anchor="middle" fill="#fff">mid-roll ad 15 s</text>
+      <rect x="790" y="40" width="240" height="34" rx="4" fill="#2f6fde"/><text x="910" y="62" text-anchor="middle" fill="#fff">play 44 → 60 s (end)</text>
+    </g>
+    <text x="405" y="34" font-size="9.5" text-anchor="middle">12→13.5</text>
+    <!-- watched time line -->
+    <text x="40" y="128" font-size="11.5" font-weight="700">Watched time (ma_st) grows only in the blue parts</text>
+    <polyline fill="none" stroke="#2f6fde" stroke-width="3" points="40,230 280,190 390,190 420,187 440,187 500,187 580,180 790,180 1030,152"/>
+    <g stroke="#d6dbe4"><line x1="40" y1="230" x2="1030" y2="230"/><line x1="40" y1="140" x2="40" y2="230"/></g>
+    <g font-size="10" fill="#2f6fde">
+      <text x="270" y="180">12 s</text><text x="560" y="172">17.5 s</text><text x="760" y="172">17.5 s (ad)</text><text x="990" y="144">33.5 s</text>
+    </g>
+    <!-- segments grid -->
+    <text x="40" y="272" font-size="11.5" font-weight="700">5-second buckets of the media (ma_se reports each bucket's end second, once)</text>
+    <g font-size="9.5" text-anchor="middle">
+      <!-- 12 buckets of 5s: 0-5 .. 55-60 ; watched: 0-5,5-10,10-15(12+..13.5),40-45,45-50,50-55,55-60 -->
+      <rect x="40"  y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="79" y="306" fill="#fff">5</text>
+      <rect x="122" y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="161" y="306" fill="#fff">10</text>
+      <rect x="204" y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="243" y="306" fill="#fff">15</text>
+      <rect x="286" y="285" width="78" height="34" rx="4" fill="#e9edf3"/><text x="325" y="306" fill="#8a96ab">20</text>
+      <rect x="368" y="285" width="78" height="34" rx="4" fill="#e9edf3"/><text x="407" y="306" fill="#8a96ab">25</text>
+      <rect x="450" y="285" width="78" height="34" rx="4" fill="#e9edf3"/><text x="489" y="306" fill="#8a96ab">30</text>
+      <rect x="532" y="285" width="78" height="34" rx="4" fill="#e9edf3"/><text x="571" y="306" fill="#8a96ab">35</text>
+      <rect x="614" y="285" width="78" height="34" rx="4" fill="#e9edf3"/><text x="653" y="306" fill="#8a96ab">40</text>
+      <rect x="696" y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="735" y="306" fill="#fff">45</text>
+      <rect x="778" y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="817" y="306" fill="#fff">50</text>
+      <rect x="860" y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="899" y="306" fill="#fff">55</text>
+      <rect x="942" y="285" width="78" height="34" rx="4" fill="#2f6fde"/><text x="981" y="306" fill="#fff">60</text>
+    </g>
+    <text x="40" y="345" font-size="10.5" fill="#5b6577">Skipped by the seek (13.5 → 40 s): buckets 20–40 stay grey, so Matomo's segment report shows exactly which parts were seen.</text>
+    <!-- heartbeat payloads -->
+    <g font-size="10" class="mono">
+      <rect x="40" y="358" width="300" height="34" rx="6" fill="#17202e"/><text x="52" y="379" fill="#e8edf5">heartbeat(interval) ma_st=10 ma_se=5,10</text>
+      <rect x="350" y="358" width="300" height="34" rx="6" fill="#17202e"/><text x="362" y="379" fill="#e8edf5">heartbeat(seek) ma_st=13 ma_se=15</text>
+      <rect x="660" y="358" width="370" height="34" rx="6" fill="#17202e"/><text x="672" y="379" fill="#e8edf5">heartbeat(complete) ma_st=33 ma_se=45,50,55,60</text>
+    </g>
+  </svg>
+  <div class="foot"><span>_onValue() in chorki_analytics_session.dart · segmentLength (5 s) and heartbeatInterval (10 s) are set in ChorkiAnalyticsConfig</span><span>6</span></div>
+</section>
+
+<!-- ============================================================ 7. PAUSE / SEEK / LOOP / QUARTILES -->
+<section class="page">
+  <div class="hdr"><h2>5 · Pauses, seeks, loops, quartiles</h2><span class="sec">Edge detection</span></div>
+  <div class="grid2">
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">When a "not playing" edge is NOT a pause</h3>
+      <svg viewBox="0 0 500 250" width="100%">
+        <g font-size="11">
+          <rect x="0" y="0" width="500" height="250" rx="12" fill="#f4f6fa"/>
+          <rect x="170" y="14" width="160" height="40" rx="20" fill="#2f6fde"/><text x="250" y="39" text-anchor="middle" fill="#fff" font-weight="700">playing → stopped</text>
+          <g stroke="#5b6577" stroke-width="1.4"><line x1="250" y1="54" x2="250" y2="80"/><line x1="70" y1="80" x2="430" y2="80"/>
+            <line x1="70" y1="80" x2="70" y2="100"/><line x1="190" y1="80" x2="190" y2="100"/><line x1="310" y1="80" x2="310" y2="100"/><line x1="430" y1="80" x2="430" y2="100"/></g>
+          <rect x="15" y="100" width="110" height="60" rx="8" fill="#f8e4f1"/><text x="70" y="125" text-anchor="middle" font-weight="700" fill="#b8418f">in ad break</text><text x="70" y="143" text-anchor="middle" font-size="9.5">IMA paused it</text>
+          <rect x="135" y="100" width="110" height="60" rx="8" fill="#e3ecfc"/><text x="190" y="125" text-anchor="middle" font-weight="700" fill="#2f6fde">scrubbing</text><text x="190" y="143" text-anchor="middle" font-size="9.5">drag-to-seek</text>
+          <rect x="255" y="100" width="110" height="60" rx="8" fill="#e9edf3"/><text x="310" y="125" text-anchor="middle" font-weight="700">at the end</text><text x="310" y="143" text-anchor="middle" font-size="9.5">within 300 ms</text>
+          <rect x="375" y="100" width="110" height="60" rx="8" fill="#17202e"/><text x="430" y="125" text-anchor="middle" font-weight="700" fill="#fff">otherwise</text><text x="430" y="143" text-anchor="middle" font-size="9.5" fill="#cfd7e6">real pause</text>
+          <text x="70" y="185" text-anchor="middle" font-size="10" fill="#5b6577">no event</text>
+          <text x="190" y="185" text-anchor="middle" font-size="10" fill="#5b6577">no event; seek follows</text>
+          <text x="310" y="185" text-anchor="middle" font-size="10" fill="#5b6577">complete instead</text>
+          <text x="430" y="185" text-anchor="middle" font-size="10" fill="#17202e" font-weight="700">heartbeat(pause)</text>
+          <text x="430" y="200" text-anchor="middle" font-size="10" fill="#17202e" font-weight="700">+ pause</text>
+          <text x="250" y="232" text-anchor="middle" font-size="10" fill="#5b6577">The next play after a real pause emits resume. After an ad or a scrub it emits nothing.</text>
+        </g>
+      </svg>
+      <h3 style="font-size:13px;margin:4mm 0 2mm">Seek handling</h3>
+      <svg viewBox="0 0 500 120" width="100%">
+        <g font-size="10.5">
+          <rect x="0" y="10" width="140" height="44" rx="8" fill="#e3ecfc"/><text x="70" y="30" text-anchor="middle" font-weight="700" fill="#2f6fde">recordSeek(from,to,src)</text><text x="70" y="46" text-anchor="middle" font-size="9.5">from UI, ads or API</text>
+          <path d="M140,32 L170,32" stroke="#17202e" marker-end="url(#a3)"/>
+          <rect x="172" y="10" width="100" height="44" rx="8" fill="#17202e"/><text x="222" y="36" text-anchor="middle" fill="#fff">heartbeat(seek)</text>
+          <path d="M272,32 L300,32" stroke="#17202e" marker-end="url(#a3)"/>
+          <rect x="302" y="10" width="70" height="44" rx="8" fill="#2f6fde"/><text x="337" y="36" text-anchor="middle" fill="#fff">seek</text>
+          <path d="M372,32 L400,32" stroke="#17202e" marker-end="url(#a3)"/>
+          <rect x="402" y="10" width="98" height="44" rx="8" fill="#f4f6fa"/><text x="451" y="30" text-anchor="middle">lastPos = to</text><text x="451" y="46" text-anchor="middle" font-size="9.5">jump never counted</text>
+          <text x="0" y="82" font-size="10" fill="#5b6577">from == to (a drag that did not move) → recordScrubCancel(), no event.</text>
+          <text x="0" y="98" font-size="10" fill="#5b6577">A seek within the last 1.5 s also blocks loop detection, so a seek to 0:00 is not a loop.</text>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Loop detection (looping: true never reports "completed")</h3>
+      <svg viewBox="0 0 500 250" width="100%">
+        <rect x="0" y="0" width="500" height="250" rx="12" fill="#f4f6fa"/>
+        <g stroke="#d6dbe4"><line x1="40" y1="200" x2="480" y2="200"/><line x1="40" y1="30" x2="40" y2="200"/></g>
+        <text x="20" y="40" font-size="9.5" fill="#5b6577" transform="rotate(-90 20 115)">position</text>
+        <polyline fill="none" stroke="#2f6fde" stroke-width="3" points="40,195 250,45"/>
+        <polyline fill="none" stroke="#2f6fde" stroke-width="3" points="252,192 470,40"/>
+        <line x1="250" y1="45" x2="252" y2="192" stroke="#b8418f" stroke-width="2" stroke-dasharray="4 3"/>
+        <rect x="40" y="38" width="440" height="22" fill="#2f6fde" opacity="0.08"/>
+        <rect x="40" y="180" width="440" height="18" fill="#2f6fde" opacity="0.08"/>
+        <text x="290" y="54" font-size="9.5" fill="#2f6fde">last tick ≥ duration − 1.5 s</text>
+        <text x="290" y="194" font-size="9.5" fill="#2f6fde">next tick &lt; 1.5 s, no recent seek</text>
+        <g font-size="10" font-weight="600">
+          <rect x="300" y="80" width="170" height="22" rx="11" fill="#17202e"/><text x="385" y="95" text-anchor="middle" fill="#fff">heartbeat(complete)</text>
+          <rect x="300" y="106" width="170" height="22" rx="11" fill="#e3ecfc"/><text x="385" y="121" text-anchor="middle" fill="#2f6fde">quartile 100 · complete · loop</text>
+          <rect x="300" y="132" width="170" height="22" rx="11" fill="#17202e"/><text x="385" y="147" text-anchor="middle" fill="#fff">sessionEnd(looped)</text>
+          <rect x="300" y="158" width="170" height="22" rx="11" fill="#e3ecfc"/><text x="385" y="173" text-anchor="middle" fill="#2f6fde">impression + play, new ma_id</text>
+        </g>
+        <text x="60" y="225" font-size="10" fill="#5b6577">The tail between the last tick and the end is added to the watched time.</text>
+        <text x="60" y="240" font-size="10" fill="#5b6577">Videos of 3 s or less are not loop-detected (too ambiguous).</text>
+      </svg>
+      <h3 style="font-size:13px;margin:4mm 0 2mm">Quartiles</h3>
+      <svg viewBox="0 0 500 110" width="100%">
+        <rect x="20" y="30" width="460" height="14" rx="7" fill="#e9edf3"/>
+        <rect x="20" y="30" width="345" height="14" rx="7" fill="#2f6fde"/>
+        <g font-size="10.5" text-anchor="middle" font-weight="700">
+          <circle cx="135" cy="37" r="9" fill="#fff" stroke="#2f6fde" stroke-width="3"/><text x="135" y="20">25%</text>
+          <circle cx="250" cy="37" r="9" fill="#fff" stroke="#2f6fde" stroke-width="3"/><text x="250" y="20">50%</text>
+          <circle cx="365" cy="37" r="9" fill="#fff" stroke="#2f6fde" stroke-width="3"/><text x="365" y="20">75%</text>
+          <circle cx="480" cy="37" r="9" fill="#fff" stroke="#8a96ab" stroke-width="3"/><text x="480" y="20">100%</text>
+        </g>
+        <text x="20" y="72" font-size="10" fill="#5b6577">Each fires once per session, while playing, when the position passes it.</text>
+        <text x="20" y="87" font-size="10" fill="#5b6577">A seek past 75% fires 25, 50 and 75 together. 100% fires with complete.</text><text x="20" y="102" font-size="10" fill="#5b6577">With newSessionOnLoop off, a loop clears them so they fire again.</text>
+      </svg>
+    </div>
+  </div>
+  <div class="foot"><span>_onLooped(), _onCompleted(), recordSeek(), recordScrubStart() / recordScrubCancel()</span><span>7</span></div>
+</section>
+
+<!-- ============================================================ 8. SEEK SOURCES (UI MAP) -->
+<section class="page">
+  <div class="hdr"><h2>6 · Where seeks and UI events come from</h2><span class="sec">Player surface map</span></div>
+  <div class="grid2" style="grid-template-columns: 330px 1fr; gap:10mm;">
+    <svg viewBox="0 0 330 600" width="100%">
+      <!-- phone -->
+      <rect x="10" y="5" width="310" height="590" rx="36" fill="#17202e"/>
+      <rect x="22" y="17" width="286" height="566" rx="28" fill="#2b3850"/>
+      <!-- halves -->
+      <rect x="22" y="17" width="143" height="566" rx="28" fill="#2f6fde" opacity="0.18"/>
+      <rect x="165" y="17" width="143" height="566" fill="#2f6fde" opacity="0.28"/>
+      <text x="93" y="250" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">⟲ −10 s</text>
+      <text x="93" y="268" text-anchor="middle" fill="#cfe0ff" font-size="10">double tap</text>
+      <text x="236" y="250" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">+10 s ⟳</text>
+      <text x="236" y="268" text-anchor="middle" fill="#cfe0ff" font-size="10">double tap</text>
+      <!-- scrub arrow -->
+      <path d="M60,330 L270,330" stroke="#fff" stroke-width="3" marker-end="url(#a5)" marker-start="url(#a5s)"/>
+      <defs>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#fff"/></marker>
+        <marker id="a5s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#fff"/></marker>
+      </defs>
+      <text x="165" y="352" text-anchor="middle" fill="#fff" font-size="11">horizontal drag = scrub</text>
+      <!-- long press -->
+      <circle cx="165" cy="420" r="26" fill="none" stroke="#23936b" stroke-width="3"/>
+      <text x="165" y="425" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">2×</text>
+      <text x="165" y="465" text-anchor="middle" fill="#bfe8d7" font-size="10">long press = speed boost</text>
+      <!-- play -->
+      <circle cx="165" cy="170" r="28" fill="#000" opacity="0.5"/><polygon points="157,155 157,185 182,170" fill="#fff"/>
+      <text x="165" y="120" text-anchor="middle" fill="#fff" font-size="10">tap = play / pause</text>
+      <!-- gear -->
+      <circle cx="280" cy="50" r="15" fill="#000" opacity="0.55"/><text x="280" y="55" text-anchor="middle" fill="#fff" font-size="15">⚙</text>
+      <!-- ad pill -->
+      <rect x="34" y="505" width="118" height="24" rx="12" fill="#b8418f"/><text x="93" y="521" text-anchor="middle" fill="#fff" font-size="10">Ad in 5 · start now</text>
+      <!-- seek bar -->
+      <rect x="34" y="550" width="262" height="5" rx="2.5" fill="#ffffff55"/>
+      <rect x="34" y="550" width="120" height="5" rx="2.5" fill="#fff"/>
+      <circle cx="154" cy="552.5" r="7" fill="#fff"/>
+      <!-- callout numbers -->
+      <g font-size="12" font-weight="700" text-anchor="middle">
+        <circle cx="45" cy="215" r="11" fill="#fff"/><text x="45" y="219" fill="#17202e">1</text>
+        <circle cx="45" cy="330" r="11" fill="#fff"/><text x="45" y="334" fill="#17202e">2</text>
+        <circle cx="300" cy="560" r="11" fill="#fff"/><text x="300" y="564" fill="#17202e">3</text>
+        <circle cx="160" cy="517" r="11" fill="#fff"/><text x="160" y="521" fill="#17202e">4</text>
+        <circle cx="210" cy="420" r="11" fill="#fff"/><text x="210" y="424" fill="#17202e">5</text>
+        <circle cx="250" cy="50" r="11" fill="#fff"/><text x="250" y="54" fill="#17202e">6</text>
+        <circle cx="215" cy="170" r="11" fill="#fff"/><text x="215" y="174" fill="#17202e">7</text>
+      </g>
+    </svg>
+    <div>
+      <table>
+        <tr><th>#</th><th>Viewer action</th><th>Code path</th><th>Event</th></tr>
+        <tr><td>1</td><td>Double tap left / right half</td><td><code>gesture_overlay.dart · _onDoubleTap</code></td><td><span class="pill p-play">seek</span> source <code>doubleTap</code>. Rapid taps chain from the pending target, so 3 taps give three +10 s seeks.</td></tr>
+        <tr><td>2</td><td>Horizontal drag on the video</td><td><code>_onHorizontalDragStart → _finishScrub</code></td><td><span class="pill p-play">seek</span> source <code>scrub</code>, from the drag start to the release. The drag's own pause/resume is hidden.</td></tr>
+        <tr><td>3</td><td>Tap or drag the seek bar; custom <code>seekBarBuilder</code></td><td><code>shorts_seek_bar.dart · onTapUp, _beginScrub → _restoreAfterScrub</code></td><td><span class="pill p-play">seek</span> <code>seekBarTap</code> / <code>seekBarDrag</code></td></tr>
+        <tr><td>4</td><td>"Start ad now" on the countdown pill</td><td><code>chorki_ad_layer.dart · _startNow</code></td><td><span class="pill p-play">seek</span> <code>adSkipAhead</code>, then the ad break events</td></tr>
+        <tr><td>5</td><td>Long press</td><td><code>_onLongPressStart / _cancelSpeedHold</code></td><td><span class="pill p-ux">speedBoostStart</span> (speed) → <span class="pill p-ux">speedBoostEnd</span> (durationMs). Watched time counts media seconds, so 10 s held at 2× adds 20 s.</td></tr>
+        <tr><td>6</td><td>Settings gear and the sheet's rows</td><td><code>chorki_player_surface.dart · _openSettings</code>; rows → controller</td><td><span class="pill p-ux">settingsOpen</span>, then <span class="pill p-qoe">qualityChange</span>, <span class="pill p-ux">audioTrackChange</span>, <span class="pill p-ux">speedChange</span>, <span class="pill p-ux">fitChange</span>, <span class="pill p-ux">pipChange</span></td></tr>
+        <tr><td>7</td><td>Tap to play / pause</td><td>video value edges</td><td><span class="pill p-play">pause</span> / <span class="pill p-play">resume</span></td></tr>
+        <tr><td>·</td><td>App code: <code>controller.seekTo / seekForward / seekBack</code></td><td><code>chorki_player_controller.dart · _seek</code></td><td><span class="pill p-play">seek</span> source <code>api</code></td></tr>
+        <tr><td>·</td><td>Volume / mute (any source)</td><td>video value</td><td><span class="pill p-ux">volumeChange</span> from, to, muted</td></tr>
+        <tr><td>·</td><td>PiP enter / exit</td><td><code>_setPipStatus</code></td><td><span class="pill p-ux">pipChange</span>. Discovering that PiP is available is not reported.</td></tr>
+      </table>
+      <div class="note" style="margin-top:4mm">Recording at the source means a scrub is reported as a <b>scrub</b>, not guessed from a position jump. Widgets find the session with <code>ChorkiAnalyticsScope.maybeOf(context)</code>, which registers no dependency, so it is safe inside gesture callbacks. Standalone use of the widgets (no player above) reports nothing.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Gesture and seek-bar instrumentation · seek sources = ChorkiSeekSource enum</span><span>8</span></div>
+</section>
+
+<!-- ============================================================ 9. QoE -->
+<section class="page">
+  <div class="hdr"><h2>7 · QoE: startup, rebuffering, errors</h2><span class="sec">Quality of experience</span></div>
+  <h3 style="font-size:13px;margin:0 0 2mm">Startup waterfall</h3>
+  <svg viewBox="0 0 1060 210" width="100%">
+    <g font-size="11">
+      <text x="0" y="40" font-weight="700">On-screen load</text>
+      <rect x="160" y="22" width="140" height="28" rx="5" fill="#fcefe1" stroke="#d9822b"/><text x="230" y="41" text-anchor="middle" fill="#a85f14">queue wait</text>
+      <rect x="300" y="22" width="300" height="28" rx="5" fill="#d9822b"/><text x="450" y="41" text-anchor="middle" fill="#fff">init (create + initialize)</text>
+      <rect x="600" y="22" width="120" height="28" rx="5" fill="#f8e4f1" stroke="#b8418f"/><text x="660" y="41" text-anchor="middle" fill="#b8418f">pre-roll (opt.)</text>
+      <rect x="720" y="22" width="16" height="28" fill="#2f6fde"/>
+      <g stroke="#17202e" stroke-width="1.2"><line x1="160" y1="60" x2="160" y2="72"/><line x1="300" y1="60" x2="300" y2="72"/><line x1="600" y1="60" x2="600" y2="72"/><line x1="736" y1="60" x2="736" y2="72"/></g>
+      <g font-size="9.5" fill="#5b6577" text-anchor="middle"><text x="160" y="86">recordLoadStart</text><text x="300" y="86">recordLoadRunning</text><text x="600" y="86">recordLoaded</text><text x="736" y="86">first frame</text></g>
+      <path d="M160,100 L736,100" stroke="#17202e" stroke-width="1.6" marker-end="url(#a3)"/>
+      <text x="448" y="116" text-anchor="middle" font-weight="700">startupMs (from max(activation, load start))</text>
+      <text x="780" y="34" font-size="10.5" fill="#5b6577">queueWaitMs: waiting for a</text>
+      <text x="780" y="48" font-size="10.5" fill="#5b6577">VideoLoadScheduler slot (max 2)</text>
+
+      <text x="0" y="170" font-weight="700">Preloaded feed page</text>
+      <rect x="160" y="152" width="440" height="28" rx="5" fill="#e9edf3"/><text x="380" y="171" text-anchor="middle" fill="#5b6577">loaded off screen (not counted)</text>
+      <line x1="600" y1="145" x2="600" y2="190" stroke="#2f6fde" stroke-width="2"/><text x="606" y="140" font-size="10" fill="#2f6fde">activate()</text>
+      <rect x="600" y="152" width="24" height="28" fill="#2f6fde"/>
+      <text x="640" y="171" font-size="10.5">startupMs ≈ time to first frame after the swipe · preloaded = true</text>
+    </g>
+  </svg>
+  <div class="grid2" style="margin-top:2mm;">
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Rebuffering</h3>
+      <svg viewBox="0 0 500 150" width="100%">
+        <rect x="0" y="0" width="500" height="150" rx="12" fill="#f4f6fa"/>
+        <rect x="20" y="30" width="160" height="22" rx="4" fill="#2f6fde"/>
+        <rect x="180" y="30" width="90" height="22" rx="4" fill="#d9822b"/>
+        <rect x="270" y="30" width="210" height="22" rx="4" fill="#2f6fde"/>
+        <g font-size="10" font-weight="600">
+          <rect x="140" y="64" width="80" height="20" rx="10" fill="#fcefe1"/><text x="180" y="78" text-anchor="middle" fill="#a85f14">bufferStart</text>
+          <rect x="230" y="64" width="80" height="20" rx="10" fill="#fcefe1"/><text x="270" y="78" text-anchor="middle" fill="#a85f14">bufferEnd</text>
+        </g>
+        <text x="20" y="108" font-size="10" fill="#5b6577">Counted only after the first frame and outside ads. bufferStart has afterSeek</text>
+        <text x="20" y="123" font-size="10" fill="#5b6577">(true within 1.5 s of a seek); bufferEnd has durationMs. Totals are in sessionEnd:</text>
+        <text x="20" y="138" font-size="10" fill="#5b6577">rebufferCount, rebufferMs. A stall open at session end is closed and counted.</text>
+      </svg>
+    </div>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Errors and retries</h3>
+      <table>
+        <tr><th>stage</th><th>When</th><th>message</th></tr>
+        <tr><td><code>route</code></td><td>Chorki route fetch failed</td><td>the bloc's failure message</td></tr>
+        <tr><td><code>load</code></td><td>init failed or timed out; empty URL</td><td><code>Video failed to load</code> / <code>No video URL</code></td></tr>
+        <tr><td><code>playback</code></td><td>error while playing</td><td>platform <code>errorDescription</code></td></tr>
+      </table>
+      <p style="margin:2mm 0 0">Each error has <code>willRetry</code>. Silent retries after 1 s and 3 s emit <span class="pill p-qoe">retry</span> <code>auto: true, attempt: n</code>. The Retry button emits <code>auto: false</code>. A page that failed off screen and becomes active emits <code>auto: true</code>. Errors while preloading are not reported.</p>
+    </div>
+  </div>
+  <div class="note" style="margin-top:3mm">video_player does not report automatic (ABR) rendition switches, so <b>qualityChange</b> covers only the viewer's picks in the Quality menu (fromHeight, toHeight, bitrate, label, auto). The current video height is also attached to every request as <code>qualityHeight</code> (mappable to a dimension).</div>
+  <div class="foot"><span>chorki_player_widget.dart · _loadVideo, _onLoadFailed, _retry · video_preloader.dart · load(onStarted:)</span><span>9</span></div>
+</section>
+
+<!-- ============================================================ 10. ADS -->
+<section class="page">
+  <div class="hdr"><h2>8 · Ads: IMA → analytics</h2><span class="sec">ChorkiAdLayer</span></div>
+  <p class="lead">The ad layer maps IMA events next to the existing <code>onAdEvent</code> forwarding, which is unchanged for host apps. Break boundaries come from the layer's own content pause/resume, so break duration and kind are measured even when IMA sends little. Every ad event carries the campaign id/title and the <b>content's</b> sessionId.</p>
+  <svg viewBox="0 0 1060 330" width="100%">
+    <defs><marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b8418f"/></marker></defs>
+    <g font-size="11">
+      <text x="0" y="20" font-weight="700">IMA AdEventType</text>
+      <text x="560" y="20" font-weight="700">ChorkiAnalyticsEventType</text>
+      <text x="845" y="20" font-weight="700">Matomo Event</text>
+    </g>
+    <g font-size="10.5">
+      <!-- rows -->
+      <g transform="translate(0,34)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">contentPauseRequested (layer pauses content)</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adBreakStart  breakIndex, breakKind</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / break start (preRoll)</text>
+      </g>
+      <g transform="translate(0,64)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">started</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adStart  adId, adTitle, adDurationMs…</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / ad start / &lt;title&gt; / 15</text>
+      </g>
+      <g transform="translate(0,94)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">firstQuartile · midpoint · thirdQuartile</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adQuartile  percent 25 / 50 / 75</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / ad 50% / &lt;title&gt; / 50</text>
+      </g>
+      <g transform="translate(0,124)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">complete · skipped</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adComplete · adSkip</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / ad complete | ad skip</text>
+      </g>
+      <g transform="translate(0,154)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">clicked · tapped</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adClick</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / ad click</text>
+      </g>
+      <g transform="translate(0,184)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">paused · resumed</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adPause · adResume</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / ad pause | ad resume</text>
+      </g>
+      <g transform="translate(0,214)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">load error · request error · ad error · timeout</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adError  message</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / ad error / &lt;message&gt;</text>
+      </g>
+      <g transform="translate(0,244)">
+        <rect x="0" y="0" width="260" height="24" rx="5" fill="#f4f6fa"/><text x="10" y="16">contentResumeRequested · allAdsCompleted</text>
+        <path d="M262,12 L558,12" stroke="#b8418f" marker-end="url(#a6)"/>
+        <rect x="560" y="0" width="260" height="24" rx="5" fill="#f8e4f1"/><text x="570" y="16" fill="#b8418f" font-weight="600">adBreakEnd  durationMs</text>
+        <text x="845" y="16" class="mono" font-size="8.6">Video Ads / break end / &lt;camp.&gt;</text>
+      </g>
+    </g>
+    <text x="0" y="310" font-size="10.5" fill="#5b6577">Break kind is decided from the content position when the break starts: under 1 s → preRoll, within 1 s of the end → postRoll, else midRoll. Ad pod data: podPosition, podTotal, skippable, adSystem, advertiser.</text>
+  </svg>
+  <div class="grid3">
+    <div class="card"><h3>Content is frozen</h3><p>During a break the session ignores the content's play state: no watched time, no pause/resume, no rebuffer. Swiped away mid-break? The session closes the break itself (<code>interrupted: true</code>).</p></div>
+    <div class="card"><h3>Campaign context</h3><p><code>ByteDataEntity.adCampaign</code> id/title are set as <code>session.adContext</code> when the route resolves. They can be mapped to dimensions <code>adCampaignId</code>, <code>adCampaignTitle</code>.</p></div>
+    <div class="card"><h3>Your callbacks still fire</h3><p><code>ChorkiAdConfig.onAdEvent</code> and <code>onAdError</code> behave as before. The analytics path is added next to them.</p></div>
+  </div>
+  <div class="foot"><span>chorki_ad_layer.dart · _reportAdEvent(), _reportError(), _pauseContent(), _resumeContent(), _startNow()</span><span>10</span></div>
+</section>
+
+<!-- ============================================================ 11. EVENT CATALOG (1/2) -->
+<section class="page">
+  <div class="hdr"><h2>9 · Event catalog (1 of 2)</h2><span class="sec">Playback · QoE</span></div>
+  <table>
+    <tr><th style="width:11%">Event</th><th style="width:31%">Fires when</th><th style="width:24%">data keys</th><th style="width:34%">Matomo (e_c / e_a / e_v) · Media</th></tr>
+    <tr><td><span class="pill p-play">impression</span></td><td>Active and the video is loaded. Once per session (and per loop with newSessionOnLoop).</td><td><code>loopCount</code> (on loops)</td><td><b>Media</b> request <code>ma_st=0</code>. Event only with mediaAnalytics off.</td></tr>
+    <tr><td><span class="pill p-play">play</span></td><td>First real play of the session.</td><td><code>timeToPlayMs</code></td><td>Video / play / s to play</td></tr>
+    <tr><td><span class="pill p-play">pause</span></td><td>The viewer or the app paused (not ads, scrubs or the end).</td><td>none</td><td>Video / pause / position s</td></tr>
+    <tr><td><span class="pill p-play">resume</span></td><td>Playing again after a pause.</td><td>none</td><td>Video / resume</td></tr>
+    <tr><td><span class="pill p-play">seek</span></td><td>A seek from the UI, ad pill or API.</td><td><code>fromMs, toMs, source</code></td><td>Video / seek (source) / jump s</td></tr>
+    <tr><td><span class="pill p-play">heartbeat</span></td><td>Every 10 s while playing, and before pause, seek, ad break, complete and session end.</td><td><code>reason, newSegments</code></td><td><b>Media</b> request: ma_st, ma_ps, ma_se… (not an Event)</td></tr>
+    <tr><td><span class="pill p-play">quartile</span></td><td>25 / 50 / 75 / 100 % reached.</td><td><code>percent</code></td><td>Video / progress 50% / 50</td></tr>
+    <tr><td><span class="pill p-play">complete</span></td><td>Played to the end (also every loop).</td><td>none</td><td>Video / complete</td></tr>
+    <tr><td><span class="pill p-play">loop</span></td><td>A looping video wrapped.</td><td><code>loopCount</code></td><td>Video / loop / count</td></tr>
+    <tr><td><span class="pill p-play">sessionEnd</span></td><td>Deactivated: swiped away, disposed, source changed, looped.</td><td><code>reason, dwellMs, watchedPercent, maxPositionMs, rebufferCount, rebufferMs, pauseCount, seekCount, loopCount</code></td><td>Video / session end (reason) / watched s</td></tr>
+    <tr><td><span class="pill p-qoe">loadStart</span></td><td>The video load was requested.</td><td>none</td><td>excluded by default</td></tr>
+    <tr><td><span class="pill p-qoe">firstFrame</span></td><td>First frame playing.</td><td><code>startupMs, queueWaitMs, initMs, preloaded</code></td><td>Video QoE / startup time / s</td></tr>
+    <tr><td><span class="pill p-qoe">bufferStart</span></td><td>Stall after the first frame, outside ads.</td><td><code>afterSeek</code></td><td>excluded by default</td></tr>
+    <tr><td><span class="pill p-qoe">bufferEnd</span></td><td>Stall over.</td><td><code>durationMs</code></td><td>Video QoE / rebuffer / s</td></tr>
+    <tr><td><span class="pill p-qoe">error</span></td><td>Route, load or playback error while active.</td><td><code>message, stage, willRetry</code></td><td>Video QoE / error (stage) / name = message</td></tr>
+    <tr><td><span class="pill p-qoe">retry</span></td><td>Silent auto retry, Retry button, or a reactivated failed page.</td><td><code>attempt, auto</code></td><td>Video QoE / auto retry | manual retry / attempt</td></tr>
+    <tr><td><span class="pill p-qoe">qualityChange</span></td><td>The viewer picked a quality (or Auto).</td><td><code>fromHeight, toHeight, bitrate, label, auto</code></td><td>Video QoE / quality 720p | quality auto / height</td></tr>
+    <tr><td><span class="pill p-qoe">abandon</span></td><td>The view ended before the first frame (exit before video start).</td><td><code>waitedMs, reason, stage (loading|ready), errorCount</code></td><td>Video QoE / exit before start (stage) / waited s</td></tr>
+  </table>
+  <p style="margin-top:3mm; font-size:10px; color:var(--muted)">Every event also carries: <code>sessionId</code>, <code>timestamp</code>, <code>metadata</code>, <code>position</code>, <code>duration</code>, <code>watchedTime</code>, <code>videoSize</code>, <code>timeToPlay</code>. The Event name (<code>e_n</code>) is the title, falling back to contentId, then the media URL.</p>
+  <div class="foot"><span>chorki_analytics_event.dart · matomo_request_builder.dart · describe()</span><span>11</span></div>
+</section>
+
+<!-- ============================================================ 12. EVENT CATALOG (2/2) -->
+<section class="page">
+  <div class="hdr"><h2>9 · Event catalog (2 of 2)</h2><span class="sec">Ads · Player UX</span></div>
+  <table>
+    <tr><th style="width:13%">Event</th><th style="width:31%">Fires when</th><th style="width:22%">data keys</th><th style="width:34%">Matomo (e_c / e_a / e_n / e_v)</th></tr>
+    <tr><td><span class="pill p-ad">adBreakStart</span></td><td>An ad break paused the content.</td><td><code>breakIndex, breakKind</code> + campaign</td><td>Video Ads / break start (kind) / campaign / index</td></tr>
+    <tr><td><span class="pill p-ad">adStart</span></td><td>IMA <code>started</code>.</td><td><code>adId, adTitle, adSystem, advertiser, adDurationMs, skippable, podPosition, podTotal</code></td><td>Video Ads / ad start / ad title / duration s</td></tr>
+    <tr><td><span class="pill p-ad">adQuartile</span></td><td>IMA first quartile, midpoint, third quartile.</td><td><code>percent</code> + ad data</td><td>Video Ads / ad 25% / ad title / 25</td></tr>
+    <tr><td><span class="pill p-ad">adComplete</span></td><td>IMA <code>complete</code>.</td><td>ad data</td><td>Video Ads / ad complete / ad title</td></tr>
+    <tr><td><span class="pill p-ad">adSkip</span></td><td>IMA <code>skipped</code>.</td><td>ad data</td><td>Video Ads / ad skip / ad title</td></tr>
+    <tr><td><span class="pill p-ad">adClick</span></td><td>IMA <code>clicked</code> or <code>tapped</code>.</td><td>ad data</td><td>Video Ads / ad click / ad title</td></tr>
+    <tr><td><span class="pill p-ad">adPause / adResume</span></td><td>IMA <code>paused</code> / <code>resumed</code>.</td><td>ad data</td><td>Video Ads / ad pause | ad resume</td></tr>
+    <tr><td><span class="pill p-ad">adError</span></td><td>Load error, request exception, ad error event, load timeout.</td><td><code>message</code></td><td>Video Ads / ad error / message</td></tr>
+    <tr><td><span class="pill p-ad">adBreakEnd</span></td><td>Content resumed after the break, or the view ended mid-break (<code>interrupted: true</code>).</td><td><code>breakIndex, durationMs, interrupted</code> + campaign</td><td>Video Ads / break end / campaign / s</td></tr>
+    <tr><td><span class="pill p-ux">speedChange</span></td><td>Speed changed from the settings sheet or <code>setSpeed</code>.</td><td><code>from, to</code></td><td>Video Player / speed 1.5x / title / 1.5</td></tr>
+    <tr><td><span class="pill p-ux">speedBoostStart</span></td><td>Long press began.</td><td><code>speed</code></td><td>Video Player / speed boost / title / 2</td></tr>
+    <tr><td><span class="pill p-ux">speedBoostEnd</span></td><td>Long press released (or the session ended mid-press).</td><td><code>durationMs</code></td><td>Video Player / speed boost end / title / s</td></tr>
+    <tr><td><span class="pill p-ux">audioTrackChange</span></td><td>An audio track was picked.</td><td><code>from, to</code></td><td>Video Player / audio track / track id</td></tr>
+    <tr><td><span class="pill p-ux">fitChange</span></td><td>Fit / fill toggled.</td><td><code>fit</code></td><td>Video Player / fit fill / title</td></tr>
+    <tr><td><span class="pill p-ux">pipChange</span></td><td>PiP status changed by the viewer or the system.</td><td><code>status</code></td><td>Video Player / pip enabled / title</td></tr>
+    <tr><td><span class="pill p-ux">volumeChange</span></td><td>Volume changed, including mute.</td><td><code>from, to, muted</code></td><td>Video Player / mute | volume / title / 0..1</td></tr>
+    <tr><td><span class="pill p-ux">settingsOpen</span></td><td>Gear button tapped.</td><td>none</td><td>Video Player / settings open / title</td></tr>
+  </table>
+  <div class="legend" style="margin-top:4mm"><span><i style="background:var(--play)"></i>Playback · Video</span><span><i style="background:var(--qoe)"></i>QoE · Video QoE</span><span><i style="background:var(--ad)"></i>Ads · Video Ads</span><span><i style="background:var(--ux)"></i>UX · Video Player</span></div>
+  <div class="foot"><span>Excluded from Events by default: heartbeat (sent as Media), loadStart, bufferStart. Change it with MatomoConfig.excludedEvents.</span><span>12</span></div>
+</section>
+
+<!-- ============================================================ 13. WIRE FORMAT -->
+<section class="page">
+  <div class="hdr"><h2>10 · Matomo wire format</h2><span class="sec">Tracking HTTP API</span></div>
+  <div class="grid2" style="grid-template-columns: 1.1fr 1fr;">
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">One bulk POST to <code>{url}/matomo.php</code></h3>
+<pre>{<span class="s">"requests"</span>: [
+  <span class="c">// heartbeat → Media Analytics request</span>
+  <span class="s">"?idsite=7&amp;rec=1&amp;apiv=1&amp;ca=1
+   &amp;url=app://chorki/video/ep-9&amp;cdt=1794916800
+   &amp;_id=3fa9c01b7e2d4a65&amp;uid=user-1&amp;rand=8812
+   &amp;dimension1=ep-9&amp;dimension2=drama
+   &amp;ma_id=abc123&amp;ma_ti=Episode%209
+   &amp;ma_re=https://cdn.test/ep9.m3u8&amp;ma_mt=video
+   &amp;ma_pn=chorki_player&amp;ma_st=42&amp;ma_ps=50&amp;ma_le=600
+   &amp;ma_ttp=3&amp;ma_w=1920&amp;ma_h=1080&amp;ma_se=45,50"</span>,
+  <span class="c">// seek → Matomo Event</span>
+  <span class="s">"?idsite=7&amp;rec=1&amp;apiv=1&amp;ca=1
+   &amp;url=app://chorki/video/ep-9&amp;cdt=1794916800
+   &amp;_id=3fa9c01b7e2d4a65&amp;uid=user-1
+   &amp;dimension1=ep-9&amp;dimension2=drama
+   &amp;e_c=Video&amp;e_a=seek%20(doubleTap)
+   &amp;e_n=Episode%209&amp;e_v=30"</span>
+]}</pre>
+      <p style="margin:3mm 0 0; font-size:10px; color:var(--muted)">Line breaks added for reading. Same events and values as the request-builder unit tests in <code>test/analytics/matomo_test.dart</code> (the seek is 10 s → 40 s); <code>_id</code> and <code>rand</code> are random per install / request.</p>
+    </div>
+    <div>
+      <table>
+        <tr><th>Param</th><th>Meaning</th><th>Source</th></tr>
+        <tr><td><code>ma_id</code></td><td>One view (changes per activation / loop)</td><td>sessionId</td></tr>
+        <tr><td><code>ma_ti</code></td><td>Title</td><td>metadata.title ?? contentId</td></tr>
+        <tr><td><code>ma_re</code></td><td>Media URL</td><td>metadata.mediaUrl ?? video URL</td></tr>
+        <tr><td><code>ma_mt</code></td><td>Media type</td><td><code>video</code></td></tr>
+        <tr><td><code>ma_pn</code></td><td>Player name</td><td>MatomoConfig.playerName</td></tr>
+        <tr><td><code>ma_st</code></td><td>Seconds actually played</td><td>watchedTime (0 on impression)</td></tr>
+        <tr><td><code>ma_ps</code></td><td>Playback position (s)</td><td>position</td></tr>
+        <tr><td><code>ma_le</code></td><td>Length (s)</td><td>duration</td></tr>
+        <tr><td><code>ma_ttp</code></td><td>Impression → first play (s)</td><td>timeToPlay</td></tr>
+        <tr><td><code>ma_w / ma_h</code></td><td>Video size (px)</td><td>videoSize</td></tr>
+        <tr><td><code>ma_fs</code></td><td>Fullscreen 0/1</td><td>MatomoConfig.fullscreen (optional)</td></tr>
+        <tr><td><code>ma_se</code></td><td>New segment ends (s)</td><td>heartbeat newSegments</td></tr>
+        <tr><td><code>ca=1</code></td><td>Not a page view, even if a plugin is missing</td><td>always</td></tr>
+        <tr><td><code>cdt</code></td><td>Event time (queued requests keep it)</td><td>event timestamp</td></tr>
+        <tr><td><code>_id / uid</code></td><td>Visitor id / signed-in user</td><td>storage / sink.userId</td></tr>
+        <tr><td><code>dimensionN</code></td><td>Custom Dimensions</td><td>MatomoConfig.dimensionIds</td></tr>
+        <tr><td><code>res / lang / ua</code></td><td>Screen, locale, user agent</td><td>device / config</td></tr>
+      </table>
+    </div>
+  </div>
+  <div class="foot"><span>Media Analytics param reference: developer.matomo.org/guides/media-analytics/custom-player · Tracking API: developer.matomo.org/api-reference/tracking-api</span><span>13</span></div>
+</section>
+
+<!-- ============================================================ 14. DELIVERY -->
+<section class="page">
+  <div class="hdr"><h2>11 · Delivery: queue, batching, retry, offline</h2><span class="sec">MatomoAnalyticsSink</span></div>
+  <svg viewBox="0 0 1060 250" width="100%">
+    <defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3152a0"/></marker></defs>
+    <g font-size="11">
+      <rect x="0" y="70" width="130" height="60" rx="10" fill="#2f6fde"/><text x="65" y="97" text-anchor="middle" fill="#fff" font-weight="700">onEvent()</text><text x="65" y="114" text-anchor="middle" fill="#d6e4ff" font-size="10">sync, never throws</text>
+      <rect x="170" y="70" width="140" height="60" rx="10" fill="#e2e8f6"/><text x="240" y="97" text-anchor="middle" font-weight="700" fill="#3152a0">build()</text><text x="240" y="114" text-anchor="middle" fill="#3152a0" font-size="10">0, 1 or 2 requests</text>
+      <rect x="350" y="55" width="200" height="90" rx="10" fill="#fff" stroke="#3152a0" stroke-width="1.5"/>
+      <text x="450" y="78" text-anchor="middle" font-weight="700" fill="#3152a0">Queue</text>
+      <g transform="translate(366,88)"><rect width="22" height="40" rx="3" fill="#3152a0"/><rect x="26" width="22" height="40" rx="3" fill="#3152a0"/><rect x="52" width="22" height="40" rx="3" fill="#3152a0"/><rect x="78" width="22" height="40" rx="3" fill="#3152a0" opacity=".6"/><rect x="104" width="22" height="40" rx="3" fill="#3152a0" opacity=".35"/><rect x="130" width="22" height="40" rx="3" fill="#3152a0" opacity=".2"/></g>
+      <text x="560" y="162" font-size="10" fill="#5b6577">cap 500 (oldest dropped)</text>
+      <rect x="590" y="70" width="160" height="60" rx="10" fill="#e2e8f6"/><text x="670" y="97" text-anchor="middle" font-weight="700" fill="#3152a0">flush()</text><text x="670" y="114" text-anchor="middle" fill="#3152a0" font-size="10">batches of 20</text>
+      <rect x="790" y="70" width="160" height="60" rx="10" fill="#17202e"/><text x="870" y="97" text-anchor="middle" font-weight="700" fill="#fff">POST matomo.php</text><text x="870" y="114" text-anchor="middle" fill="#cfd7e6" font-size="10">2xx = accepted</text>
+      <g stroke="#3152a0" stroke-width="1.6" fill="none" marker-end="url(#a7)"><path d="M130,100 L168,100"/><path d="M310,100 L348,100"/><path d="M550,100 L588,100"/><path d="M750,100 L788,100"/></g>
+      <!-- triggers -->
+      <g font-size="10" fill="#17202e">
+        <rect x="560" y="0" width="220" height="44" rx="8" fill="#f4f6fa"/>
+        <text x="570" y="17" font-weight="700">flush triggers</text>
+        <text x="570" y="33">batch full · 10 s timer · app hide/detach · dispose</text>
+        <path d="M670,44 L670,68" stroke="#3152a0" marker-end="url(#a7)"/>
+      </g>
+      <!-- failure loop -->
+      <path d="M870,130 C870,200 670,210 670,132" stroke="#d9822b" stroke-width="1.6" fill="none" marker-end="url(#a7)" stroke-dasharray="5 3"/>
+      <text x="770" y="215" text-anchor="middle" font-size="10.5" fill="#a85f14">failure → keep requests, back off, persist</text>
+      <!-- storage -->
+      <rect x="350" y="190" width="200" height="50" rx="10" fill="#fff" stroke="#5b6577" stroke-dasharray="5 3"/>
+      <text x="450" y="212" text-anchor="middle" font-weight="700">ChorkiAnalyticsStorage</text>
+      <text x="450" y="229" text-anchor="middle" font-size="10" fill="#5b6577">visitor_id · queue (JSON)</text>
+      <path d="M450,147 L450,188" stroke="#5b6577" stroke-dasharray="4 3"/>
+    </g>
+  </svg>
+  <div class="grid3" style="margin-top:2mm;">
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Backoff after failures</h3>
+      <svg viewBox="0 0 330 170" width="100%">
+        <g stroke="#d6dbe4"><line x1="30" y1="140" x2="320" y2="140"/><line x1="30" y1="10" x2="30" y2="140"/></g>
+        <g fill="#d9822b">
+          <rect x="40" y="138" width="28" height="2"/><rect x="76" y="136" width="28" height="4"/><rect x="112" y="132" width="28" height="8"/>
+          <rect x="148" y="123" width="28" height="17"/><rect x="184" y="106" width="28" height="34"/><rect x="220" y="72" width="28" height="68"/>
+          <rect x="256" y="15" width="28" height="125"/><rect x="292" y="15" width="28" height="125"/>
+        </g>
+        <g font-size="9.5" text-anchor="middle" fill="#5b6577">
+          <text x="54" y="155">5s</text><text x="90" y="155">10</text><text x="126" y="155">20</text><text x="162" y="155">40</text><text x="198" y="155">80</text><text x="234" y="155">160</text><text x="270" y="155">300</text><text x="306" y="155">300</text>
+          <text x="175" y="168">failure 1 → 8 (capped at 5 min)</text>
+        </g>
+      </svg>
+    </div>
+    <div class="card">
+      <h3>Offline &amp; restarts</h3>
+      <p>Unsent requests are saved after every flush and when the app is hidden. On the next launch they are restored <b>before</b> new ones. Requests older than <b>23 h</b> are dropped, because Matomo accepts a back-dated <code>cdt</code> beyond 24 h only with an auth token, which must never ship in an app.</p>
+    </div>
+    <div class="card">
+      <h3>Visitor identity</h3>
+      <p><code>_id</code> is 16 random hex characters, generated once and kept in storage. It is added at <b>send</b> time, so events queued before the storage loads still get the right id. <code>uid</code> is taken at event time, so a sign-in only affects later events.</p>
+      <p style="margin-top:2mm"><b>Default storage is in memory.</b> Plug in <code>shared_preferences</code> for persistence (example in section 12).</p>
+    </div>
+  </div>
+  <div class="foot"><span>matomo_sink.dart · onEvent(), flush(), _flushAll(), _restore(), _persist(), _listenToLifecycle()</span><span>14</span></div>
+</section>
+
+<!-- ============================================================ 15. INTEGRATION -->
+<section class="page">
+  <div class="hdr"><h2>12 · Integration &amp; Matomo setup</h2><span class="sec">How to use it</span></div>
+  <div class="grid2" style="grid-template-columns: 1.15fr 1fr;">
+    <div>
+<pre><span class="c">// 1 · Once, at app start</span>
+<span class="k">final</span> matomo = MatomoAnalyticsSink(
+  <span class="k">const</span> MatomoConfig(
+    url: <span class="s">'https://analytics.chorki.com'</span>,
+    siteId: <span class="n">3</span>,
+    dimensionIds: {
+      <span class="s">'contentId'</span>: <span class="n">1</span>, <span class="s">'seriesId'</span>: <span class="n">2</span>, <span class="s">'category'</span>: <span class="n">3</span>,
+      <span class="s">'contentType'</span>: <span class="n">4</span>, <span class="s">'subscriptionTier'</span>: <span class="n">5</span>,
+      <span class="s">'adCampaignId'</span>: <span class="n">6</span>, <span class="s">'qualityHeight'</span>: <span class="n">7</span>,
+    },
+    storage: PrefsAnalyticsStorage(prefs), <span class="c">// optional</span>
+  ),
+);
+<span class="k">final</span> analytics = ChorkiAnalyticsConfig(
+  sinks: [matomo],
+  consentGranted: userAcceptedAnalytics,
+);
+
+<span class="c">// 2 · On sign-in / plan change</span>
+matomo.userId = user.id;
+matomo.setUserProperty(<span class="s">'subscriptionTier'</span>, user.tier);
+
+<span class="c">// 3 · Per player (or once on a feed's controller)</span>
+ChorkiPlayer(
+  route: route,
+  analytics: analytics,
+  metadata: ChorkiMediaMetadata(
+    contentId: <span class="s">'ep-1042'</span>, title: <span class="s">'Episode 4'</span>,
+    seriesId: <span class="s">'show-77'</span>, seasonNumber: <span class="n">1</span>, episodeNumber: <span class="n">4</span>,
+    category: <span class="s">'drama'</span>, contentType: <span class="s">'episode'</span>,
+  ),
+);</pre>
+    </div>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Matomo server checklist</h3>
+      <svg viewBox="0 0 470 330" width="100%">
+        <g font-size="11">
+          <g transform="translate(0,0)"><circle cx="18" cy="22" r="16" fill="#3152a0"/><text x="18" y="27" text-anchor="middle" fill="#fff" font-weight="700">1</text>
+            <text x="46" y="18" font-weight="700">Create a Website / App</text><text x="46" y="34" fill="#5b6577" font-size="10">Its id is MatomoConfig.siteId</text></g>
+          <line x1="18" y1="40" x2="18" y2="62" stroke="#d6dbe4" stroke-width="2"/>
+          <g transform="translate(0,64)"><circle cx="18" cy="22" r="16" fill="#3152a0"/><text x="18" y="27" text-anchor="middle" fill="#fff" font-weight="700">2</text>
+            <text x="46" y="18" font-weight="700">Install Media Analytics (premium)</text><text x="46" y="34" fill="#5b6577" font-size="10">Without it set mediaAnalytics: false (events only)</text></g>
+          <line x1="18" y1="104" x2="18" y2="126" stroke="#d6dbe4" stroke-width="2"/>
+          <g transform="translate(0,128)"><circle cx="18" cy="22" r="16" fill="#3152a0"/><text x="18" y="27" text-anchor="middle" fill="#fff" font-weight="700">3</text>
+            <text x="46" y="18" font-weight="700">Create Custom Dimensions</text><text x="46" y="34" fill="#5b6577" font-size="10">Visit scope: subscriptionTier · Action scope: contentId,</text><text x="46" y="48" fill="#5b6577" font-size="10">seriesId, category, contentType, adCampaignId, qualityHeight</text></g>
+          <line x1="18" y1="182" x2="18" y2="204" stroke="#d6dbe4" stroke-width="2"/>
+          <g transform="translate(0,206)"><circle cx="18" cy="22" r="16" fill="#3152a0"/><text x="18" y="27" text-anchor="middle" fill="#fff" font-weight="700">4</text>
+            <text x="46" y="18" font-weight="700">Copy their ids into dimensionIds</text><text x="46" y="34" fill="#5b6577" font-size="10">Unmapped keys are simply not sent</text></g>
+          <line x1="18" y1="246" x2="18" y2="268" stroke="#d6dbe4" stroke-width="2"/>
+          <g transform="translate(0,270)"><circle cx="18" cy="22" r="16" fill="#23936b"/><text x="18" y="27" text-anchor="middle" fill="#fff" font-weight="700">✓</text>
+            <text x="46" y="18" font-weight="700">Verify in Visits Log</text><text x="46" y="34" fill="#5b6577" font-size="10">Run the example with --dart-define=MATOMO_URL=…</text><text x="46" y="48" fill="#5b6577" font-size="10">--dart-define=MATOMO_SITE_ID=… and watch [analytics] logs</text></g>
+        </g>
+      </svg>
+<pre style="margin-top:2mm"><span class="c">// shared_preferences-backed storage (in your app)</span>
+<span class="k">class</span> PrefsAnalyticsStorage <span class="k">implements</span> ChorkiAnalyticsStorage {
+  PrefsAnalyticsStorage(<span class="k">this</span>.prefs);
+  <span class="k">final</span> SharedPreferences prefs;
+  Future&lt;String?&gt; read(k) <span class="k">async</span> =&gt; prefs.getString(k);
+  Future&lt;<span class="k">void</span>&gt; write(k, v) <span class="k">async</span> =&gt;
+      v == <span class="k">null</span> ? prefs.remove(k) : prefs.setString(k, v);
+}</pre>
+    </div>
+  </div>
+  <div class="foot"><span>Custom sink: class MySink extends ChorkiAnalyticsSink { void onEvent(e) {...} } · add it to sinks next to Matomo</span><span>15</span></div>
+</section>
+
+
+<!-- ============================================================ 16. CHORKI APP -->
+<section class="page">
+  <div class="hdr"><h2>13 · Inside the Chorki app</h2><span class="sec">chorki-mobile-app-v2</span></div>
+  <div class="grid2" style="grid-template-columns: 1.05fr 1fr;">
+    <div>
+      <p class="lead" style="margin-bottom:3mm">The app already sends Matomo data from its own players. The SDK keeps what is good about it and fixes what is not.</p>
+      <table>
+        <tr><th>Topic</th><th>App today</th><th>SDK</th></tr>
+        <tr><td>Bytes data</td><td>One event when the widget opens; the ping path is never called</td><td>Impression, 10 s heartbeats, 36 event types</td></tr>
+        <tr><td><code>e_v</code> / <code>ma_ps</code> (Shorts)</td><td><code>0:00:12.000000</code>, not a number <b>(fixed in the app)</b></td><td>whole seconds</td></tr>
+        <tr><td><code>ma_id</code></td><td>content id, shared by every play <b>(fixed: one id per play)</b></td><td>one id per view</td></tr>
+        <tr><td><code>pv_id</code></td><td>constant <code>Z8qIUh</code> for all users <b>(removed)</b></td><td>not sent</td></tr>
+        <tr><td><code>ma_w / ma_h</code></td><td><code>390.0</code> <b>(fixed: whole pixels)</b></td><td>whole pixels; video or viewport</td></tr>
+        <tr><td><code>ma_st</code></td><td>stopwatch (stalls count as watching)</td><td>real playback only</td></tr>
+        <tr><td><code>ma_se</code>, <code>ma_ttp</code></td><td>not sent / empty</td><td>sent</td></tr>
+        <tr><td>QoE, ads, seeks, UI</td><td>none in Matomo</td><td>all</td></tr>
+        <tr><td>Delivery</td><td>one GET per request, no retry</td><td>bulk POST, offline queue, backoff</td></tr>
+      </table>
+      <h3 style="font-size:13px;margin:4mm 0 2mm">What the app does well, now in the SDK</h3>
+      <svg viewBox="0 0 520 150" width="100%">
+        <g font-size="10.5">
+          <rect x="0" y="0" width="250" height="40" rx="8" fill="#e2e8f6"/><text x="10" y="17" font-weight="700" fill="#3152a0">One visitor across the app</text><text x="10" y="32" fill="#3152a0" font-size="9.5">visitorIdProvider → MatomoTracker visitor id</text>
+          <rect x="265" y="0" width="255" height="40" rx="8" fill="#e2e8f6"/><text x="275" y="17" font-weight="700" fill="#3152a0">Report continuity</text><text x="275" y="32" fill="#3152a0" font-size="9.5">MatomoNaming.chorkiLegacy · playerName</text>
+          <rect x="0" y="50" width="250" height="40" rx="8" fill="#e2e8f6"/><text x="10" y="67" font-weight="700" fill="#3152a0">Same custom dimensions</text><text x="10" y="82" fill="#3152a0" font-size="9.5">MatomoConfig.chorkiAppDimensions (1–5)</text>
+          <rect x="265" y="50" width="255" height="40" rx="8" fill="#e2e8f6"/><text x="275" y="67" font-weight="700" fill="#3152a0">Real page URL</text><text x="275" y="82" fill="#3152a0" font-size="9.5">metadata.pageUrl → url · referrerUrl → urlref</text>
+          <rect x="0" y="100" width="250" height="40" rx="8" fill="#e2e8f6"/><text x="10" y="117" font-weight="700" fill="#3152a0">Screen-size ma_w / ma_h</text><text x="10" y="132" fill="#3152a0" font-size="9.5">MatomoMediaSize.viewport</text>
+          <rect x="265" y="100" width="255" height="40" rx="8" fill="#e2e8f6"/><text x="275" y="117" font-weight="700" fill="#3152a0">Server-driven config</text><text x="275" y="132" fill="#3152a0" font-size="9.5">pass settings url / site_id to MatomoConfig</text>
+        </g>
+      </svg>
+    </div>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">One visit: screens + video</h3>
+      <svg viewBox="0 0 470 150" width="100%">
+        <defs><marker id="a9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3152a0"/></marker></defs>
+        <g font-size="10.5">
+          <rect x="0" y="10" width="170" height="50" rx="9" fill="#f4f6fa"/><text x="85" y="31" text-anchor="middle" font-weight="700">matomo_tracker</text><text x="85" y="47" text-anchor="middle" font-size="9.5" fill="#5b6577">screen views (17 screens)</text>
+          <rect x="0" y="90" width="170" height="50" rx="9" fill="#f4f6fa"/><text x="85" y="111" text-anchor="middle" font-weight="700">MatomoAnalyticsSink</text><text x="85" y="127" text-anchor="middle" font-size="9.5" fill="#5b6577">video data</text>
+          <path d="M85,62 L85,88" stroke="#3152a0" stroke-dasharray="4 3" marker-end="url(#a9)"/><text x="92" y="79" font-size="9.5" fill="#3152a0">visitor.id</text>
+          <path d="M172,35 C230,35 230,75 278,75" stroke="#3152a0" fill="none" marker-end="url(#a9)"/>
+          <path d="M172,115 C230,115 230,75 278,75" stroke="#3152a0" fill="none" marker-end="url(#a9)"/>
+          <rect x="280" y="45" width="190" height="60" rx="10" fill="#3152a0"/><text x="375" y="70" text-anchor="middle" fill="#fff" font-weight="700">one Matomo visitor</text><text x="375" y="88" text-anchor="middle" fill="#d6e0f5" font-size="9.5">_id = 16 hex, same everywhere</text>
+        </g>
+      </svg>
+<pre style="margin-top:3mm">MatomoAnalyticsSink(MatomoConfig(
+  url: settings.analytics_matomo_url!,
+  siteId: int.parse(settings.analytics_matomo_site_id!),
+  visitorIdProvider: () =&gt; MatomoTracker.instance.visitor.id,
+  naming: MatomoNaming.chorkiLegacy,     <span class="c">// MediaVideo/play/pause/finished</span>
+  playerName: <span class="s">'ShortsPlayer'</span>,
+  dimensionIds: MatomoConfig.chorkiAppDimensions,
+  mediaSize: MatomoMediaSize.viewport,
+))
+  ..userId = user.id
+  ..setUserProperty(<span class="s">'userId'</span>, user.id)
+  ..setUserProperty(<span class="s">'subscription'</span>, <span class="s">'Subscribed'</span>)
+  ..setUserProperty(<span class="s">'appVersion'</span>, appVersion);</pre>
+      <div class="note" style="margin-top:3mm">The legacy preset maps <b>resume → play</b> and <b>complete → finished</b> and sends the position as <code>e_v</code>, as the app does. Playback events change only in their names; QoE, ads and UI keep their own categories.</div>
+    </div>
+  </div>
+  <div class="foot"><span>App fixes: lib/data/helpers/matomo_media_params.dart · shorts_video_widget.dart · video_player_screen.dart · remote_playback_progress_reporter.dart</span><span>16</span></div>
+</section>
+
+<!-- ============================================================ 16. REPORTS -->
+<section class="page">
+  <div class="hdr"><h2>14 · What you can answer in Matomo</h2><span class="sec">Reports</span></div>
+  <div class="grid2">
+    <table>
+      <tr><th>Question</th><th>Where in Matomo</th><th>Fed by</th></tr>
+      <tr><td>How many views / plays per title?</td><td>Media › Videos (impressions, plays, play rate)</td><td>impression + heartbeats</td></tr>
+      <tr><td>How long do people watch?</td><td>Media › time spent, avg. watched</td><td><code>ma_st</code></td></tr>
+      <tr><td>Which parts are watched or skipped?</td><td>Media › segment report</td><td><code>ma_se</code></td></tr>
+      <tr><td>Finish rate?</td><td>Media (finish rate) + Events: Video / complete</td><td><code>ma_st/ma_le</code>, complete</td></tr>
+      <tr><td>Drop-off curve</td><td>Events: Video / progress 25…100%</td><td>quartile</td></tr>
+      <tr><td>Why do sessions end?</td><td>Events: Video / session end (reason)</td><td>sessionEnd</td></tr>
+      <tr><td>Replays in Bytes</td><td>Events: Video / loop</td><td>loop</td></tr>
+      <tr><td>How fast do videos start?</td><td>Events: Video QoE / startup time (avg value)</td><td>firstFrame</td></tr>
+      <tr><td>How often do they stall, and for how long?</td><td>Events: Video QoE / rebuffer</td><td>bufferEnd</td></tr>
+      <tr><td>Error rate by stage</td><td>Events: Video QoE / error (route|load|playback)</td><td>error</td></tr>
+      <tr><td>Ad fill, completion, skips, CTR</td><td>Events: Video Ads / *</td><td>ad events</td></tr>
+      <tr><td>Quality / speed / audio preferences</td><td>Events: Video QoE &amp; Video Player</td><td>UX events</td></tr>
+      <tr><td>Any of the above by series, category, plan</td><td>Segments &amp; Custom Dimension reports</td><td><code>dimensionN</code></td></tr>
+      <tr><td>Per-user journey</td><td>Visits Log / User profile</td><td><code>uid</code>, <code>_id</code></td></tr>
+    </table>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Illustration: a drop-off funnel from quartile events</h3>
+      <svg viewBox="0 0 470 240" width="100%">
+        <g font-size="10.5">
+          <g fill="#2f6fde">
+            <rect x="90" y="10" width="360" height="30" rx="4"/>
+            <rect x="90" y="48" width="300" height="30" rx="4" opacity=".9"/>
+            <rect x="90" y="86" width="234" height="30" rx="4" opacity=".8"/>
+            <rect x="90" y="124" width="180" height="30" rx="4" opacity=".7"/>
+            <rect x="90" y="162" width="130" height="30" rx="4" opacity=".6"/>
+          </g>
+          <g text-anchor="end" fill="#17202e"><text x="82" y="30">play</text><text x="82" y="68">25%</text><text x="82" y="106">50%</text><text x="82" y="144">75%</text><text x="82" y="182">complete</text></g>
+          <g fill="#fff" font-weight="700"><text x="100" y="30">100%</text><text x="100" y="68">83%</text><text x="100" y="106">65%</text><text x="100" y="144">50%</text><text x="100" y="182">36%</text></g>
+          <text x="90" y="222" fill="#8a96ab" font-size="9.5">Illustrative numbers. Real ones come from Events › Video › progress N%.</text>
+        </g>
+      </svg>
+      <div class="note ok" style="margin-top:3mm">Tip: create a Matomo <b>Segment</b> on <code>dimension3 == drama</code> (category) and every Media and Events report above is filtered to that genre.</div>
+    </div>
+  </div>
+  <div class="foot"><span>Report names depend on the Matomo version and the Media Analytics plugin</span><span>17</span></div>
+</section>
+
+<!-- ============================================================ 17. TESTING / LIMITS -->
+<section class="page">
+  <div class="hdr"><h2>15 · Testing, limits, next steps</h2><span class="sec">Quality</span></div>
+  <div class="grid3">
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Test coverage</h3>
+      <svg viewBox="0 0 320 150" width="100%">
+        <g font-size="10.5">
+          <rect x="0" y="10" width="300" height="26" rx="4" fill="#e9edf3"/><rect x="0" y="10" width="270" height="26" rx="4" fill="#5b6577"/><text x="10" y="28" fill="#fff">existing suite · 239 ✓</text>
+          <rect x="0" y="46" width="300" height="26" rx="4" fill="#e9edf3"/><rect x="0" y="46" width="160" height="26" rx="4" fill="#2f6fde"/><text x="10" y="64" fill="#fff">session_test · 18 ✓</text>
+          <rect x="0" y="82" width="300" height="26" rx="4" fill="#e9edf3"/><rect x="0" y="82" width="140" height="26" rx="4" fill="#3152a0"/><text x="10" y="100" fill="#fff">matomo_test · 16 ✓</text>
+          <rect x="0" y="118" width="300" height="26" rx="4" fill="#e9edf3"/><rect x="0" y="118" width="110" height="26" rx="4" fill="#23936b"/><text x="10" y="136" fill="#fff">widget · 4 ✓</text>
+        </g>
+      </svg>
+      <ul style="padding-left:4mm;margin:2mm 0 0">
+        <li>Watched time freezes on pause, seek and ads</li>
+        <li><code>ma_se</code> sends only new buckets</li>
+        <li>Loop → complete, loop, new <code>ma_id</code></li>
+        <li>Scrub pause is not a pause</li>
+        <li>Preloaded page is silent; swipe → swipedAway</li>
+        <li>URL change: new impression waits for the new video</li>
+        <li>Break / drag cut off by a swipe never leaks into the next view</li>
+        <li>Exact Matomo params; offline → persist → resend</li>
+        <li>Exit before start; Chorki app naming, dims, shared visitor id</li>
+        <li>Consent off → nothing; a throwing sink is isolated</li>
+        <li><code>no_logging_test</code> still passes (no print in lib/)</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Known limits</h3>
+      <ul style="padding-left:4mm;margin:0">
+        <li><b>ABR switches</b> are invisible to video_player, so only manual quality picks are reported.</li>
+        <li><b>Dropped frames / bitrate</b> are not exposed by video_player.</li>
+        <li><b>Fullscreen</b> is not a player feature; set <code>MatomoConfig.fullscreen</code> if your layout always is.</li>
+        <li><b>Position ticks</b> are ~500 ms apart, so watched time is accurate to about ±0.5 s per segment.</li>
+        <li><b>Media Analytics</b> requires the premium plugin; without it only Events are useful.</li>
+        <li><b>Default storage</b> is in memory: a new visitor per launch until you plug in persistence.</li>
+        <li>The <code>ma_*</code> request has no explicit pause/finish flag in the HTTP API; Matomo infers them from <code>ma_st</code>/<code>ma_ps</code>, plus our Events.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="font-size:13px;margin:0 0 2mm">Before shipping</h3>
+      <ul style="padding-left:4mm;margin:0">
+        <li>Run the example against a staging Matomo and check the Visits Log and Media reports.</li>
+        <li>Check that the Dart default user agent is not filtered as a bot by your Matomo; if it is, set <code>MatomoConfig.userAgent</code>.</li>
+        <li>Wire <code>consentGranted</code> to your consent UI.</li>
+        <li>Add a persistent <code>ChorkiAnalyticsStorage</code>.</li>
+      </ul>
+      <h3 style="font-size:13px;margin:5mm 0 2mm">Possible next steps</h3>
+      <ul style="padding-left:4mm;margin:0">
+        <li>Bitrate and dropped frames once video_player exposes them.</li>
+        <li>A fullscreen flag when the player gets fullscreen.</li>
+        <li>Sampling for very high-traffic feeds.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>flutter test → 277 passed · flutter analyze → no new issues</span><span>18</span></div>
+</section>
+
+</body>
+</html>

@@ -4,6 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:interactive_media_ads/interactive_media_ads.dart';
 import 'package:video_player/video_player.dart';
 
+import '../analytics/chorki_analytics_event.dart';
+import '../analytics/chorki_analytics_scope.dart';
+import '../analytics/chorki_analytics_session.dart';
 import 'ad_timeline.dart';
 import 'chorki_ad_config.dart';
 import 'chorki_ad_state.dart';
@@ -88,10 +91,76 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     } catch (_) {}
   }
 
+  ChorkiAnalyticsSession? get _analytics =>
+      _disposed || !mounted ? null : ChorkiAnalyticsScope.maybeOf(context);
+
+  void _reportError(String message) {
+    _analytics?.recordAd(ChorkiAnalyticsEventType.adError, {
+      'message': message,
+    });
+    widget.config.onAdError?.call(message);
+  }
+
+  /// Maps an IMA event to an analytics event.
+  void _reportAdEvent(AdEvent event) {
+    final analytics = _analytics;
+    if (analytics == null) return;
+    Map<String, Object?> adData() {
+      final ad = event.ad;
+      if (ad == null) return const {};
+      try {
+        final pod = ad.adPodInfo;
+        return {
+          'adId': ad.adId,
+          if (ad.title case final t? when t.isNotEmpty) 'adTitle': t,
+          'adSystem': ad.adSystem,
+          if (ad.advertiserName.isNotEmpty) 'advertiser': ad.advertiserName,
+          if (ad.duration case final d?) 'adDurationMs': d.inMilliseconds,
+          'skippable': ad.isSkippable,
+          'podPosition': pod.adPosition,
+          'podTotal': pod.totalAds,
+        };
+      } catch (_) {
+        return const {};
+      }
+    }
+
+    switch (event.type) {
+      case AdEventType.started:
+        analytics.recordAd(ChorkiAnalyticsEventType.adStart, adData());
+      case AdEventType.firstQuartile:
+        analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
+          ...adData(),
+          'percent': 25,
+        });
+      case AdEventType.midpoint:
+        analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
+          ...adData(),
+          'percent': 50,
+        });
+      case AdEventType.thirdQuartile:
+        analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
+          ...adData(),
+          'percent': 75,
+        });
+      case AdEventType.complete:
+        analytics.recordAd(ChorkiAnalyticsEventType.adComplete, adData());
+      case AdEventType.skipped:
+        analytics.recordAd(ChorkiAnalyticsEventType.adSkip, adData());
+      case AdEventType.clicked || AdEventType.tapped:
+        analytics.recordAd(ChorkiAnalyticsEventType.adClick, adData());
+      case AdEventType.paused:
+        analytics.recordAd(ChorkiAnalyticsEventType.adPause, adData());
+      case AdEventType.resumed:
+        analytics.recordAd(ChorkiAnalyticsEventType.adResume, adData());
+      case _:
+    }
+  }
+
   void _onLoadTimeout() {
     if (_disposed || _pauseSeen || _showContent) return;
     _timedOut = true;
-    widget.config.onAdError?.call('Ad load timed out');
+    _reportError('Ad load timed out');
     unawaited(_resumeContent());
   }
 
@@ -116,6 +185,11 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     final target = next.offset >= duration
         ? duration - const Duration(milliseconds: 200)
         : next.offset;
+    _analytics?.recordSeek(
+      c.value.position,
+      target,
+      ChorkiSeekSource.adSkipAhead,
+    );
     unawaited(_safe(() => c.seekTo(target)));
     unawaited(
       _safe(() => _progress.setProgress(progress: target, duration: duration)),
@@ -127,7 +201,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       container: container,
       onAdsLoaded: _onAdsLoaded,
       onAdsLoadError: (data) {
-        widget.config.onAdError?.call(data.error.message ?? 'Ad load error');
+        _reportError(data.error.message ?? 'Ad load error');
         _resumeContent();
       },
     );
@@ -147,7 +221,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
         ),
       );
     } catch (e) {
-      widget.config.onAdError?.call(e.toString());
+      _reportError(e.toString());
       _resumeContent();
     }
   }
@@ -164,6 +238,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
         onAdEvent: (event) {
           if (_disposed) return;
           widget.config.onAdEvent?.call(event);
+          _reportAdEvent(event);
           switch (event.type) {
             case AdEventType.loaded:
               unawaited(_safe(manager.start));
@@ -181,7 +256,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
           }
         },
         onAdErrorEvent: (event) {
-          widget.config.onAdError?.call(event.error.message ?? 'Ad error');
+          _reportError(event.error.message ?? 'Ad error');
           _resumeContent();
         },
       ),
@@ -220,6 +295,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       _showContent = false;
       _adActive = true;
     });
+    _analytics?.recordAdBreakStart();
     widget.onAdPlayingChanged?.call(true);
     await _safe(widget.controller.pause);
   }
@@ -231,6 +307,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
       _showContent = true;
       _adActive = false;
     });
+    _analytics?.recordAdBreakEnd();
     widget.onAdPlayingChanged?.call(false);
     _startTimer();
     final shouldPlay = _contentStarted || widget.autoPlay;
