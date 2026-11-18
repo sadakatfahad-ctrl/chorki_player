@@ -112,6 +112,10 @@
 
 ### Fixed
 
+- Analytics on Android: a rebuffer is no longer reported as a viewer
+  `pause` + `resume` (ExoPlayer reports `isPlaying` false while buffering).
+  Each stall used to add a pause, a heartbeat and a resume, inflating
+  `pauseCount` and Matomo traffic.
 - An IMA ads manager that loaded after its player was disposed was never
   destroyed.
 - `ChorkiPlayerController` cancels its PiP status probes on dispose.

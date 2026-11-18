@@ -57,3 +57,7 @@ tool/
 CLAUDE.md
 CONTRIBUTING.md
 test/guardrails/
+
+# Local run settings (e.g. a real Matomo endpoint); .gitignore does not
+# apply here because this file exists.
+*.local.json

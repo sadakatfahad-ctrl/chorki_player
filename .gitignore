@@ -51,3 +51,6 @@ docs/guardrails/*.pdf
 
 # AI eval run outputs
 eval/results/
+
+# Local run settings for the example (e.g. a real Matomo endpoint).
+example/*.local.json

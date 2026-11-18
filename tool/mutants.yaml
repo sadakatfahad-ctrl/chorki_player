@@ -132,3 +132,9 @@
   find: "    if (!_preloading) created.activate();\n"
   replace: "    created.activate();\n"
   tests: [test/scenarios/widget_scenarios_test.dart]
+- id: session.androidRebufferPause
+  why: Android rebuffering (isPlaying false) was reported as a viewer pause + resume
+  file: lib/src/analytics/session/session_playback.dart
+  find: "final playing = (v.isPlaying || (v.isBuffering && _wasPlaying)) && !_inAd;"
+  replace: "final playing = v.isPlaying && !_inAd;"
+  tests: [test/scenarios/scenario_runner_test.dart]

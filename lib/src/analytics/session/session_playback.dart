@@ -17,7 +17,10 @@ extension _SessionPlayback on ChorkiAnalyticsSession {
     final now = _clock();
     final pos = v.position;
     final dur = v.duration;
-    final playing = v.isPlaying && !_inAd;
+    // Android (ExoPlayer) reports isPlaying false while it rebuffers: the
+    // viewer has not paused, so keep a playing view playing until it stops
+    // buffering.
+    final playing = (v.isPlaying || (v.isBuffering && _wasPlaying)) && !_inAd;
 
     // A looping video wraps from the end back to the start without ever
     // reporting completion.

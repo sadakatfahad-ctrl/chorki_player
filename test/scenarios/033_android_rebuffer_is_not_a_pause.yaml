@@ -1,0 +1,37 @@
+name: android_rebuffer_is_not_a_pause
+description: "regression: Android (ExoPlayer) reports isPlaying false while it rebuffers; each stall was counted as a viewer pause + resume and flooded Matomo"
+given: {duration: 20s}
+steps:
+  - bind
+  - value: {initialized: true}
+  - activate
+  - play: {to: 3s}
+  # ExoPlayer: buffering, and isPlaying drops with it.
+  - value: {buffering: true, playing: false}
+  - advance: 400ms
+  - value: {buffering: false, playing: true}
+  - value: {buffering: true, playing: false}
+  - advance: 100ms
+  - value: {buffering: false, playing: true}
+  - play: {to: 5s}
+  # A real pause still counts.
+  - value: {playing: false}
+  - advance: 1s
+  - value: {playing: true}
+  - play: {to: 6s}
+  - deactivate: swipedAway
+expect:
+  events:
+    - impression
+    - play
+    - firstFrame
+    - bufferStart
+    - bufferEnd: {durationMs: 400}
+    - bufferStart
+    - bufferEnd: {durationMs: 100}
+    - quartile: {percent: 25}
+    - heartbeat: {trigger: pause}
+    - pause
+    - resume
+    - heartbeat: {trigger: end}
+    - sessionEnd: {pauseCount: 1, rebufferCount: 2, rebufferMs: 500, $watched: 6}

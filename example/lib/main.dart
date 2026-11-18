@@ -7,6 +7,7 @@ import 'feed_page.dart';
 import 'test_videos.dart';
 
 void main() {
+  logChorkiDiagnostics();
   runApp(const ExampleApp());
 }
 
