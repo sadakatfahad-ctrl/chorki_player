@@ -10,6 +10,7 @@ import '../chorki_analytics_event.dart';
 /// dashboards keep working when a player moves to this SDK.
 @immutable
 class MatomoNaming {
+  /// Custom names; the defaults are [standard].
   const MatomoNaming({
     this.playbackCategory = 'Video',
     this.qoeCategory = 'Video QoE',
@@ -19,9 +20,16 @@ class MatomoNaming {
     this.positionValue = const {},
   });
 
+  /// Event category for playback events.
   final String playbackCategory;
+
+  /// Event category for quality-of-experience events.
   final String qoeCategory;
+
+  /// Event category for ad events.
   final String adCategory;
+
+  /// Event category for player UI events.
   final String uxCategory;
 
   /// Replaces the default `e_a` of these event types.
@@ -31,6 +39,7 @@ class MatomoNaming {
   /// instead of their default value.
   final Set<ChorkiAnalyticsEventType> positionValue;
 
+  /// The SDK's own names.
   static const MatomoNaming standard = MatomoNaming();
 
   /// Matches the Chorki app's existing Matomo events:
@@ -56,6 +65,7 @@ class MatomoNaming {
     },
   );
 
+  /// The Matomo event category for [category].
   String categoryOf(ChorkiAnalyticsCategory category) => switch (category) {
     ChorkiAnalyticsCategory.playback => playbackCategory,
     ChorkiAnalyticsCategory.qoe => qoeCategory,

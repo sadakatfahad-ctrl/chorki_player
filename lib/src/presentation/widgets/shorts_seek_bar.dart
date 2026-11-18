@@ -17,6 +17,7 @@ import 'scrub_session.dart';
 /// buffered range, ad break markers and a time bubble. Tap to seek, drag to
 /// scrub; both report to the analytics session in scope.
 class ChorkiShortsSeekBar extends StatefulWidget {
+  /// A seek bar for [controller].
   const ChorkiShortsSeekBar({
     super.key,
     required this.controller,
@@ -41,36 +42,58 @@ class ChorkiShortsSeekBar extends StatefulWidget {
     this.onSeekEnded,
   });
 
+  /// The video it shows and seeks.
   final VideoPlayerController controller;
 
+  /// Default colors and height.
   final ChorkiPlayerTheme theme;
 
+  /// May replace the bar or its time bubble.
   final ChorkiPlayerBuilders builders;
 
+  /// Track thickness at rest.
   final double barHeight;
 
+  /// Track thickness while dragging.
   final double expandedBarHeight;
 
+  /// Thumb radius while dragging.
   final double thumbRadius;
 
+  /// Pointer radius at rest.
   final double idlePointerRadius;
 
+  /// Space between the track and the edges.
   final double horizontalPadding;
 
+  /// Touch area height; defaults to [ChorkiPlayerTheme.seekBarHeight].
   final double? height;
 
   /// Ad break ticks. Defaults to the markers published by the ad layer.
   final List<ChorkiAdMarker>? adMarkers;
 
+  /// A haptic tick each time a drag crosses a multiple of this.
   final Duration hapticTickInterval;
 
+  /// How often the video follows a drag.
   final Duration seekThrottle;
 
+  /// Overrides [ChorkiPlayerTheme.seekBarPlayedColor].
   final Color? playedColor;
+
+  /// Overrides [ChorkiPlayerTheme.seekBarBufferedColor].
   final Color? bufferedColor;
+
+  /// Overrides [ChorkiPlayerTheme.seekBarBaseColor].
   final Color? baseColor;
+
+  /// Overrides [ChorkiPlayerTheme.seekBarThumbColor].
   final Color? thumbColor;
+
+  /// Overrides [ChorkiPlayerTheme.seekBarBubbleColor].
   final Color? bubbleColor;
+
+  /// Overrides [ChorkiPlayerTheme.seekBarBubbleTextStyle].
   final TextStyle? bubbleTextStyle;
 
   double get _height => height ?? theme.seekBarHeight;
@@ -82,8 +105,10 @@ class ChorkiShortsSeekBar extends StatefulWidget {
   TextStyle get _bubbleTextStyle =>
       bubbleTextStyle ?? theme.seekBarBubbleTextStyle;
 
+  /// A drag started, at this position.
   final ValueChanged<Duration>? onSeekStarted;
 
+  /// A drag ended; the video seeks here.
   final ValueChanged<Duration>? onSeekEnded;
 
   @override
@@ -91,6 +116,9 @@ class ChorkiShortsSeekBar extends StatefulWidget {
 }
 
 class _ChorkiShortsSeekBarState extends State<ChorkiShortsSeekBar> {
+  /// How fast the track and thumb grow when a drag starts.
+  static const Duration _grow = Duration(milliseconds: 120);
+
   late final ScrubSession _scrub = ScrubSession(
     controller: () => widget.controller,
     analytics: () => _analytics,
@@ -315,7 +343,7 @@ class _ChorkiShortsSeekBarState extends State<ChorkiShortsSeekBar> {
           right: w.horizontalPadding,
           bottom: 0,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
+            duration: _grow,
             curve: Curves.easeOut,
             height: barHeight,
             decoration: BoxDecoration(
@@ -358,7 +386,7 @@ class _ChorkiShortsSeekBarState extends State<ChorkiShortsSeekBar> {
           left: thumbCenter - pointerRadius,
           bottom: barHeight / 2 - pointerRadius,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
+            duration: _grow,
             curve: Curves.easeOut,
             width: pointerRadius * 2,
             height: pointerRadius * 2,

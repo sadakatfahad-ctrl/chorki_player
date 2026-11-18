@@ -1,0 +1,13 @@
+name: playback_error_retried
+description: a playback error mid-view is reported at the playback stage and retried silently
+given: {source: url}
+steps:
+  - play: {to: 3s}
+  - videoError: decoder failed
+  - wait: 2s
+expect:
+  mode: subsequence
+  events:
+    - play
+    - error: {code: playback, stage: playback, transient: true, willRetry: true}
+    - retry: {attempt: 1, auto: true}

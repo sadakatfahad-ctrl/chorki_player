@@ -17,6 +17,7 @@ enum MatomoMediaSize {
 /// Settings for [MatomoAnalyticsSink].
 @immutable
 class MatomoConfig {
+  /// Reports to the Matomo at [url] for site [siteId].
   const MatomoConfig({
     required this.url,
     required this.siteId,
@@ -72,6 +73,8 @@ class MatomoConfig {
   /// Event types never sent as Matomo Events.
   final Set<ChorkiAnalyticsEventType> excludedEvents;
 
+  /// The default [excludedEvents]: events Media Analytics already covers or
+  /// that would only add noise as Matomo Events.
   static const Set<ChorkiAnalyticsEventType> defaultExcludedEvents = {
     // Media Analytics covers progress; bufferEnd carries the stall length.
     ChorkiAnalyticsEventType.heartbeat,
@@ -102,6 +105,7 @@ class MatomoConfig {
   /// Oldest requests are dropped beyond this.
   final int maxQueueLength;
 
+  /// Longest wait for one bulk request before it counts as failed.
   final Duration requestTimeout;
 
   /// Keeps the visitor id and unsent requests. Defaults to memory only.

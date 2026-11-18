@@ -1,0 +1,14 @@
+name: route_not_found_no_silent_retry
+description: "regression: a 404 route was retried silently; now the error shows at once and only the viewer's Retry tries again"
+given: {route: [notFound, ok]}
+steps:
+  - wait: 5s
+  - retry
+  - play: {to: 2s}
+expect:
+  mode: subsequence
+  events:
+    - error: {code: notFound, stage: route, transient: false, willRetry: false}
+    - retry: {attempt: 1, auto: false}
+    - impression
+    - play

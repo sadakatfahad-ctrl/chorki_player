@@ -17,6 +17,7 @@ import 'scrub_session.dart';
 /// to seek, drag horizontally to scrub, long-press for a speed boost. Each
 /// reports to the analytics session in scope.
 class ChorkiGestureOverlay extends StatefulWidget {
+  /// Gestures over [controller].
   const ChorkiGestureOverlay({
     super.key,
     required this.controller,
@@ -34,29 +35,44 @@ class ChorkiGestureOverlay extends StatefulWidget {
     this.builders = const ChorkiPlayerBuilders(),
   });
 
+  /// The video the gestures control.
   final VideoPlayerController controller;
+
+  /// A single tap.
   final VoidCallback onTogglePlayPause;
 
+  /// How far a double tap jumps.
   final Duration doubleTapSeek;
 
+  /// Taps within this window add up (three double taps jump three times).
   final Duration doubleTapWindow;
 
+  /// Playback speed while long-pressing.
   final double longPressSpeed;
 
+  /// Seconds a drag across the full width moves.
   final double fullScreenDragSeconds;
 
+  /// A haptic tick each time a scrub crosses a multiple of this.
   final Duration hapticTickInterval;
 
+  /// How often the video follows a scrub.
   final Duration seekThrottle;
 
+  /// A scrub or speed hold started (true) or ended (false), e.g. to hide
+  /// other controls meanwhile.
   final ValueChanged<bool>? onGesturesActiveChanged;
 
+  /// Colors and text styles of the feedback.
   final ChorkiPlayerTheme theme;
 
+  /// Feedback icons.
   final ChorkiPlayerIcons icons;
 
+  /// Feedback labels.
   final ChorkiPlayerStrings strings;
 
+  /// May replace the gesture feedback.
   final ChorkiPlayerBuilders builders;
 
   @override

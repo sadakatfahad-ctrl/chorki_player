@@ -11,7 +11,7 @@
 # | prefer_relative_imports                | M1         |
 # | discarded_futures                      | M5 (13 hits fixed)       |
 # | comment_references                     | not used: its 43 hits are valid dartdoc links across layers (adding imports would break layering); `dart doc --dry-run` in tool/check.sh fails on broken links instead |
-# | public_member_api_docs                 | pending: 283 hits over every public member in lib/src. The dartdoc ratchet (api_test) covers only the exported API (149), so it reaching 0 does not make the lint clean |
+# | public_member_api_docs                 | M6 (283 members documented) |
 include: package:flutter_lints/flutter.yaml
 
 analyzer:
@@ -40,6 +40,7 @@ analyzer:
 
 linter:
   rules:
+    - public_member_api_docs
     - discarded_futures
     - always_declare_return_types
     - avoid_dynamic_calls

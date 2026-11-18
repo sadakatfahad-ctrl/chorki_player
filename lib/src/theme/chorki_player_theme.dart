@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 export 'chorki_player_builders.dart';
 export 'chorki_player_strings.dart';
 
+/// Colors, sizes and text styles of the player's UI.
 @immutable
 class ChorkiPlayerTheme {
+  /// A dark theme by default; override what you need.
   const ChorkiPlayerTheme({
     this.backgroundColor = Colors.black,
     this.spinnerColor = Colors.white,
@@ -48,46 +50,106 @@ class ChorkiPlayerTheme {
     this.settingsSelectedColor = const Color(0xFFFFC107),
   });
 
+  /// Behind the video (letterboxing).
   final Color backgroundColor;
+
+  /// The loading spinner.
   final Color spinnerColor;
+
+  /// Loading spinner diameter.
   final double spinnerSize;
+
+  /// Loading spinner line width.
   final double spinnerStrokeWidth;
+
+  /// Icons of the error view.
   final Color iconColor;
+
+  /// The error message.
   final TextStyle errorTextStyle;
+
+  /// The Retry button; null uses the app's button theme.
   final ButtonStyle? retryButtonStyle;
+
+  /// Circle of the play badge shown while paused.
   final Color playBadgeColor;
+
+  /// The play badge's icon.
   final Color playBadgeIconColor;
+
+  /// The play badge's icon size.
   final double playBadgeIconSize;
+
+  /// The played part of the seek bar.
   final Color seekBarPlayedColor;
+
+  /// The buffered part of the seek bar.
   final Color seekBarBufferedColor;
+
+  /// The rest of the seek bar track.
   final Color seekBarBaseColor;
+
+  /// The seek bar thumb.
   final Color seekBarThumbColor;
+
+  /// Background of the time bubble while dragging.
   final Color seekBarBubbleColor;
+
+  /// Text of the time bubble.
   final TextStyle seekBarBubbleTextStyle;
+
+  /// Touch area height of the seek bar.
   final double seekBarHeight;
+
+  /// Background of the gesture feedback (seek bubble, HUD, badge).
   final Color gestureOverlayColor;
+
+  /// Icons of the gesture feedback.
   final Color gestureIconColor;
+
+  /// Text of the gesture feedback.
   final TextStyle gestureTextStyle;
 
   /// Seek-bar tick for an upcoming ad break / one already played.
   final Color adMarkerColor;
+
+  /// A seek-bar tick for a break that already played.
   final Color adMarkerPlayedColor;
+
+  /// Width of an ad break tick.
   final double adMarkerWidth;
+
+  /// Height of an ad break tick.
   final double adMarkerHeight;
 
   /// "Ad starts in N" pill.
   final Color adCountdownBackgroundColor;
+
+  /// The countdown pill's progress ring and accent.
   final Color adCountdownAccentColor;
+
+  /// The countdown pill's text.
   final TextStyle adCountdownTextStyle;
 
   /// Gear button and the settings bottom sheet.
   final Color settingsButtonColor;
+
+  /// Circle behind the gear button.
   final Color settingsButtonBackgroundColor;
+
+  /// Background of the settings sheet.
   final Color settingsSheetBackgroundColor;
+
+  /// Row titles in the settings sheet.
   final TextStyle settingsTextStyle;
+
+  /// Current values in the settings sheet.
   final TextStyle settingsSecondaryTextStyle;
+
+  /// The check mark of the selected option.
   final Color settingsSelectedColor;
 
+  /// A copy with the given fields replaced.
   ChorkiPlayerTheme copyWith({
     Color? backgroundColor,
     Color? spinnerColor,

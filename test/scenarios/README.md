@@ -67,3 +67,27 @@ Matchers: a literal, `">=N"`, `"<=N"`, `">N"`, `"<N"`, `"~N"` (within 1),
 
 When a scenario fails, the test output lists the actual events and Matomo
 requests, ready to compare with the expectation.
+
+## Widget-level scenarios
+
+`test/scenarios/widget/*.yaml` use the same `expect` block but drive a real
+`ChorkiPlayer` (fake video platform, scripted route lookups, fake clock),
+for behaviour only the widget decides: preloading, retries, error stages and
+viewer taps. Run by `widget_scenarios_test.dart`.
+
+| given | meaning |
+|---|---|
+| `source: url` | `ChorkiPlayer.url` instead of a route |
+| `route: [notFound, ok]` | answers to successive route lookups (`ok` or a `ChorkiErrorCode` name; the last repeats) |
+| `preload: true` | starts off screen |
+| `duration: 10s` | video length |
+
+| step | does |
+|---|---|
+| `wait: 2s` | time passes (clock and timers) |
+| `play: {to: 3s}` | the video plays to 3 s (500 ms ticks) |
+| `preload: false` | the page comes on screen (`true`: swiped away) |
+| `tap` | a single tap on the video (play/pause) |
+| `videoError: msg` | the platform reports a playback error |
+| `retry` | the viewer taps Retry |
+| `dispose` | the player is removed |

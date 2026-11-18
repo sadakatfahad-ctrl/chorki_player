@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 
+/// Whether [error] means the device could not reach the server (no
+/// response at all), as opposed to a server error.
 bool isConnectionFailure(Object? error) {
   if (error is SocketException) return true;
   if (error is! DioException) return false;

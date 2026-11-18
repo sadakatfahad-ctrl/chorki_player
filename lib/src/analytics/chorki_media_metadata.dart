@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 /// and video URL), which gives far less useful reports.
 @immutable
 class ChorkiMediaMetadata {
+  /// Describes the content; every field is optional.
   const ChorkiMediaMetadata({
     this.contentId,
     this.title,
@@ -35,9 +36,16 @@ class ChorkiMediaMetadata {
   /// URL reported as the media resource. Defaults to the played video URL.
   final String? mediaUrl;
 
+  /// Id of the series or show it belongs to.
   final String? seriesId;
+
+  /// Name of the series or show.
   final String? seriesTitle;
+
+  /// Season number within the series.
   final int? seasonNumber;
+
+  /// Episode number within the season.
   final int? episodeNumber;
 
   /// Genre / shelf / section, e.g. `drama`, `bytes`.
@@ -79,6 +87,7 @@ class ChorkiMediaMetadata {
     ...extra,
   };
 
+  /// A copy with the given fields replaced.
   ChorkiMediaMetadata copyWith({
     String? contentId,
     String? title,

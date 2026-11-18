@@ -19,7 +19,8 @@ void main() {
   final byType = <String, List<String>>{for (final t in types) t.name: []};
   final files =
       Directory('test/scenarios')
-          .listSync()
+          // Includes test/scenarios/widget (widget-level scenarios).
+          .listSync(recursive: true)
           .whereType<File>()
           .where((f) => f.path.endsWith('.yaml'))
           .toList()

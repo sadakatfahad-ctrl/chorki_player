@@ -6,6 +6,7 @@ import '../../core/guard.dart';
 import '../../helpers/time_format.dart';
 import '../../theme/chorki_player_theme.dart';
 
+/// The speeds offered by default in the settings sheet.
 const List<double> defaultChorkiSpeedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
 
 /// Opens the player settings (quality, audio, speed, video size, PiP) as a
@@ -68,7 +69,10 @@ String _audioLabel(VideoAudioTrack t) => t.label ?? t.language ?? t.id;
 
 enum _Page { root, quality, audio, speed }
 
+/// The settings bottom sheet: quality, audio, speed, video size and
+/// picture-in-picture. Open it with [showChorkiSettings].
 class ChorkiSettingsSheet extends StatefulWidget {
+  /// Settings for [controller].
   const ChorkiSettingsSheet({
     super.key,
     required this.controller,
@@ -79,11 +83,22 @@ class ChorkiSettingsSheet extends StatefulWidget {
     this.speedOptions = defaultChorkiSpeedOptions,
   });
 
+  /// The player the settings change.
   final ChorkiPlayerController controller;
+
+  /// Colors and text styles.
   final ChorkiPlayerTheme theme;
+
+  /// Row icons.
   final ChorkiPlayerIcons icons;
+
+  /// Labels.
   final ChorkiPlayerStrings strings;
+
+  /// May replace the quality labels or the whole sheet.
   final ChorkiPlayerBuilders builders;
+
+  /// Choices in the speed menu.
   final List<double> speedOptions;
 
   @override
@@ -91,6 +106,9 @@ class ChorkiSettingsSheet extends StatefulWidget {
 }
 
 class _ChorkiSettingsSheetState extends State<ChorkiSettingsSheet> {
+  /// Height animation when switching between the sheet's pages.
+  static const Duration _resize = Duration(milliseconds: 180);
+
   _Page _page = _Page.root;
 
   ChorkiPlayerController get _c => widget.controller;
@@ -125,7 +143,7 @@ class _ChorkiSettingsSheetState extends State<ChorkiSettingsSheet> {
       child: ListenableBuilder(
         listenable: _changes,
         builder: (context, _) => AnimatedSize(
-          duration: const Duration(milliseconds: 180),
+          duration: _resize,
           alignment: Alignment.topCenter,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),

@@ -26,6 +26,9 @@ enum ChorkiVideoFit {
 /// yourself. All listenables survive video reloads; tracks are refreshed for
 /// every new video.
 class ChorkiPlayerController {
+  /// A controller starting at [initialSpeed] and [initialFit]. [pipDelegate]
+  /// defaults to the `floating` plugin; [analytics] applies to players that
+  /// have none of their own.
   ChorkiPlayerController({
     double initialSpeed = 1.0,
     ChorkiVideoFit initialFit = ChorkiVideoFit.fit,
@@ -85,25 +88,32 @@ class ChorkiPlayerController {
   /// The quality picked by the user; null means Auto (adaptive).
   ValueListenable<VideoTrack?> get selectedVideoTrack => _selectedVideoTrack;
 
+  /// Available audio tracks (languages). Empty if unsupported.
   ValueListenable<List<VideoAudioTrack>> get audioTracks => _audioTracks;
 
+  /// Id of the playing audio track, if known.
   ValueListenable<String?> get selectedAudioTrackId => _selectedAudioTrackId;
 
   /// Playback speed chosen by the user (long-press boost is not reflected).
   ValueListenable<double> get speed => _speed;
 
+  /// How the video fills the player.
   ValueListenable<ChorkiVideoFit> get fit => _fit;
 
+  /// Picture-in-picture state, refreshed when the app resumes.
   ValueListenable<ChorkiPipStatus> get pipStatus => _pipStatus;
 
   /// True while an IMA ad has paused the attached video. Resets when a
   /// different video is attached or the video is detached.
   ValueListenable<bool> get isAdPlaying => _isAdPlaying;
 
+  /// Whether a video is attached.
   bool get isAttached => _video.value != null;
 
+  /// Whether the device supports picture-in-picture.
   bool get isPipAvailable => _pipStatus.value != ChorkiPipStatus.unavailable;
 
+  /// Whether leaving the app enters picture-in-picture ([setAutoPip]).
   bool get isAutoPipEnabled => _autoPip;
 
   // ---------------------------------------------------------------------------
@@ -203,19 +213,25 @@ class ChorkiPlayerController {
   // Playback
   // ---------------------------------------------------------------------------
 
+  /// Plays the attached video.
   Future<void> play() async => _withVideo((c) => c.play());
 
+  /// Pauses the attached video.
   Future<void> pause() async => _withVideo((c) => c.pause());
 
+  /// Pauses when playing, plays when paused.
   Future<void> togglePlayPause() async =>
       _withVideo((c) => c.value.isPlaying ? c.pause() : c.play());
 
+  /// Jumps to [position] (reported as an API seek).
   Future<void> seekTo(Duration position) async =>
       _withVideo((c) => _seek(c, position));
 
+  /// Jumps ahead by [step] (default [seekStep]).
   Future<void> seekForward([Duration? step]) async =>
       _withVideo((c) => _seek(c, c.value.position + (step ?? seekStep)));
 
+  /// Jumps back by [step] (default [seekStep]).
   Future<void> seekBack([Duration? step]) async =>
       _withVideo((c) => _seek(c, c.value.position - (step ?? seekStep)));
 
@@ -241,12 +257,14 @@ class ChorkiPlayerController {
     await _withVideo((c) => c.setPlaybackSpeed(speed));
   }
 
+  /// Sets how the video fills the player (reported as a `fitChange`).
   void setFit(ChorkiVideoFit fit) {
     if (_disposed || _fit.value == fit) return;
     _fit.value = fit;
     _session?.recordFitChange(fit.name);
   }
 
+  /// Switches between fit and fill.
   void toggleFit() => setFit(
     _fit.value == ChorkiVideoFit.fit ? ChorkiVideoFit.fill : ChorkiVideoFit.fit,
   );
@@ -417,6 +435,7 @@ class ChorkiPlayerController {
     await guardAsync(() => action(c), 'controller.video');
   }
 
+  /// Releases the controller. The player does not call this: you do.
   void dispose() {
     if (_disposed) return;
     _disposed = true;

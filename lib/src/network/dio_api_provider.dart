@@ -14,7 +14,10 @@ abstract class DioApiProvider {
 
   /// Waits before each retry of an idempotent request that failed without a
   /// response. One entry per retry.
-  List<Duration> get retryDelays => const [
+  List<Duration> get retryDelays => defaultRetryDelays;
+
+  /// The default [retryDelays].
+  static const List<Duration> defaultRetryDelays = [
     Duration(milliseconds: 300),
     Duration(milliseconds: 900),
   ];

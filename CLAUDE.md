@@ -8,7 +8,8 @@ symbol as a contract.
 ## Definition of done (every change)
 
 1. `tool/check.sh` passes. Paste its tail in your summary or PR.
-2. Behaviour change → a test or a scenario (`test/scenarios/*.yaml`) that
+2. Behaviour change → a test or a scenario (`test/scenarios/*.yaml`, or
+   `test/scenarios/widget/*.yaml` for what the widget decides) that
    **fails without the change**. Check this; don't assume it.
 3. Bug fix → a regression scenario/test named after the bug **and** a mutant
    in `tool/mutants.yaml` that re-introduces it;

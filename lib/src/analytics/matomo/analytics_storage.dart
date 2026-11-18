@@ -18,6 +18,7 @@
 /// }
 /// ```
 abstract class ChorkiAnalyticsStorage {
+  /// The value stored under [key], or null.
   Future<String?> read(String key);
 
   /// Null removes [key].
@@ -27,6 +28,7 @@ abstract class ChorkiAnalyticsStorage {
 /// Lost when the app exits: a new visitor id per launch and no offline queue
 /// across restarts.
 class InMemoryAnalyticsStorage implements ChorkiAnalyticsStorage {
+  /// Everything stored, by key.
   final Map<String, String> values = {};
 
   @override

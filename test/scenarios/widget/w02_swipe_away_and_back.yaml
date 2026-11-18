@@ -1,0 +1,16 @@
+name: swipe_away_and_back
+description: swiping away ends the view; coming back is a new view with its own session
+given: {source: url}
+steps:
+  - play: {to: 3s}
+  - preload: true
+  - wait: 1s
+  - preload: false
+  - play: {to: 2s}
+expect:
+  mode: subsequence
+  events:
+    - impression: {$session: $a}
+    - sessionEnd: {reason: swipedAway, $session: $a}
+    - impression: {$session: $b}
+    - play: {$session: $b}

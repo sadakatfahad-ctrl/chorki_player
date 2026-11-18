@@ -223,6 +223,7 @@ enum ChorkiAnalyticsEventType {
 
   const ChorkiAnalyticsEventType(this.category);
 
+  /// The group this event belongs to.
   final ChorkiAnalyticsCategory category;
 }
 
@@ -266,6 +267,7 @@ enum ChorkiSessionEndReason {
 /// One analytics event. Sinks receive these in order.
 @immutable
 class ChorkiAnalyticsEvent {
+  /// An event of [type] in session [sessionId].
   const ChorkiAnalyticsEvent({
     required this.type,
     required this.sessionId,
@@ -279,8 +281,10 @@ class ChorkiAnalyticsEvent {
     this.data = const {},
   });
 
+  /// What happened.
   final ChorkiAnalyticsEventType type;
 
+  /// The [type]'s category.
   ChorkiAnalyticsCategory get category => type.category;
 
   /// Id of one view of one item. A new id is made each time the item becomes
@@ -288,8 +292,10 @@ class ChorkiAnalyticsEvent {
   /// The Matomo sink uses it as `ma_id`.
   final String sessionId;
 
+  /// When it happened (from the configured clock).
   final DateTime timestamp;
 
+  /// What was playing.
   final ChorkiMediaMetadata metadata;
 
   /// Playback position when the event happened.

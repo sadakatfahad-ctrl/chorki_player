@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../theme/chorki_player_theme.dart';
 
+/// The "Ad starts in N" pill shown before a mid-roll; tap to start the ad
+/// now.
 class AdCountdownPill extends StatelessWidget {
+  static const Duration _fade = Duration(milliseconds: 200);
+
+  /// A pill for [seconds] (hidden when null).
   const AdCountdownPill({
     super.key,
     required this.seconds,
@@ -12,17 +17,26 @@ class AdCountdownPill extends StatelessWidget {
     this.builders = const ChorkiPlayerBuilders(),
   });
 
+  /// Seconds until the break; null hides the pill.
   final int? seconds;
+
+  /// Starts the break now.
   final VoidCallback? onStartNow;
+
+  /// Colors and text style.
   final ChorkiPlayerTheme theme;
+
+  /// The countdown text.
   final ChorkiPlayerStrings strings;
+
+  /// May replace the pill.
   final ChorkiPlayerBuilders builders;
 
   @override
   Widget build(BuildContext context) {
     final s = seconds;
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 200),
+      duration: _fade,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: SlideTransition(

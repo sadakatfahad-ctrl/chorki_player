@@ -8,6 +8,7 @@ import '../errors/chorki_player_error.dart';
 /// Optional widget builders that fully replace default UI pieces.
 @immutable
 class ChorkiPlayerBuilders {
+  /// Builders; every one is optional.
   const ChorkiPlayerBuilders({
     this.loadingBuilder,
     this.errorBuilder,
@@ -111,7 +112,16 @@ class ChorkiSeekBarState {
 }
 
 /// Which gesture a [ChorkiGestureFeedback] is for.
-enum ChorkiGestureKind { seekForward, seekBackward, speed }
+enum ChorkiGestureKind {
+  /// A double tap on the right half: jumped forward.
+  seekForward,
+
+  /// A double tap on the left half: jumped back.
+  seekBackward,
+
+  /// A long press: the speed boost is on.
+  speed,
+}
 
 /// What [ChorkiPlayerBuilders.gestureFeedbackBuilder] shows.
 @immutable

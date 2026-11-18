@@ -38,6 +38,7 @@ part 'player/player_analytics_binding.dart';
 /// [ChorkiPlayer.url]), shows the poster while loading, then the video with
 /// the shorts controls, gestures, settings, ads and analytics.
 class ChorkiPlayer extends StatefulWidget {
+  /// Plays the byte behind [route].
   const ChorkiPlayer({
     super.key,
     required this.route,
@@ -119,6 +120,7 @@ class ChorkiPlayer extends StatefulWidget {
   /// IMA ad tag for [ChorkiPlayer.url].
   final String adTagUrl;
 
+  /// Starts playing once loaded (and after a pre-roll). Default true.
   final bool autoPlay;
 
   /// Loads and buffers the video without playing it, for feeds that build
@@ -135,28 +137,41 @@ class ChorkiPlayer extends StatefulWidget {
   /// ([ChorkiMediaOptions.startPosition], else 0:00).
   final bool preload;
 
+  /// Restarts at the end. Default true.
   final bool looping;
 
+  /// Shows the shorts seek bar. Default true.
   final bool showSeekBar;
 
+  /// Lifts the seek bar this many pixels above the bottom edge.
   final double seekBarBottomOffset;
 
+  /// Double tap to seek, drag to scrub, long press for speed. Default true.
   final bool enableGestures;
 
+  /// How far a double tap jumps. Default 10 s.
   final Duration doubleTapSeek;
 
+  /// Playback speed while long-pressing. Default 2.0.
   final double longPressSpeed;
 
+  /// Colors and sizes.
   final ChorkiPlayerTheme theme;
 
+  /// Icon overrides.
   final ChorkiPlayerIcons icons;
 
+  /// Text overrides (localization).
   final ChorkiPlayerStrings strings;
 
+  /// Widget builders that replace default UI pieces.
   final ChorkiPlayerBuilders builders;
 
+  /// Longest wait for the video to initialize before it fails as a
+  /// `timeout`. Default 15 s.
   final Duration initTimeout;
 
+  /// IMA ad settings; null turns ads off.
   final ChorkiAdConfig? ads;
 
   /// External handle for quality, audio, speed, fit, PiP and playback. When

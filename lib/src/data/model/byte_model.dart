@@ -2,7 +2,9 @@ import '../../domain/entity/ad_campaign_entity.dart';
 import '../../domain/entity/byte_data_entity.dart';
 import '../../helpers/json_helper.dart';
 
+/// A byte as returned by the route API.
 class ByteModel {
+  /// A byte [id] playing [url].
   const ByteModel({
     required this.id,
     required this.thumbnailUrl,
@@ -10,13 +12,22 @@ class ByteModel {
     this.adCampaign,
   });
 
+  /// The byte's id (0 when the API omits it).
   final int id;
+
+  /// Poster shown while the video loads.
   final String thumbnailUrl;
+
+  /// The video URL; empty when the API sent none.
   final String url;
+
+  /// The ad campaign, if the byte has ads.
   final AdCampaignEntity? adCampaign;
 
+  /// The campaign's ad tag, or empty.
   String get adTagUrl => adCampaign?.url ?? '';
 
+  /// Reads the API response leniently (missing fields become defaults).
   static ByteModel fromJson(dynamic json) {
     final data = json is Map ? json['data'] : null;
     final helper = JsonHelper(json: data);
@@ -38,6 +49,7 @@ class ByteModel {
     );
   }
 
+  /// The domain entity for this byte.
   ByteDataEntity toEntity() => ByteDataEntity(
     id: id,
     thumbnailUrl: thumbnailUrl,

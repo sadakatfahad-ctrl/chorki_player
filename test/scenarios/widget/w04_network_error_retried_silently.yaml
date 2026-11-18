@@ -1,0 +1,13 @@
+name: network_error_retried_silently
+description: a route lookup that fails on the network is retried silently and then plays
+given: {route: [noInternet, ok]}
+steps:
+  - wait: 2s
+  - play: {to: 2s}
+expect:
+  mode: subsequence
+  events:
+    - error: {code: noInternet, stage: route, transient: true, willRetry: true}
+    - retry: {attempt: 1, auto: true}
+    - impression
+    - play

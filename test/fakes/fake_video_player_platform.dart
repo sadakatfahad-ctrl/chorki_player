@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:video_player/video_player.dart'
     hide VideoAudioTrack, VideoTrack;
@@ -210,6 +211,10 @@ class FakePlayer {
       ),
     );
   }
+
+  /// A platform playback error (the value gets an `errorDescription`).
+  void emitError(String message) =>
+      events.addError(PlatformException(code: 'playback', message: message));
 
   void emitBufferingStart() =>
       events.add(VideoEvent(eventType: VideoEventType.bufferingStart));

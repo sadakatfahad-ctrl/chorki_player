@@ -4,17 +4,26 @@ import 'package:dio/dio.dart';
 
 import '../errors/server_exception.dart';
 
+/// A successful API response.
 class ApiResult {
+  /// A result with [data] and [statusCode].
   const ApiResult({
     required this.data,
     required this.statusCode,
     required this.message,
   });
 
+  /// The decoded body (JSON when it parses, else the raw value).
   final dynamic data;
+
+  /// The HTTP status (any 2xx).
   final int statusCode;
+
+  /// Always `Success`.
   final String message;
 
+  /// The result of [response]; throws a [ServerException] for a non-2xx
+  /// status.
   factory ApiResult.fromResponse(Response<dynamic> response) {
     final statusCode = response.statusCode ?? 0;
 

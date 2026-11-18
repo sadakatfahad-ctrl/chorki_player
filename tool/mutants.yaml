@@ -2,13 +2,13 @@
 # `find` must occur exactly once in `file`. Keep `tests` narrow: speed.
 - id: session.loopCountLeaks
   why: the loop count of a swiped-away view leaked into the next one
-  file: lib/src/analytics/chorki_analytics_session.dart
+  file: lib/src/analytics/session/session_view.dart
   find: "    _loopCount = 0;\n    _pauseCount = 0;"
   replace: "    _pauseCount = 0;"
   tests: [test/scenarios]
 - id: session.firstFrameOncePerLoad
   why: a revisited page reported no first frame
-  file: lib/src/analytics/chorki_analytics_session.dart
+  file: lib/src/analytics/session/session_view.dart
   find: "    _firstFrameAt = null;\n    _lastSeekAt = null;"
   replace: "    _lastSeekAt = null;"
   tests: [test/scenarios]
@@ -44,19 +44,19 @@
   tests: [test/scenarios]
 - id: session.scrubIsPause
   why: the pause caused by a drag-to-seek was reported as a viewer pause
-  file: lib/src/analytics/chorki_analytics_session.dart
+  file: lib/src/analytics/session/session_playback.dart
   find: "if (!_inAd && !atEnd && !_scrubbing) {"
   replace: "if (!_inAd && !atEnd) {"
   tests: [test/scenarios]
 - id: session.adTimeWatched
   why: watched time grew during an ad break
-  file: lib/src/analytics/chorki_analytics_session.dart
+  file: lib/src/analytics/session/session_playback.dart
   find: "final playing = v.isPlaying && !_inAd;"
   replace: "final playing = v.isPlaying;"
   tests: [test/scenarios]
 - id: session.noBackgroundHeartbeat
   why: going to the background lost the progress since the last heartbeat
-  file: lib/src/analytics/chorki_analytics_session.dart
+  file: lib/src/analytics/session/session_view.dart
   find: "    _flush('background');"
   replace: ""
   tests: [test/scenarios]
@@ -89,7 +89,7 @@
   file: lib/src/presentation/player/retry_policy.dart
   find: "transient && _attempts < delays.length;"
   replace: "_attempts < delays.length;"
-  tests: [test/chorki_player_widget_test.dart, test/presentation/retry_policy_test.dart]
+  tests: [test/scenarios/widget_scenarios_test.dart, test/chorki_player_widget_test.dart, test/presentation/retry_policy_test.dart]
 - id: ads.lateManagerLeaks
   why: an ads manager loaded after dispose was never destroyed
   file: lib/src/ads/chorki_ad_layer.dart
@@ -126,3 +126,9 @@
   find: "statusCode >= 200 && statusCode < 300"
   replace: "statusCode == 200 || statusCode == 201 || statusCode == 204"
   tests: [test/chorki_player_test.dart]
+- id: player.preloadReports
+  why: a byte preloading off screen started a view before it was seen
+  file: lib/src/presentation/player/player_analytics_binding.dart
+  find: "    if (!_preloading) created.activate();\n"
+  replace: "    created.activate();\n"
+  tests: [test/scenarios/widget_scenarios_test.dart]

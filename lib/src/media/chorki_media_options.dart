@@ -4,6 +4,7 @@ import 'package:video_player/video_player.dart';
 /// Per-source playback options passed to the underlying [VideoPlayerController].
 @immutable
 class ChorkiMediaOptions {
+  /// Options for loading the video; the defaults suit most streams.
   const ChorkiMediaOptions({
     this.httpHeaders = const <String, String>{},
     this.startPosition,
@@ -36,6 +37,7 @@ class ChorkiMediaOptions {
   /// Render through a texture (default) or a native platform view.
   final VideoViewType viewType;
 
+  /// The `video_player` options these settings map to.
   VideoPlayerOptions toVideoPlayerOptions() => VideoPlayerOptions(
     allowBackgroundPlayback: allowBackgroundPlayback,
     mixWithOthers: mixWithOthers,
@@ -43,6 +45,7 @@ class ChorkiMediaOptions {
     backBufferDurationMs: backBuffer?.inMilliseconds,
   );
 
+  /// A copy with the given fields replaced.
   ChorkiMediaOptions copyWith({
     Map<String, String>? httpHeaders,
     Duration? startPosition,

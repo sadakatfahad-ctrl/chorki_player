@@ -74,6 +74,7 @@
 
 ### Changed
 
+- Every public type and member has dartdoc (`public_member_api_docs` is on).
 - `ChorkiPlayerController.setAdPlaying` is `@internal` (only the player's ad
   layer calls it).
 - The player keeps its own services (`ChorkiServices`) instead of

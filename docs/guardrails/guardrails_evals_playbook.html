@@ -504,7 +504,8 @@
       ~25 audit findings has a test and most have a mutant.</div>
     <div class="note"><b>Do not stop the world.</b> Ratchets mean the team keeps shipping while the
       backlog shrinks. In chorki_player one refactor round took the undocumented exported API from
-      196 to 149 and the file-size backlog from 18 to 6, without a freeze.</div>
+      196 to 149 and the file-size backlog from 18 to 6; the next took both
+      (and every other backlog) to 0. No freeze was needed.</div>
   </div>
   <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>7</span></div>
 </section>
@@ -659,9 +660,9 @@
 <span class="c"># strict-casts / raw-types  M1        fixed all hits</span>
 <span class="c"># unawaited_futures         M1        fixed all hits</span>
 <span class="c"># cancel_subscriptions      M1        fixed all hits</span>
-<span class="c"># comment_references        pending   43 hits</span>
-<span class="c"># public_member_api_docs    pending   283 hits (all public);</span>
-<span class="c">#                                     ratchet covers exported</span>
+<span class="c"># public_member_api_docs    M6        283 members documented</span>
+<span class="c"># comment_references        not used  valid cross-layer links;</span>
+<span class="c">#                                     dart doc catches broken ones</span>
 <span class="c"># discarded_futures         M5        13 hits fixed</span>
 <span class="k">analyzer:</span>
   <span class="k">language:</span>
@@ -826,7 +827,7 @@ void d() { try { x(); } catch (_) {} } // guardrail:allow
       </table>
     </div>
     <div>
-      <h3 class="k">baselines.json</h3>
+      <h3 class="k">baselines.json (example; chorki_player&rsquo;s is now <code>{}</code>)</h3>
 <pre>{
   <span class="s">"dartdoc"</span>: {
     <span class="s">"lib/src/analytics/chorki_media_metadata.dart"</span>: <span class="n">5</span>,
@@ -1059,7 +1060,7 @@ ChorkiPlayer(route: byteRoute, ...)
       <p>Each event type must appear in at least one scenario&rsquo;s expectations. Adding an event without a scenario fails
         the build, the same way a missing schema entry does.</p>
 <pre>$ dart run tool/scenarios_report.dart
-32 scenarios, 36 event types
+38 scenarios, 36 event types
 
 impression    playback  20  feed_swipe_away, pause_resume, ...
 seek          playback   4  seek_not_watched, rebuffer_after_seek, ...
@@ -1067,6 +1068,11 @@ loop          playback   3  loop_new_view, loop_same_view, ...
 abandon       qoe        2  abandon_loading, abandon_ready
 adBreakStart  ad         3  midroll_ad, preroll_interrupted, ...
 settingsOpen  ux         1  player_ux</pre>
+      <div class="note info" style="margin-top:3mm"><b>Two levels.</b> Session scenarios drive the analytics engine
+        directly (fast, exact). <b>Widget scenarios</b> (<code>test/scenarios/widget/</code>) use the same
+        <code>expect</code> block but drive the real <code>ChorkiPlayer</code>: steps like <code>preload: false</code>,
+        <code>tap</code>, <code>videoError</code>, <code>retry</code> and scripted route answers
+        (<code>route: [notFound, ok]</code>) cover what only the widget decides.</div>
     </div>
     <div>
       <h3 class="k">Coverage matrix: event &times; scenario (generated)</h3>
@@ -1433,7 +1439,7 @@ fireAndReport(controller.play, <span class="s">'player.play'</span>);   <span cl
       </div>
       <h3 class="k">Coverage floors, per file, only up</h3>
 <pre>$ dart run tool/coverage_gate.dart
-coverage: lib 95.8% (floor 90.0), analytics 96.2%
+coverage: lib 96.3% (floor 90.0), analytics 96.4%
 Coverage dropped:
   lib/src/theme/chorki_player_theme.dart 33.6% &lt; floor 97.6%</pre>
       <p style="margin-top:2mm">Per-file floors catch the case a global percentage hides: a new file with no tests (here, a new
@@ -1983,9 +1989,9 @@ eval/run.sh NNN --agent script:ref.sh</pre>
 <section class="page">
   <div class="hdr"><h2>Results in chorki_player</h2><span class="sec">Before and after</span></div>
   <div class="grid4" style="margin-bottom:5mm">
-    <div class="card" style="text-align:center"><div class="num" style="color:var(--l3)">455</div><div class="small">tests (from 277)</div></div>
-    <div class="card" style="text-align:center"><div class="num" style="color:var(--l5)">95.8%</div><div class="small">lib line coverage, per-file floors</div></div>
-    <div class="card" style="text-align:center"><div class="num" style="color:var(--l6)">21 / 21</div><div class="small">curated mutants killed</div></div>
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l3)">469</div><div class="small">tests (from 277), 38 scenarios</div></div>
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l5)">96.3%</div><div class="small">lib line coverage, per-file floors</div></div>
+    <div class="card" style="text-align:center"><div class="num" style="color:var(--l6)">22 / 22</div><div class="small">curated mutants killed</div></div>
     <div class="card" style="text-align:center"><div class="num" style="color:var(--l8)">8</div><div class="small">eval tasks, each self-tested (idle 0, reference 1.0)</div></div>
   </div>
   <div class="grid2">
@@ -1996,13 +2002,13 @@ eval/run.sh NNN --agent script:ref.sh</pre>
           <text x="0" y="14" font-size="10" fill="#5a6476">before</text><rect x="44" y="5" width="12" height="10" fill="#c8ced9"/><text x="62" y="14" font-size="10" fill="#5a6476">after</text><rect x="94" y="5" width="12" height="10" fill="#1f8a8a"/>
           <!-- rows: label, before, after; scale 300 -> 300px -->
           <g transform="translate(0,34)"><text y="12">silent catches</text><rect x="130" y="0" width="135" height="12" fill="#c8ced9"/><rect x="130" y="15" width="1" height="12" fill="#1f8a8a"/><text x="270" y="11" font-size="10">~45</text><text x="136" y="26" font-size="10" fill="#1f8a8a">0</text></g>
-          <g transform="translate(0,78)"><text y="12">undocumented API **</text><rect x="130" y="0" width="196" height="12" fill="#c8ced9"/><rect x="130" y="15" width="149" height="12" fill="#1f8a8a"/><text x="330" y="11" font-size="10">196</text><text x="284" y="26" font-size="10" fill="#1f8a8a">149</text></g>
-          <g transform="translate(0,122)"><text y="12">oversized files *</text><rect x="130" y="0" width="54" height="12" fill="#c8ced9"/><rect x="130" y="15" width="18" height="12" fill="#1f8a8a"/><text x="190" y="11" font-size="10">18</text><text x="154" y="26" font-size="10" fill="#1f8a8a">6</text></g>
+          <g transform="translate(0,78)"><text y="12">undocumented API **</text><rect x="130" y="0" width="196" height="12" fill="#c8ced9"/><rect x="130" y="15" width="1" height="12" fill="#1f8a8a"/><text x="330" y="11" font-size="10">196</text><text x="136" y="26" font-size="10" fill="#1f8a8a">0</text></g>
+          <g transform="translate(0,122)"><text y="12">oversized files *</text><rect x="130" y="0" width="54" height="12" fill="#c8ced9"/><rect x="130" y="15" width="1" height="12" fill="#1f8a8a"/><text x="190" y="11" font-size="10">18</text><text x="136" y="26" font-size="10" fill="#1f8a8a">0</text></g>
           <g transform="translate(0,166)"><text y="12">wall-clock calls</text><rect x="130" y="0" width="18" height="12" fill="#c8ced9"/><rect x="130" y="15" width="1" height="12" fill="#1f8a8a"/><text x="154" y="11" font-size="10">6 files</text><text x="136" y="26" font-size="10" fill="#1f8a8a">0</text></g>
-          <g transform="translate(0,210)"><text y="12">largest file (lines)</text><rect x="130" y="0" width="254" height="12" fill="#c8ced9"/><rect x="130" y="15" width="172" height="12" fill="#1f8a8a"/><text x="390" y="11" font-size="10">848</text><text x="308" y="26" font-size="10" fill="#1f8a8a">574 (code)</text></g>
+          <g transform="translate(0,210)"><text y="12">largest file (lines)</text><rect x="130" y="0" width="254" height="12" fill="#c8ced9"/><rect x="130" y="15" width="103" height="12" fill="#1f8a8a"/><text x="390" y="11" font-size="10">848</text><text x="239" y="26" font-size="10" fill="#1f8a8a">344 (code)</text></g>
         </g>
       </svg>
-      <p class="small">* file_size counts one violation per 50 code lines over 350; the 848-line widget alone counted 6.<br>** exported API members without <code>///</code> (the dartdoc ratchet). <i>Before</i> for the two ratchet rows is the start of the last refactor round; for catches, clock calls and file length it is the original audit.</p>
+      <p class="small">* file_size counts one violation per 50 code lines over 350; the 848-line widget alone counted 6.<br>** exported API members without <code>///</code> (the dartdoc ratchet). <i>Before</i> for the two ratchet rows is the start of the refactor rounds; for catches, clock calls and file length it is the original audit.</p>
     </div>
     <div>
       <h3 class="k">What the system has caught since it went in</h3>
@@ -2016,8 +2022,8 @@ eval/run.sh NNN --agent script:ref.sh</pre>
         <li><b>A refactor regression</b>: extracting a view captured a value at build time instead of call time; an existing widget test failed immediately.</li>
       </ul>
       <div class="note ok" style="margin-top:3mm">The 848-line player widget is now a 127-line widget, a 344-line state (code lines), and five
-        small tested parts (retry policy, source, loading view, video view, analytics binding), with no behaviour change: every
-        test, scenario and mutant stayed green.</div>
+        small tested parts (retry policy, source, loading view, video view, analytics binding); the 574-line analytics session is
+        three files by concern. No behaviour change: every test, scenario and mutant stayed green.</div>
     </div>
   </div>
   <div class="foot"><span>Guardrails &amp; Evals Playbook</span><span>31</span></div>

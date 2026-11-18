@@ -1,0 +1,15 @@
+name: preload_silent_until_active
+description: a byte preloading off screen reports nothing; on screen it starts one view, its first frame marked preloaded
+given: {source: url, preload: true}
+steps:
+  - wait: 2s
+  - preload: false
+  - play: {to: 3s}
+  - dispose
+expect:
+  mode: subsequence
+  events:
+    - impression: {$session: view1}
+    - play
+    - firstFrame: {preloaded: true}
+    - sessionEnd: {reason: disposed, $session: view1}

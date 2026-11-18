@@ -10,12 +10,17 @@ import '../analytics/chorki_analytics_scope.dart';
 import '../analytics/chorki_analytics_session.dart';
 import '../core/diagnostics.dart';
 import '../core/guard.dart';
+import 'ad_event_report.dart';
 import 'ad_timeline.dart';
 import 'chorki_ad_config.dart';
 import 'chorki_ad_state.dart';
 import 'vmap.dart';
 
+/// Plays IMA ads over [child]: requests the ad tag, pauses the content for
+/// each break, shows the countdown and publishes markers through
+/// [ChorkiAdScope]. Content plays if ads fail or time out.
 class ChorkiAdLayer extends StatefulWidget {
+  /// Ads for [controller] from [adTagUrl].
   const ChorkiAdLayer({
     super.key,
     required this.controller,
@@ -27,10 +32,19 @@ class ChorkiAdLayer extends StatefulWidget {
     this.onAdPlayingChanged,
   });
 
+  /// The content video, paused during breaks.
   final VideoPlayerController controller;
+
+  /// VAST or VMAP ad tag.
   final String adTagUrl;
+
+  /// Ad settings (timeouts, callbacks).
   final ChorkiAdConfig config;
+
+  /// Starts the content when no pre-roll plays.
   final bool autoPlay;
+
+  /// The content surface, hidden while an ad plays.
   final Widget child;
 
   /// Fetches the campaign VMAP for markers/countdown (overridable in tests).
@@ -45,6 +59,18 @@ class ChorkiAdLayer extends StatefulWidget {
 
 class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     with WidgetsBindingObserver {
+  /// "Start now" before a post-roll seeks this far before the end.
+  static const Duration _postRollLead = Duration(milliseconds: 200);
+
+  /// No pause request from IMA by then: there is no pre-roll, show content.
+  static const Duration _noPreRollWait = Duration(milliseconds: 1500);
+
+  /// This close to the end counts as the content having completed.
+  static const Duration _contentEndWindow = Duration(milliseconds: 300);
+
+  /// Back under this position after completing: the content restarted.
+  static const Duration _restartWindow = Duration(seconds: 1);
+
   final ContentProgressProvider _progress = ContentProgressProvider();
 
   AdsLoader? _loader;
@@ -109,61 +135,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
   /// Maps an IMA event to an analytics event.
   void _reportAdEvent(AdEvent event) {
     final analytics = _analytics;
-    if (analytics == null) return;
-    Map<String, Object?> adData() {
-      final ad = event.ad;
-      if (ad == null) return const {};
-      try {
-        final pod = ad.adPodInfo;
-        return {
-          ChorkiAnalyticsKeys.adId: ad.adId,
-          if (ad.title case final t? when t.isNotEmpty)
-            ChorkiAnalyticsKeys.adTitle: t,
-          ChorkiAnalyticsKeys.adSystem: ad.adSystem,
-          if (ad.advertiserName.isNotEmpty)
-            ChorkiAnalyticsKeys.advertiser: ad.advertiserName,
-          if (ad.duration case final d?)
-            ChorkiAnalyticsKeys.adDurationMs: d.inMilliseconds,
-          ChorkiAnalyticsKeys.skippable: ad.isSkippable,
-          ChorkiAnalyticsKeys.podPosition: pod.adPosition,
-          ChorkiAnalyticsKeys.podTotal: pod.totalAds,
-        };
-      } catch (e, st) {
-        ChorkiDiagnostics.report(e, st, 'ads.adInfo');
-        return const {};
-      }
-    }
-
-    switch (event.type) {
-      case AdEventType.started:
-        analytics.recordAd(ChorkiAnalyticsEventType.adStart, adData());
-      case AdEventType.firstQuartile:
-        analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
-          ...adData(),
-          ChorkiAnalyticsKeys.percent: 25,
-        });
-      case AdEventType.midpoint:
-        analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
-          ...adData(),
-          ChorkiAnalyticsKeys.percent: 50,
-        });
-      case AdEventType.thirdQuartile:
-        analytics.recordAd(ChorkiAnalyticsEventType.adQuartile, {
-          ...adData(),
-          ChorkiAnalyticsKeys.percent: 75,
-        });
-      case AdEventType.complete:
-        analytics.recordAd(ChorkiAnalyticsEventType.adComplete, adData());
-      case AdEventType.skipped:
-        analytics.recordAd(ChorkiAnalyticsEventType.adSkip, adData());
-      case AdEventType.clicked || AdEventType.tapped:
-        analytics.recordAd(ChorkiAnalyticsEventType.adClick, adData());
-      case AdEventType.paused:
-        analytics.recordAd(ChorkiAnalyticsEventType.adPause, adData());
-      case AdEventType.resumed:
-        analytics.recordAd(ChorkiAnalyticsEventType.adResume, adData());
-      case _:
-    }
+    if (analytics != null) reportAdEvent(analytics, event);
   }
 
   void _onLoadTimeout() {
@@ -192,7 +164,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     if (next == null || _adActive) return;
     final duration = c.value.duration;
     final target = next.offset >= duration
-        ? duration - const Duration(milliseconds: 200)
+        ? duration - _postRollLead
         : next.offset;
     _analytics?.recordSeek(
       c.value.position,
@@ -277,7 +249,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
 
     _pauseSeen = false;
     _noPreRollFallback?.cancel();
-    _noPreRollFallback = Timer(const Duration(milliseconds: 1500), () {
+    _noPreRollFallback = Timer(_noPreRollWait, () {
       if (_disposed || _pauseSeen) return;
       // Content already revealed by the load timeout: still start the
       // manager, or a late campaign's mid-rolls would never play.
@@ -340,7 +312,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
 
         final atEnd =
             duration > Duration.zero &&
-            position >= duration - const Duration(milliseconds: 300);
+            position >= duration - _contentEndWindow;
         if (atEnd && !_contentCompleteSent && !_adActive) {
           _contentCompleteSent = true;
           await _loader?.contentComplete();
@@ -356,7 +328,7 @@ class _ChorkiAdLayerState extends State<ChorkiAdLayer>
     if (_contentCompleteSent &&
         v.isInitialized &&
         !_adActive &&
-        v.position < const Duration(seconds: 1)) {
+        v.position < _restartWindow) {
       _contentCompleteSent = false;
     }
   }

@@ -19,6 +19,7 @@ enum ChorkiPipStatus {
 
 /// Platform bridge for picture-in-picture. Replaceable in tests.
 abstract class ChorkiPipDelegate {
+  /// Whether picture-in-picture is unavailable, available or active.
   Future<ChorkiPipStatus> status();
 
   /// Enters PiP now. [aspectRatio] is width / height of the video.
@@ -32,6 +33,7 @@ abstract class ChorkiPipDelegate {
 ///
 /// Requires `android:supportsPictureInPicture="true"` on the host activity.
 class ChorkiFloatingPipDelegate implements ChorkiPipDelegate {
+  /// Uses [floating], or a new `Floating` instance.
   ChorkiFloatingPipDelegate([Floating? floating]) : _floating = floating;
 
   Floating? _floating;

@@ -12,7 +12,11 @@ import 'chorki_settings_sheet.dart';
 import 'gesture_overlay.dart';
 import 'shorts_seek_bar.dart';
 
+/// A loaded video with the shorts controls: tap to play/pause, gestures,
+/// seek bar, play badge, settings button and the ad countdown. Use it to
+/// build your own feed around `video_player` controllers.
 class ChorkiPlayerSurface extends StatefulWidget {
+  /// Controls for [controller].
   const ChorkiPlayerSurface({
     super.key,
     required this.controller,
@@ -34,23 +38,32 @@ class ChorkiPlayerSurface extends StatefulWidget {
     this.builders = const ChorkiPlayerBuilders(),
   }) : assert(seekBarBottomOffset >= 0);
 
+  /// The video shown.
   final VideoPlayerController controller;
+
+  /// A tap on the video.
   final VoidCallback onTogglePlayPause;
 
   /// When false only the video is shown: no gestures, play badge, seek bar or
   /// buttons, e.g. for a feed page that is preloading off screen.
   final bool showControls;
 
+  /// Shows the seek bar.
   final bool showSeekBar;
 
+  /// Lifts the seek bar this many pixels above the bottom edge.
   final double seekBarBottomOffset;
 
+  /// Enables double tap, scrub and long-press gestures.
   final bool enableGestures;
 
+  /// How far a double tap jumps.
   final Duration doubleTapSeek;
 
+  /// Playback speed while long-pressing.
   final double longPressSpeed;
 
+  /// An extra widget over the video (e.g. a mute or close button).
   final Widget? overlayButton;
 
   /// Drives fit, PiP-aware rendering and the settings button. When null the
@@ -60,14 +73,22 @@ class ChorkiPlayerSurface extends StatefulWidget {
   /// Shows the gear button (top-right) when [chorkiController] is set.
   final bool showSettingsButton;
 
+  /// Choices in the settings speed menu.
   final List<double> speedOptions;
 
   /// Used when [chorkiController] is null.
   final ChorkiVideoFit fit;
 
+  /// Colors and sizes.
   final ChorkiPlayerTheme theme;
+
+  /// Icon overrides.
   final ChorkiPlayerIcons icons;
+
+  /// Text overrides.
   final ChorkiPlayerStrings strings;
+
+  /// Widget builders that replace default UI pieces.
   final ChorkiPlayerBuilders builders;
 
   @override

@@ -1,0 +1,16 @@
+name: tap_pause_resume
+description: a tap pauses, the next resumes; both are viewer actions
+given: {source: url}
+steps:
+  - play: {to: 2s}
+  - tap
+  - wait: 1s
+  - tap
+  - play: {to: 4s}
+expect:
+  mode: subsequence
+  events:
+    - play
+    - pause
+    - resume
+    - sessionEnd: {pauseCount: 1}

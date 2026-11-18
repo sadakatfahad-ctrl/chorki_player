@@ -4,7 +4,10 @@ import '../../domain/usecases/bytes_usecase.dart';
 import 'byte_screen_event.dart';
 import 'byte_screen_state.dart';
 
+/// Resolves a byte route (or takes a direct source) into a
+/// [ByteScreenState].
 class BytesBloc extends Bloc<ByteScreenEvent, ByteScreenState> {
+  /// A bloc that resolves routes with the given use case.
   BytesBloc({required this._getByteDataUsecase})
     : super(const ByteScreenInitialState()) {
     on<ByteScreenInitialEvent>(_onGetByteData);

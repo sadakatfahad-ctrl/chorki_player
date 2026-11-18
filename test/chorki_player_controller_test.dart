@@ -70,6 +70,14 @@ void main() {
     await c.dispose();
   });
 
+  test('refreshTracks re-reads tracks the platform changed', () async {
+    final c = await attached();
+    platform.videoTracks = const [_p720];
+    await chorki.refreshTracks();
+    expect(chorki.videoTracks.value.map((t) => t.id), ['0_1']);
+    await c.dispose();
+  });
+
   test('unsupported platforms report no tracks', () async {
     platform
       ..videoTracksSupported = false

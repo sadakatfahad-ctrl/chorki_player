@@ -619,6 +619,7 @@ events also carry the *ad context* (`breakIndex`, `adCampaignId`?,
 The app already runs `matomo_tracker` (screen views) and has Matomo reports
 built on its own names. To keep one visitor and the same reports:
 
+<!-- excerpt: chorki-app -->
 ```dart
 final matomo = MatomoAnalyticsSink(
   MatomoConfig(
@@ -631,13 +632,17 @@ final matomo = MatomoAnalyticsSink(
     playerName: 'ShortsPlayer',
     // dimension1 user id, 2 subscription, 3 app version, 4/5 cast output.
     dimensionIds: MatomoConfig.chorkiAppDimensions,
-    mediaSize: MatomoMediaSize.viewport, // ma_w/ma_h = screen, as the app does
+    mediaSize:
+        MatomoMediaSize.viewport, // ma_w/ma_h = screen, as the app does
   ),
 );
 matomo
   ..userId = user.id
   ..setUserProperty('userId', user.id)
-  ..setUserProperty('subscription', subscribed ? 'Subscribed' : 'Non-Subscribed')
+  ..setUserProperty(
+    'subscription',
+    subscribed ? 'Subscribed' : 'Non-Subscribed',
+  )
   ..setUserProperty('appVersion', appVersion);
 
 ChorkiPlayer(

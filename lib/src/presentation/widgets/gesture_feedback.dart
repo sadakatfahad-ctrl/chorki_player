@@ -6,6 +6,7 @@ import '../../theme/chorki_player_theme.dart';
 /// The double-tap seek bubble: an arrow and how far it jumped. Fades in,
 /// holds, fades out.
 class GestureSeekFeedback extends StatefulWidget {
+  /// A bubble pointing [forward] or back with [label].
   const GestureSeekFeedback({
     super.key,
     required this.forward,
@@ -14,9 +15,16 @@ class GestureSeekFeedback extends StatefulWidget {
     required this.icons,
   });
 
+  /// Points right (forward) or left (back).
   final bool forward;
+
+  /// E.g. `10 Seconds`.
   final String label;
+
+  /// Colors and text style.
   final ChorkiPlayerTheme theme;
+
+  /// The arrow icons.
   final ChorkiPlayerIcons icons;
 
   @override
@@ -93,6 +101,7 @@ class _GestureSeekFeedbackState extends State<GestureSeekFeedback>
 
 /// The horizontal-scrub HUD: target time and the jump from where it began.
 class GestureScrubHud extends StatelessWidget {
+  /// A HUD showing [target] and the jump [delta].
   const GestureScrubHud({
     super.key,
     required this.forward,
@@ -102,10 +111,19 @@ class GestureScrubHud extends StatelessWidget {
     required this.icons,
   });
 
+  /// The drag goes forward (else back).
   final bool forward;
+
+  /// How far the drag moved from where it began.
   final Duration delta;
+
+  /// Where playback will resume.
   final Duration target;
+
+  /// Colors and text style.
   final ChorkiPlayerTheme theme;
+
+  /// The arrow icons.
   final ChorkiPlayerIcons icons;
 
   @override
@@ -157,6 +175,7 @@ class GestureScrubHud extends StatelessWidget {
 
 /// The long-press speed badge, e.g. `2× Speed`.
 class GestureSpeedBadge extends StatelessWidget {
+  /// A badge for [speed].
   const GestureSpeedBadge({
     super.key,
     required this.speed,
@@ -165,9 +184,16 @@ class GestureSpeedBadge extends StatelessWidget {
     required this.strings,
   });
 
+  /// The boosted speed.
   final double speed;
+
+  /// Colors and text style.
   final ChorkiPlayerTheme theme;
+
+  /// The speed icon.
   final ChorkiPlayerIcons icons;
+
+  /// The `Speed` label.
   final ChorkiPlayerStrings strings;
 
   @override
